@@ -24,6 +24,31 @@
     MainTableViewController *mainVC = [[MainTableViewController alloc] initWithStyle:UITableViewStyleGrouped];
     self.window.rootViewController = mainVC;
     
+    
+    NSMutableString *muStr2 = [NSMutableString stringWithString:@"1"];
+    for(int i=0; i<20; i+=1){
+        NSNumber *number = @([muStr2 longLongValue]);
+        NSLog(@"NSNumber -- %@, %p", [number class], number);
+        [muStr2 appendString:@"1"];
+    }
+    
+    NSString *string = [[@"a" mutableCopy] copy];
+    NSLog(@"NSString -- %@, %p", [string class], string);
+    
+    int int1 = 1;
+    long long long1 = 1;
+    float float1 = 1.0;
+    double double1 = 1.0;
+    NSNumber *intNumber1 = @(int1);
+    NSNumber *longNumber1 = @(long1);
+    NSNumber *floatNumber1 = @(float1);
+    NSNumber *doubleNumber1 = @(double1);
+    NSLog(@"intNumber1 %p %@", intNumber1, [intNumber1 class]);
+    NSLog(@"longNumber1 %p %@", longNumber1, [longNumber1 class]);
+    NSLog(@"floatNumber1 %p %@", floatNumber1, [floatNumber1 class]);
+    NSLog(@"doubleNumber1 %p %@", doubleNumber1, [doubleNumber1 class]);
+
+    
     return YES;
 }
 

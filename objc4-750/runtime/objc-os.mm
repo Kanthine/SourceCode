@@ -220,21 +220,21 @@ static header_info * addHeader(const headerType *mhdr, const char *path, int &to
     header_info *hi;
 
     if (bad_magic(mhdr)) return NULL;//如果不支持设备的 CPU，则直接返回
-
+    
     bool inSharedCache = false;
-
+    
     // 从 dyld 共享缓存中查找 hinfo
     hi = preoptimizedHinfoForHeader(mhdr);
     if (hi) {
         // 在 dyld 共享缓存中发现 hinfo
-
+        
         //剔除重复
         if (hi->isLoaded()) {
             return NULL;
         }
-
+        
         inSharedCache = true;
-
+        
         // 初始化未由共享缓存设置的字段
         // hi->next is set by appendHeader
         hi->setLoaded(true);
@@ -252,9 +252,7 @@ static header_info * addHeader(const headerType *mhdr, const char *path, int &to
         const objc_image_info *image_info = _getObjcImageInfo(mhdr,&info_size);
         assert(image_info == hi->info());
 #endif
-    }
-    else 
-    {
+    }else{
         // 在 dyld 共享缓存中没有发现 hinfo
 
         // 剔除重复
@@ -433,7 +431,7 @@ static bool shouldRejectGCImage(const headerType *mhdr)
  *
  * @param mhCount
  * @param mhPaths[] 存储路径的字符串数组
- * @param mhdrs[] 存储（架构头文件）的结构数组
+ * @param mhdrs[] 存储 .o 文件头信息的结构数组
  */
 void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const struct mach_header * const mhdrs[]){
     static bool firstTime = YES;
@@ -851,8 +849,7 @@ void _objc_atfork_child()
  * 引导程序初始化：使用 dyld 注册我们的 Image 通知程序。
  * 在库初始化之前由 libSystem 调用
  */
-void _objc_init(void)
-{
+void _objc_init(void){
     static bool initialized = false;//是否初始化的静态变量
     if (initialized) return;//如果已初始化，则返回
     initialized = true;

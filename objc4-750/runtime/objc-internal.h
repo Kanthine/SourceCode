@@ -215,41 +215,50 @@ objc_copyClassNamesForImageHeader(const struct mach_header * _Nonnull mh,
                                   unsigned int * _Nullable outCount)
     OBJC_AVAILABLE(10.14, 12.0, 12.0, 5.0, 3.0);
 
-// Tagged pointer objects.
+#pragma mark - Tagged Pointer 对象
 
-#if __LP64__
-#define OBJC_HAVE_TAGGED_POINTERS 1
+
+#if __LP64__ //判断是 64 位
+#define OBJC_HAVE_TAGGED_POINTERS 1 //64 位有 Tagged Pointer 对象
 #endif
 
 #if OBJC_HAVE_TAGGED_POINTERS
 
-// Tagged pointer layout and usage is subject to change on different OS versions.
+/* 每个十六进制位 对应 4个二进制位；16 个十六进制位是 64 位
+ *
+ * 使用 Tagged Pointer 对象，那么就失去了iOS对象的数据结构；但是，系统还是需要有个标志位表明当前的 Tagged Pointer 表示的是什么类型的对象。
+ * 由于 Tagged Pointer 布局和用法可能在不同的OS版本上发生变化：所以这个标志位，可能在最高4位来表示，也可能在最高 12 位来表示：
+ * Tag 索引在 0~7   的，有60位净负荷 ；标记索引  7 被保留。
+ * Tag 索引在 8~264 的，有52位净负荷 ；标记索引 264 被保留。
+ *
+ * 例子：运行模拟器获取日志 __NSCFNumber : 0xb000000000000013；
+ *      由于模拟器遵循高位优先规则(MSB)，因此最高4位 0xb 是 Tagged Pointer 的标志位；
+ *      其中最高位的 1 表示这是一个 Tagged Pointer，剩下的3位 011 转为10进制为 3 ；
+ *      从 objc_tag_index_t 的枚举可以看出对应的值是 OBJC_TAG_NSNumber，表示这是一个NSNumber对象
+ *
+ * @note 由于 TaggedPointer 混淆器存在，因此控制台输出的 内存地址可能无法 与 objc_tag_index_t 对应起来
+ */
 
-// Tag indexes 0..<7 have a 60-bit payload.
-// Tag index 7 is reserved.
-// Tag indexes 8..<264 have a 52-bit payload.
-// Tag index 264 is reserved.
-
+//有关于标志位的枚举如下：
 #if __has_feature(objc_fixed_enum)  ||  __cplusplus >= 201103L
 enum objc_tag_index_t : uint16_t
 #else
-typedef uint16_t objc_tag_index_t;
+typedef uint16_t objc_tag_index_t;//无符号短整型
 enum
 #endif
 {
-    // 60-bit payloads
+    // 60位净负荷
     OBJC_TAG_NSAtom            = 0, 
     OBJC_TAG_1                 = 1, 
-    OBJC_TAG_NSString          = 2, 
-    OBJC_TAG_NSNumber          = 3, 
-    OBJC_TAG_NSIndexPath       = 4, 
+    OBJC_TAG_NSString          = 2, //表示这是一个NSString对象
+    OBJC_TAG_NSNumber          = 3, //表示这是一个NSNumber对象
+    OBJC_TAG_NSIndexPath       = 4, //表示这是一个NSIndexPath对象
     OBJC_TAG_NSManagedObjectID = 5, 
-    OBJC_TAG_NSDate            = 6,
+    OBJC_TAG_NSDate            = 6,//表示这是一个NSDate对象
 
-    // 60-bit reserved
-    OBJC_TAG_RESERVED_7        = 7, 
+    OBJC_TAG_RESERVED_7        = 7, //60位净负荷： 索引 7 被保留
 
-    // 52-bit payloads
+    // 52 位净负荷
     OBJC_TAG_Photos_1          = 8,
     OBJC_TAG_Photos_2          = 9,
     OBJC_TAG_Photos_3          = 10,
@@ -261,10 +270,10 @@ enum
 
     OBJC_TAG_First60BitPayload = 0, 
     OBJC_TAG_Last60BitPayload  = 6, 
-    OBJC_TAG_First52BitPayload = 8, 
-    OBJC_TAG_Last52BitPayload  = 263, 
+    OBJC_TAG_First52BitPayload = 8, // 52 位净负荷的开始处
+    OBJC_TAG_Last52BitPayload  = 263, // 52 位净负荷的结束处
 
-    OBJC_TAG_RESERVED_264      = 264
+    OBJC_TAG_RESERVED_264      = 264 // 52 位净负荷： 索引 264 被保留
 };
 #if __has_feature(objc_fixed_enum)  &&  !defined(__cplusplus)
 typedef enum objc_tag_index_t objc_tag_index_t;
@@ -296,10 +305,12 @@ _objc_getClassForTag(objc_tag_index_t tag)
 static inline void * _Nonnull
 _objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t payload);
 
-// Return true if ptr is a tagged pointer object.
-// Does not check the validity of ptr's class.
-static inline bool 
-_objc_isTaggedPointer(const void * _Nullable ptr);
+/* 判断是否是 Tagged Pointer 指针
+ * @return 如果是 Tagged Pointer 指针，则返回 YES；否则返回 NO；
+ * @note Tagged Pointer对象的指针拆成两部分：一部分直接保存数据，
+ *       另一部分作为特殊标记 _OBJC_TAG_MASK，表示这是一个特别的指针，不指向任何一个地址；
+ */
+static inline bool _objc_isTaggedPointer(const void * _Nullable ptr);
 
 // Extract the tag value from the given tagged pointer object.
 // Assumes ptr is a valid tagged pointer object.
@@ -339,8 +350,11 @@ _objc_getTaggedPointerSignedValue(const void * _Nullable ptr);
 #define _OBJC_TAG_EXT_SLOT_COUNT 256
 #define _OBJC_TAG_EXT_SLOT_MASK 0xff
 
-#if OBJC_MSB_TAGGED_POINTERS
-#   define _OBJC_TAG_MASK (1UL<<63)
+
+
+
+#if OBJC_MSB_TAGGED_POINTERS //MSB 高位优先
+#   define _OBJC_TAG_MASK (1UL<<63) //Tagged Pointer 指针
 #   define _OBJC_TAG_INDEX_SHIFT 60
 #   define _OBJC_TAG_SLOT_SHIFT 60
 #   define _OBJC_TAG_PAYLOAD_LSHIFT 4
@@ -350,8 +364,8 @@ _objc_getTaggedPointerSignedValue(const void * _Nullable ptr);
 #   define _OBJC_TAG_EXT_SLOT_SHIFT 52
 #   define _OBJC_TAG_EXT_PAYLOAD_LSHIFT 12
 #   define _OBJC_TAG_EXT_PAYLOAD_RSHIFT 12
-#else
-#   define _OBJC_TAG_MASK 1UL
+#else //LSB 低位优先
+#   define _OBJC_TAG_MASK 1UL //Tagged Pointer 指针
 #   define _OBJC_TAG_INDEX_SHIFT 1
 #   define _OBJC_TAG_SLOT_SHIFT 0
 #   define _OBJC_TAG_PAYLOAD_LSHIFT 0
@@ -410,11 +424,32 @@ _objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t value)
     }
 }
 
-static inline bool 
-_objc_isTaggedPointer(const void * _Nullable ptr)
-{
+
+
+/* 判断是否是 Tagged Pointer 指针
+ * @return 如果是 Tagged Pointer 指针，则返回 YES；否则返回 NO；
+ * @note Tagged Pointer对象的指针拆成两部分：一部分直接保存数据，
+ *       另一部分作为特殊标记 _OBJC_TAG_MASK，表示这是一个特别的指针，不指向任何一个地址；
+ */
+static inline bool _objc_isTaggedPointer(const void * _Nullable ptr){
+    //将一个指针地址和 _OBJC_TAG_MASK 常量做 & 运算：判断该指针的最高位或者最低位为 1，那么这个指针就是 Tagged Pointer。
     return ((uintptr_t)ptr & _OBJC_TAG_MASK) == _OBJC_TAG_MASK;
 }
+/* 如何判断一个指针是 Tagged Pointer 指针？
+ * 答：将一个指针地址和 _OBJC_TAG_MASK 常量做 & 运算；
+ * 解释：_OBJC_TAG_MASK 在不同平台下值不同：
+ *      在 macOS 和 __x86_64__ 下使用低位优先规则LSB，值为1，
+ *      其他的平台使用高位优先规则 MSB，值为 1ULL<<63。
+ *   因此只要最高位或者最低位为 1，那么这个指针就是 Tagged Pointer。
+ *
+ * 为什么可以通过设定最高位或者最低位是否为 1 来标识呢？
+ * 答：这是因为在分配内存的时候，都是按 2 的整数倍来分配的，这样分配出来的正常内存地址末位不可能为 1；
+ *    这样通过将最低标识为1，就可以和其他正常指针做出区分。
+ *    那么为什么最高位为 1 ，也可以标识呢？
+ *    这是因为64 位操作系统，设备一般没有那么大的内存，所以内存地址一般只有 48 个左右有效位，也就是说高位的 16 位左右都为 0，所以可以通过最高位标识为 1 来表示 Tagged Pointer。
+ *
+ *  那么既然一位就可以标识 Tagged Pointer 了其他的信息是干嘛的呢？我们可以想象，要有一些 bit 位来表示这个指针对应的类型，不然拿到一个Tagged Pointer 的时候我们不知道类型，就无法解析成对应的值。
+ */
 
 static inline objc_tag_index_t 
 _objc_getTaggedPointerTag(const void * _Nullable ptr) 

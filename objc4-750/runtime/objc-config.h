@@ -69,17 +69,13 @@
 #   define SUPPORT_PREOPT 1 // 在 iOS 系统上必须支持 dyld 共享缓存优化
 #endif
 
-// Define SUPPORT_TAGGED_POINTERS=1 to enable tagged pointer objects
-// Be sure to edit tagged pointer SPI in objc-internal.h as well.
 #if !(__OBJC2__  &&  __LP64__)
-#   define SUPPORT_TAGGED_POINTERS 0
+#   define SUPPORT_TAGGED_POINTERS 0 //禁用 tagged pointer 对象
 #else
-#   define SUPPORT_TAGGED_POINTERS 1
+#   define SUPPORT_TAGGED_POINTERS 1 //启用 tagged pointer 对象
 #endif
 
-// Define SUPPORT_MSB_TAGGED_POINTERS to use the MSB 
-// as the tagged pointer marker instead of the LSB.
-// Be sure to edit tagged pointer SPI in objc-internal.h as well.
+// 定义 SUPPORT_MSB_TAGGED_POINTERS 来使用MSB作为 tagged pointer 的标记，而不是LSB。确保在objc-internal.h 中编辑 tagged pointer SPI。
 #if !SUPPORT_TAGGED_POINTERS  ||  (TARGET_OS_OSX || TARGET_OS_IOSMAC)
 #   define SUPPORT_MSB_TAGGED_POINTERS 0
 #else

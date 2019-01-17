@@ -211,13 +211,14 @@ void _objc_fatal_with_reason(uint64_t reason, uint64_t flags,
     _objc_fatalv(reason, flags, fmt, ap);
 }
 
+//会终止程序
 void _objc_fatal(const char *fmt, ...)
 {
     va_list ap; 
     va_start(ap,fmt); 
     _objc_fatalv(OBJC_EXIT_REASON_UNSPECIFIED, 
                  OS_REASON_FLAG_ONE_TIME_FAILURE, 
-                 fmt, ap);
+                 fmt, ap);//会终止程序
 }
 
 /* 该函数处理 Runtime 错误；比如不能向类中添加类别(因为它没有被链接)。

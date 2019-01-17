@@ -244,7 +244,12 @@ __BEGIN_DECLS
 
 struct header_info;
 
-// Split out the rw data from header info.  For now put it in a huge array that more than exceeds the space needed.  In future we'll just allocate this in the shared cache builder.
+/* 从 header_info 中分离出rw数据；现在把它放在一个超过所需空间的巨大数组中；将来我们只在共享缓存中创建这个。
+ * 该结构主要由三个结构成员：
+ * 成员 isLoaded
+ * 成员 allClassesRealized
+ * 成员 next
+ */
 typedef struct header_info_rw {
 
     bool getLoaded() const {
@@ -283,6 +288,9 @@ private:
 #endif
 } header_info_rw;
 
+/* 获取预优化的 header_info_rw
+ * @param hdr
+ */
 struct header_info_rw* getPreoptimizedHeaderRW(const struct header_info *const hdr);
 
 /* OBJC_IMAGE_OPTIMIZED_BY_DYLD:
@@ -291,13 +299,8 @@ struct header_info_rw* getPreoptimizedHeaderRW(const struct header_info *const h
  */
 typedef struct header_info {
 private:
-    // Note, this is no longer a pointer, but instead an offset to a pointer
-    // from this location.
-    intptr_t mhdr_offset;
-
-    // Note, this is no longer a pointer, but instead an offset to a pointer
-    // from this location.
-    intptr_t info_offset;
+    intptr_t mhdr_offset;// 这个位置的指针的偏移量
+    intptr_t info_offset;// 这个位置的指针的偏移量
 
     // Do not add fields without editing ObjCModernAbstraction.hpp
 public:
@@ -312,11 +315,11 @@ public:
     const headerType *mhdr() const {//32位或者64位架构的头文件
         return (const headerType *)(((intptr_t)&mhdr_offset) + mhdr_offset);
     }
-
+    
     void setmhdr(const headerType *mhdr) {
         mhdr_offset = (intptr_t)mhdr - (intptr_t)&mhdr_offset;
     }
-
+    
     const objc_image_info *info() const {//Objective-C 镜像的描述：版本号、flag 值
         return (const objc_image_info *)(((intptr_t)&info_offset) + info_offset);
     }
@@ -328,7 +331,7 @@ public:
     bool isLoaded() {
         return getHeaderInfoRW()->getLoaded();
     }
-
+    
     void setLoaded(bool v) {
         getHeaderInfoRW()->setLoaded(v);
     }

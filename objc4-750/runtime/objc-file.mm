@@ -142,12 +142,9 @@ GETSECT(_getObjc2ProtocolRefs,        protocol_t *,    "__objc_protorefs");//OC 
 GETSECT(getLibobjcInitializers,       UnsignedInitializer, "__objc_init_func");
 
 
-objc_image_info *
-_getObjcImageInfo(const headerType *mhdr, size_t *outBytes)
-{
+objc_image_info *_getObjcImageInfo(const headerType *mhdr, size_t *outBytes){
     //__objc_imageinfo OC镜像信息
-    return getDataSection<objc_image_info>(mhdr, "__objc_imageinfo", 
-                                           outBytes, nil);
+    return getDataSection<objc_image_info>(mhdr, "__objc_imageinfo", outBytes, nil);
 }
 
 // Look for an __objc* section other than __objc_imageinfo

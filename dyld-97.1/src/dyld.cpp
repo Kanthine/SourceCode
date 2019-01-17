@@ -688,8 +688,7 @@ namespace dyld {
      *
      *
      */
-    void initializeMainExecutable()
-    {
+    void initializeMainExecutable(){
         
         // record that we've reached this step
         gLinkContext.startedInitializingMainExecutable = true;
@@ -2813,16 +2812,11 @@ namespace dyld {
         }
     }
     
-    // 从 dyldStartup.s 文件开始执行，其中用汇编实现的 __dyld_start 方法里面调用了 dyldbootstrap::start() 方法
-    // 然后调用了 dyld 的 main 函数
-    // Entry point for dyld.  The kernel loads dyld and jumps to __dyld_start which
-    // sets up some registers and call this function.
-    //
-    // Returns address of main() in target program which __dyld_start jumps to
-    //
-    uintptr_t
-    _main(const struct mach_header* mainExecutableMH, uintptr_t mainExecutableSlide, int argc, const char* argv[], const char* envp[], const char* apple[])
-    {
+    /* 一个程序从 dyldStartup.s 文件开始执行，其中用汇编实现的 __dyld_start 方法里面调用了 dyldbootstrap::start() 方法；
+     * 然后调用了 dyld 的 _main() 函数；
+     * @return 返回__dyld_start 跳转到的目标程序中的 main()的地址
+     */
+    uintptr_t _main(const struct mach_header* mainExecutableMH, uintptr_t mainExecutableSlide, int argc, const char* argv[], const char* envp[], const char* apple[]){
         //设置上下文信息
         setContext(mainExecutableMH, argc, argv, envp, apple);
         

@@ -291,9 +291,10 @@ header_info *preoptimizedHinfoForHeader(const headerType *mhdr)
     else return nil;
 }
 
-
-header_info_rw *getPreoptimizedHeaderRW(const struct header_info *const hdr)
-{
+/* 获取预优化的 header_info_rw
+ * @param hdr
+ */
+header_info_rw *getPreoptimizedHeaderRW(const struct header_info *const hdr){
 #if !__OBJC2__
     // fixme old ABI shared cache doesn't prepare these properly
     return nil;
@@ -302,8 +303,7 @@ header_info_rw *getPreoptimizedHeaderRW(const struct header_info *const hdr)
     objc_headeropt_ro_t *hinfoRO = opt ? opt->headeropt_ro() : nil;
     objc_headeropt_rw_t *hinfoRW = opt ? opt->headeropt_rw() : nil;
     if (!hinfoRO || !hinfoRW) {
-        _objc_fatal("preoptimized header_info missing for %s (%p %p %p)",
-                    hdr->fname(), hdr, hinfoRO, hinfoRW);
+        _objc_fatal("preoptimized header_info missing for %s (%p %p %p)",hdr->fname(), hdr, hinfoRO, hinfoRW);
     }
     int32_t index = (int32_t)(hdr - hinfoRO->headers);
     assert(hinfoRW->entsize == sizeof(header_info_rw));
