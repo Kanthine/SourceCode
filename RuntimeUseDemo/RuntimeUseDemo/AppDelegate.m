@@ -24,30 +24,19 @@
     MainTableViewController *mainVC = [[MainTableViewController alloc] initWithStyle:UITableViewStyleGrouped];
     self.window.rootViewController = mainVC;
     
-    
-    NSMutableString *muStr2 = [NSMutableString stringWithString:@"1"];
-    for(int i=0; i<20; i+=1){
-        NSNumber *number = @([muStr2 longLongValue]);
-        NSLog(@"NSNumber -- %@, %p", [number class], number);
-        [muStr2 appendString:@"1"];
-    }
-    
+    NSNumber *number =  @(0);
+    NSNumber *number1 = @(1);
+    NSNumber *number2 = @(2);
+    NSNumber *number3 = @(9999999999999999999);
     NSString *string = [[@"a" mutableCopy] copy];
-    NSLog(@"NSString -- %@, %p", [string class], string);
+    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:0 inSection:0];
     
-    int int1 = 1;
-    long long long1 = 1;
-    float float1 = 1.0;
-    double double1 = 1.0;
-    NSNumber *intNumber1 = @(int1);
-    NSNumber *longNumber1 = @(long1);
-    NSNumber *floatNumber1 = @(float1);
-    NSNumber *doubleNumber1 = @(double1);
-    NSLog(@"intNumber1 %p %@", intNumber1, [intNumber1 class]);
-    NSLog(@"longNumber1 %p %@", longNumber1, [longNumber1 class]);
-    NSLog(@"floatNumber1 %p %@", floatNumber1, [floatNumber1 class]);
-    NSLog(@"doubleNumber1 %p %@", doubleNumber1, [doubleNumber1 class]);
-
+    NSLog(@"number ---- %@, %p", [number class], number);
+    NSLog(@"number1 --- %@, %p", [number1 class], number1);
+    NSLog(@"number2 --- %@, %p", [number2 class], number2);
+    NSLog(@"number3 --- %@, %p", [number3 class], number3);
+    NSLog(@"NSString -- %@, %p", [string class], string);
+    NSLog(@"indexPath - %@, %p", indexPath.class,indexPath);
     
     return YES;
 }

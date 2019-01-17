@@ -73,20 +73,18 @@ enum ReturnDisposition : bool {
     
 #if SUPPORT_TAGGED_POINTERS
     
-    inline Class
-    objc_object::getIsa()
-    {
+    //获取一个对象的 isa 指针
+    inline Class objc_object::getIsa(){
+        //如果不是 Tagged Pointer zhi指针，则返回 isa 指针
         if (!isTaggedPointer()) return ISA();
         
         uintptr_t ptr = (uintptr_t)this;
         if (isExtTaggedPointer()) {
-            uintptr_t slot =
-            (ptr >> _OBJC_TAG_EXT_SLOT_SHIFT) & _OBJC_TAG_EXT_SLOT_MASK;
-            return objc_tag_ext_classes[slot];
+            uintptr_t slot = (ptr >> _OBJC_TAG_EXT_SLOT_SHIFT) & _OBJC_TAG_EXT_SLOT_MASK;
+            return objc_tag_ext_classes[slot];//返回 objc_tag_ext_classes 中的类
         } else {
-            uintptr_t slot =
-            (ptr >> _OBJC_TAG_SLOT_SHIFT) & _OBJC_TAG_SLOT_MASK;
-            return objc_tag_classes[slot];
+            uintptr_t slot = (ptr >> _OBJC_TAG_SLOT_SHIFT) & _OBJC_TAG_SLOT_MASK;
+            return objc_tag_classes[slot];//返回 objc_tag_classes 中的类
         }
     }
     
@@ -100,15 +98,11 @@ enum ReturnDisposition : bool {
         return _objc_isTaggedPointer(this);
     }
     
-    inline bool
-    objc_object::isBasicTaggedPointer()
-    {
+    inline bool objc_object::isBasicTaggedPointer(){
         return isTaggedPointer()  &&  !isExtTaggedPointer();
     }
     
-    inline bool
-    objc_object::isExtTaggedPointer()
-    {
+    inline bool objc_object::isExtTaggedPointer(){
         uintptr_t ptr = _objc_decodeTaggedPointer(this);
         return (ptr & _OBJC_TAG_EXT_MASK) == _OBJC_TAG_EXT_MASK;
     }

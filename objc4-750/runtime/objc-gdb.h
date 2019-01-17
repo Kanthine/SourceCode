@@ -140,23 +140,23 @@ OBJC_EXPORT const uintptr_t objc_debug_class_rw_data_mask
 
 
 /***********************************************************************
-* Tagged pointer decoding
+* Tagged Pointer 解码
 **********************************************************************/
 #if __OBJC2__
 
-// Basic tagged pointers (7 classes, 60-bit payload).
+// 基础的 tagged pointers (7 个类, 60位 净负荷).
 
 // if (obj & mask) obj is a tagged pointer object
-OBJC_EXPORT uintptr_t objc_debug_taggedpointer_mask
-    OBJC_AVAILABLE(10.9, 7.0, 9.0, 1.0, 2.0);
+/* Tagged Pointer 的标志：高位优先（MSB）时 64 位的最左边一定是 1；
+ * 指定指针与 objc_debug_taggedpointer_mask 做 & 运算，可以判断该指针是否是 Tagged Pointer
+ */
+OBJC_EXPORT uintptr_t objc_debug_taggedpointer_mask OBJC_AVAILABLE(10.9, 7.0, 9.0, 1.0, 2.0);
 
-// tagged pointers are obfuscated by XORing with a random value
-// decoded_obj = (obj ^ obfuscator)
-OBJC_EXPORT uintptr_t objc_debug_taggedpointer_obfuscator
-    OBJC_AVAILABLE(10.14, 12.0, 12.0, 5.0, 3.0);
+//Tagged Pointer 指针混淆器：用于保护 Tagged Pointer 上的数据
+OBJC_EXPORT uintptr_t objc_debug_taggedpointer_obfuscator OBJC_AVAILABLE(10.14, 12.0, 12.0, 5.0, 3.0);
 
 
-// tag_slot = (obj >> slot_shift) & slot_mask
+// Tagged Pointer 的标志位置：高位优先（MSB）时值为 60
 OBJC_EXPORT unsigned int objc_debug_taggedpointer_slot_shift
     OBJC_AVAILABLE(10.9, 7.0, 9.0, 1.0, 2.0);
 OBJC_EXPORT uintptr_t objc_debug_taggedpointer_slot_mask
@@ -174,7 +174,7 @@ OBJC_EXPORT unsigned int objc_debug_taggedpointer_payload_rshift
     OBJC_AVAILABLE(10.9, 7.0, 9.0, 1.0, 2.0);
 
 
-// Extended tagged pointers (255 classes, 52-bit payload).
+// 扩展的 tagged pointers (255 classes, 52位 净负荷).
 
 // If you interrogate an extended tagged pointer using the basic 
 // tagged pointer scheme alone, it will appear to have an isa 

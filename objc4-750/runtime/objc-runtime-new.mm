@@ -2408,19 +2408,6 @@ readProtocol(protocol_t *newproto, Class protocol_class,
     }
 }
 
-/* 苹果对于Tagged Pointer特点的介绍：
- * 1、Tagged Pointer专门用来存储小的对象，例如NSNumber和NSDate
- * 2、Tagged Pointer指针的值不再是地址了，而是真正的值。
- *   所以，实际上它不再是一个对象了，它只是一个披着对象皮的普通变量而已。
- *   所以，它的内存并不存储在堆中，也不需要malloc和free。
- * 3、在内存读取上有着3倍的效率，创建时比以前快106倍。
- *
- * 由于NSNumber、NSDate一类的变量本身的值需要占用的内存大小常常不需要8个字节，拿整数来说，4个字节所能表示的有符号整数就可以达到20多亿（注：2^31=2147483648，另外1位作为符号位)，对于绝大多数情况都是可以处理的。
- * 引入了Tagged Pointer对象之后：我们可以将一个对象的指针拆成两部分，一部分直接保存数据，另一部分作为特殊标记，表示这是一个特别的指针，不指向任何一个地址。
- * 因为tagged pointer 不是一个真正的对象，如果使用isa指针在编译时会报错。
- *
- */
-
 /* 该函数中完成了大量的初始化操作：
  * 1、加载所有类到类的gdb_objc_realized_classes表中；
  * 2、对所有类做重映射；
@@ -2507,7 +2494,7 @@ hIndex++
             disableTaggedPointers();
         }
         
-        //初始化 TaggedPointer 混淆器
+        //初始化 TaggedPointer 混淆器：用于保护 Tagged Pointer 上的数据
         initializeTaggedPointerObfuscator();
         
         if (PrintConnecting) {
@@ -6833,12 +6820,11 @@ static Class *classSlotForTagIndex(objc_tag_index_t tag){
     return nil;
 }
 
-/* 初始化 TaggedPointer 混淆器
- * 随机初始化 objc_debug_taggedpointer_obfuscator
- *
- * TaggedPointer 混淆器被用来使（一个攻击者在缓冲区溢出或内存上的其他写控制存在的情况下将特定对象构造为 tagged pointer）更困难；
- * 在设置或检索净负荷值时，混淆器与标记指针进行异或；
- * 它们在首次使用时充满随机性；
+/* 随机初始化 TaggedPointer 混淆器 objc_debug_taggedpointer_obfuscator
+ * @note 用于数据保护：混淆器 objc_debug_taggedpointer_obfuscator 在首次使用时充满随机性；
+ *       在设置或检索 TaggedPointer 上的净负荷值时，混淆器与标记指针进行异或，因此该指针被加密；
+ *       此时，别人无法通过指针获取 TaggedPointer 上存储的值，有效的进行了数据保护；
+ * @note 如果程序的环境变量 OBJC_DISABLE_TAG_OBFUSCATION 设置为 YES ，则禁止使用 TaggedPointer 混淆器
  */
 static void initializeTaggedPointerObfuscator(void){
     if (sdkIsOlderThan(10_14, 12_0, 12_0, 5_0, 3_0) || DisableTaggedPointerObfuscation) {
