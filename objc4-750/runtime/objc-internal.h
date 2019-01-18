@@ -280,30 +280,33 @@ typedef enum objc_tag_index_t objc_tag_index_t;
 #endif
 
 
-// Returns true if tagged pointers are enabled.
-// The other functions below must not be called if tagged pointers are disabled.
-static inline bool 
-_objc_taggedPointersEnabled(void);
+/* 判断是否启动 taggedPointers
+ * 如果禁用taggedPointers，会调用 disableTaggedPointers() 函数将 objc_debug_taggedpointer_mask 设置为 0
+ * 如果禁用带标记的指针，则不能调用下面的其他函数。
+ */
+static inline bool _objc_taggedPointersEnabled(void);
 
-// Register a class for a tagged pointer tag.
-// Aborts if the tag is invalid or already in use.
-OBJC_EXPORT void
-_objc_registerTaggedPointerClass(objc_tag_index_t tag, Class _Nonnull cls)
+/*  设置用于指定 TaggedPointer 索引的类：
+ * @param tag 存储在数组的位置；
+ * @param cls 要注册 TaggedPointer 的类；
+ * @note 如果标记超出范围，或者该标记已经被其他类使用，则异常终止。
+ */
+OBJC_EXPORT void _objc_registerTaggedPointerClass(objc_tag_index_t tag, Class _Nonnull cls)
     OBJC_AVAILABLE(10.9, 7.0, 9.0, 1.0, 2.0);
 
-// Returns the registered class for the given tag.
-// Returns nil if the tag is valid but has no registered class.
-// Aborts if the tag is invalid.
-OBJC_EXPORT Class _Nullable
-_objc_getClassForTag(objc_tag_index_t tag)
+/* 获取指定索引的注册类。
+ * @note 如果索引有效但没有注册类，则返回nil。
+ * @note 如果索引无效，则异常终止
+ */
+OBJC_EXPORT Class _Nullable _objc_getClassForTag(objc_tag_index_t tag)
     OBJC_AVAILABLE(10.9, 7.0, 9.0, 1.0, 2.0);
 
-// Create a tagged pointer object with the given tag and payload.
-// Assumes the tag is valid.
-// Assumes tagged pointers are enabled.
-// The payload will be silently truncated to fit.
-static inline void * _Nonnull
-_objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t payload);
+/* 计算 taggedPointers 的值
+ * @param tag 代表类的索引，用于指出 taggedPointers 表示什么类；tag 必须是有效值
+ * @param value 表示的值
+ * @note 前提条件：假设启用了 tagged pointer 功能
+ */
+static inline void * _Nonnull _objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t payload);
 
 /* 判断是否是 Tagged Pointer 指针
  * @return 如果是 Tagged Pointer 指针，则返回 YES；否则返回 NO；
@@ -312,23 +315,22 @@ _objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t payload);
  */
 static inline bool _objc_isTaggedPointer(const void * _Nullable ptr);
 
-// Extract the tag value from the given tagged pointer object.
-// Assumes ptr is a valid tagged pointer object.
-// Does not check the validity of ptr's tag.
-static inline objc_tag_index_t 
-_objc_getTaggedPointerTag(const void * _Nullable ptr);
+/* 获取一个 Tagged Pointer 指针的索引
+ * @param ptr 指定的指针
+ */
+static inline objc_tag_index_t _objc_getTaggedPointerTag(const void * _Nullable ptr);
 
-// Extract the payload from the given tagged pointer object.
-// Assumes ptr is a valid tagged pointer object.
-// The payload value is zero-extended.
-static inline uintptr_t
-_objc_getTaggedPointerValue(const void * _Nullable ptr);
+/* 获取 Tagged Pointer 指针上存储的数据
+ * @note 存储的数据是 zero-extended
+ * @note 前提条件：假设启用了 tagged pointer 功能
+ */
+static inline uintptr_t _objc_getTaggedPointerValue(const void * _Nullable ptr);
 
-// Extract the payload from the given tagged pointer object.
-// Assumes ptr is a valid tagged pointer object.
-// The payload value is sign-extended.
-static inline intptr_t
-_objc_getTaggedPointerSignedValue(const void * _Nullable ptr);
+/* 获取 Tagged Pointer 指针上存储的数据
+ * @note 存储的数据是 sign-extended
+ * @note 前提条件：假设启用了 tagged pointer 功能
+ */
+static inline intptr_t _objc_getTaggedPointerSignedValue(const void * _Nullable ptr);
 
 // Don't use the values below. Use the declarations above.
 
@@ -379,40 +381,40 @@ _objc_getTaggedPointerSignedValue(const void * _Nullable ptr);
 
 extern uintptr_t objc_debug_taggedpointer_obfuscator;
 
-static inline void * _Nonnull
-_objc_encodeTaggedPointer(uintptr_t ptr)
-{
+/* 编码 TaggedPointer 指针
+ */
+static inline void * _Nonnull _objc_encodeTaggedPointer(uintptr_t ptr){
     return (void *)(objc_debug_taggedpointer_obfuscator ^ ptr);
 }
 
-static inline uintptr_t
-_objc_decodeTaggedPointer(const void * _Nullable ptr)
-{
+/* 解码 TaggedPointer 指针
+ * @param ptr 编码后的 TaggedPointer 指针
+ */
+static inline uintptr_t _objc_decodeTaggedPointer(const void * _Nullable ptr){
     return (uintptr_t)ptr ^ objc_debug_taggedpointer_obfuscator;
 }
 
-static inline bool 
-_objc_taggedPointersEnabled(void)
-{
+/* 判断是否启动 taggedPointers
+ * 如果禁用taggedPointers，会调用 disableTaggedPointers() 函数将 objc_debug_taggedpointer_mask 设置为 0
+ */
+static inline bool  _objc_taggedPointersEnabled(void){
     extern uintptr_t objc_debug_taggedpointer_mask;
     return (objc_debug_taggedpointer_mask != 0);
 }
 
-static inline void * _Nonnull
-_objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t value)
-{
-    // PAYLOAD_LSHIFT and PAYLOAD_RSHIFT are the payload extraction shifts.
-    // They are reversed here for payload insertion.
-
+/* 计算 taggedPointers 的值
+ * @param tag 表示何种类的索引
+ * @param value 表示的值
+ */
+static inline void * _Nonnull _objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t value){
     // assert(_objc_taggedPointersEnabled());
-    if (tag <= OBJC_TAG_Last60BitPayload) {
+    if (tag <= OBJC_TAG_Last60BitPayload) {//如果是基础的索引
         // assert(((value << _OBJC_TAG_PAYLOAD_RSHIFT) >> _OBJC_TAG_PAYLOAD_LSHIFT) == value);
-        uintptr_t result =
-            (_OBJC_TAG_MASK | 
-             ((uintptr_t)tag << _OBJC_TAG_INDEX_SHIFT) | 
-             ((value << _OBJC_TAG_PAYLOAD_RSHIFT) >> _OBJC_TAG_PAYLOAD_LSHIFT));
+        uintptr_t result = (_OBJC_TAG_MASK |
+                            ((uintptr_t)tag << _OBJC_TAG_INDEX_SHIFT) |
+                ((value << _OBJC_TAG_PAYLOAD_RSHIFT) >> _OBJC_TAG_PAYLOAD_LSHIFT));
         return _objc_encodeTaggedPointer(result);
-    } else {
+    } else {//如果是扩展的索引
         // assert(tag >= OBJC_TAG_First52BitPayload);
         // assert(tag <= OBJC_TAG_Last52BitPayload);
         // assert(((value << _OBJC_TAG_EXT_PAYLOAD_RSHIFT) >> _OBJC_TAG_EXT_PAYLOAD_LSHIFT) == value);
@@ -424,8 +426,6 @@ _objc_makeTaggedPointer(objc_tag_index_t tag, uintptr_t value)
     }
 }
 
-
-
 /* 判断是否是 Tagged Pointer 指针
  * @return 如果是 Tagged Pointer 指针，则返回 YES；否则返回 NO；
  * @note Tagged Pointer对象的指针拆成两部分：一部分直接保存数据，
@@ -435,25 +435,11 @@ static inline bool _objc_isTaggedPointer(const void * _Nullable ptr){
     //将一个指针地址和 _OBJC_TAG_MASK 常量做 & 运算：判断该指针的最高位或者最低位为 1，那么这个指针就是 Tagged Pointer。
     return ((uintptr_t)ptr & _OBJC_TAG_MASK) == _OBJC_TAG_MASK;
 }
-/* 如何判断一个指针是 Tagged Pointer 指针？
- * 答：将一个指针地址和 _OBJC_TAG_MASK 常量做 & 运算；
- * 解释：_OBJC_TAG_MASK 在不同平台下值不同：
- *      在 macOS 和 __x86_64__ 下使用低位优先规则LSB，值为1，
- *      其他的平台使用高位优先规则 MSB，值为 1ULL<<63。
- *   因此只要最高位或者最低位为 1，那么这个指针就是 Tagged Pointer。
- *
- * 为什么可以通过设定最高位或者最低位是否为 1 来标识呢？
- * 答：这是因为在分配内存的时候，都是按 2 的整数倍来分配的，这样分配出来的正常内存地址末位不可能为 1；
- *    这样通过将最低标识为1，就可以和其他正常指针做出区分。
- *    那么为什么最高位为 1 ，也可以标识呢？
- *    这是因为64 位操作系统，设备一般没有那么大的内存，所以内存地址一般只有 48 个左右有效位，也就是说高位的 16 位左右都为 0，所以可以通过最高位标识为 1 来表示 Tagged Pointer。
- *
- *  那么既然一位就可以标识 Tagged Pointer 了其他的信息是干嘛的呢？我们可以想象，要有一些 bit 位来表示这个指针对应的类型，不然拿到一个Tagged Pointer 的时候我们不知道类型，就无法解析成对应的值。
- */
 
-static inline objc_tag_index_t 
-_objc_getTaggedPointerTag(const void * _Nullable ptr) 
-{
+/* 获取一个 Tagged Pointer 指针的索引
+ * @param ptr 指定的指针
+ */
+static inline objc_tag_index_t _objc_getTaggedPointerTag(const void * _Nullable ptr){
     // assert(_objc_isTaggedPointer(ptr));
     uintptr_t value = _objc_decodeTaggedPointer(ptr);
     uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
@@ -465,11 +451,13 @@ _objc_getTaggedPointerTag(const void * _Nullable ptr)
     }
 }
 
-static inline uintptr_t
-_objc_getTaggedPointerValue(const void * _Nullable ptr) 
-{
+/* 获取 Tagged Pointer 指针上存储的数据
+ * @note 存储的数据是 zero-extended
+ * @note 前提条件：假设启用了 tagged pointer 功能
+ */
+static inline uintptr_t _objc_getTaggedPointerValue(const void * _Nullable ptr){
     // assert(_objc_isTaggedPointer(ptr));
-    uintptr_t value = _objc_decodeTaggedPointer(ptr);
+    uintptr_t value = _objc_decodeTaggedPointer(ptr);// 解码 TaggedPointer 指针
     uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;
     if (basicTag == _OBJC_TAG_INDEX_MASK) {
         return (value << _OBJC_TAG_EXT_PAYLOAD_LSHIFT) >> _OBJC_TAG_EXT_PAYLOAD_RSHIFT;
@@ -478,9 +466,11 @@ _objc_getTaggedPointerValue(const void * _Nullable ptr)
     }
 }
 
-static inline intptr_t
-_objc_getTaggedPointerSignedValue(const void * _Nullable ptr) 
-{
+/* 获取 Tagged Pointer 指针上存储的数据
+ * @note 存储的数据是 sign-extended
+ * @note 前提条件：假设启用了 tagged pointer 功能
+ */
+static inline intptr_t _objc_getTaggedPointerSignedValue(const void * _Nullable ptr){
     // assert(_objc_isTaggedPointer(ptr));
     uintptr_t value = _objc_decodeTaggedPointer(ptr);
     uintptr_t basicTag = (value >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK;

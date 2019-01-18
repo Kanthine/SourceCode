@@ -37,7 +37,7 @@
     NSLog(@"number3 --- %@, %p", [number3 class], number3);
     NSLog(@"NSString -- %@, %p", [string class], string);
     NSLog(@"indexPath - %@, %p", indexPath.class,indexPath);
-    
+
     return YES;
 }
 

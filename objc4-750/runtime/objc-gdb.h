@@ -176,9 +176,8 @@ OBJC_EXPORT unsigned int objc_debug_taggedpointer_payload_rshift
 
 // 扩展的 tagged pointers (255 classes, 52位 净负荷).
 
-// If you interrogate an extended tagged pointer using the basic 
-// tagged pointer scheme alone, it will appear to have an isa 
-// that is either nil or class __NSUnrecognizedTaggedPointer.
+/* 如果使用基本的tagged pointer模式来查询扩展的tagged pointers，那么它的isa可能nil，也可能是类__NSUnrecognizedTaggedPointer。
+ */
 
 // if (ext_mask != 0  &&  (decoded_obj & ext_mask) == ext_mask)
 //   obj is a ext tagged pointer object

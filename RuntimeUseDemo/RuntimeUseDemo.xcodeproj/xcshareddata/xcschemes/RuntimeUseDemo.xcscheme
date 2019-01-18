@@ -67,6 +67,11 @@
             value = "YES"
             isEnabled = "YES">
          </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "OBJC_DISABLE_TAGGED_POINTERS"
+            value = "YES"
+            isEnabled = "YES">
+         </EnvironmentVariable>
       </EnvironmentVariables>
       <AdditionalOptions>
       </AdditionalOptions>

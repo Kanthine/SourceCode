@@ -6768,7 +6768,7 @@ unsigned  objc_debug_taggedpointer_ext_payload_lshift = _OBJC_TAG_EXT_PAYLOAD_LS
 unsigned  objc_debug_taggedpointer_ext_payload_rshift = _OBJC_TAG_EXT_PAYLOAD_RSHIFT;
 // objc_debug_taggedpointer_ext_classes is defined in objc-msg-*.s
 
-//禁用NSNumber等的 Tagged Pointer 指针优化
+//禁用 Tagged Pointer 指针
 static void disableTaggedPointers(){
     objc_debug_taggedpointer_mask = 0;
     objc_debug_taggedpointer_slot_shift = 0;
@@ -6787,12 +6787,11 @@ static void disableTaggedPointers(){
  * @param tag 指定的索引；假设该索引有效。
  */
 static Class *classSlotForBasicTagIndex(objc_tag_index_t tag){
-    uintptr_t tagObfuscator = ((objc_debug_taggedpointer_obfuscator
-                                >> _OBJC_TAG_INDEX_SHIFT)
-                               & _OBJC_TAG_INDEX_MASK);
+    uintptr_t tagObfuscator = ((objc_debug_taggedpointer_obfuscator >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK);
     uintptr_t obfuscatedTag = tag ^ tagObfuscator;
     // objc_tag_classes 数组的索引包含标记的位本身
-#if SUPPORT_MSB_TAGGED_POINTERS
+    
+#if SUPPORT_MSB_TAGGED_POINTERS//高位优先
     return &objc_tag_classes[0x8 | obfuscatedTag];
 #else
     return &objc_tag_classes[(obfuscatedTag << 1) | 1];
