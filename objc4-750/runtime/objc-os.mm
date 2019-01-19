@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2007 Apple Inc.  All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,14 +17,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /***********************************************************************
-* objc-os.m
-* OS portability layer.
-**********************************************************************/
+ * objc-os.m
+ * OS portability layer.
+ **********************************************************************/
 
 #include "objc-private.h"
 #include "objc-loadmethod.h"
@@ -36,7 +36,7 @@
 
 const fork_unsafe_lock_t fork_unsafe_lock;
 
-int monitor_init(monitor_t *c) 
+int monitor_init(monitor_t *c)
 {
     // fixme error checking
     HANDLE mutex = CreateMutex(NULL, TRUE, NULL);
@@ -49,11 +49,11 @@ int monitor_init(monitor_t *c)
             InitializeCriticalSection(&c->waitCountLock);
             c->waitCount = 0;
             c->didBroadcast = 0;
-            ReleaseMutex(c->mutex);    
+            ReleaseMutex(c->mutex);
             return 0;
         }
     }
-
+    
     // someone else allocated the mutex and constructed the monitor
     ReleaseMutex(mutex);
     CloseHandle(mutex);
@@ -94,25 +94,25 @@ void recursive_mutex_init(recursive_mutex_t *m)
 
 
 WINBOOL APIENTRY DllMain( HMODULE hModule,
-                       DWORD  ul_reason_for_call,
-                       LPVOID lpReserved
-					 )
+                         DWORD  ul_reason_for_call,
+                         LPVOID lpReserved
+                         )
 {
     switch (ul_reason_for_call) {
-    case DLL_PROCESS_ATTACH:
-        environ_init();
-        tls_init();
-        lock_init();
-        sel_init(3500);  // old selector heuristic
-        exception_init();
-        break;
-
-    case DLL_THREAD_ATTACH:
-        break;
-
-    case DLL_THREAD_DETACH:
-    case DLL_PROCESS_DETACH:
-        break;
+        case DLL_PROCESS_ATTACH:
+            environ_init();
+            tls_init();
+            lock_init();
+            sel_init(3500);  // old selector heuristic
+            exception_init();
+            break;
+            
+        case DLL_THREAD_ATTACH:
+            break;
+            
+        case DLL_THREAD_DETACH:
+        case DLL_PROCESS_DETACH:
+            break;
     }
     return TRUE;
 }
@@ -121,7 +121,7 @@ OBJC_EXPORT void *_objc_init_image(HMODULE image, const objc_sections *sects)
 {
     header_info *hi = malloc(sizeof(header_info));
     size_t count, i;
-
+    
     hi->mhdr = (const headerType *)image;
     hi->info = sects->iiStart;
     hi->allClassesRealized = NO;
@@ -132,12 +132,12 @@ OBJC_EXPORT void *_objc_init_image(HMODULE image, const objc_sections *sects)
     hi->imageinfo = NULL;
     hi->imageinfoBytes = 0;
     // hi->imageinfo = sects->iiStart ? (uint8_t *)((void **)sects->iiStart+1) : 0;;
-//     hi->imageinfoBytes = (uint8_t *)sects->iiEnd - hi->imageinfo;
+    //     hi->imageinfoBytes = (uint8_t *)sects->iiEnd - hi->imageinfo;
     hi->selrefs = sects->selrefsStart ? (SEL *)((void **)sects->selrefsStart+1) : 0;
     hi->selrefCount = (SEL *)sects->selrefsEnd - hi->selrefs;
     hi->clsrefs = sects->clsrefsStart ? (Class *)((void **)sects->clsrefsStart+1) : 0;
     hi->clsrefCount = (Class *)sects->clsrefsEnd - hi->clsrefs;
-
+    
     count = 0;
     for (i = 0; i < hi->moduleCount; i++) {
         if (hi->modules[i]) count++;
@@ -153,29 +153,29 @@ OBJC_EXPORT void *_objc_init_image(HMODULE image, const objc_sections *sects)
     
     hi->moduleName = malloc(MAX_PATH * sizeof(TCHAR));
     GetModuleFileName((HMODULE)(hi->mhdr), hi->moduleName, MAX_PATH * sizeof(TCHAR));
-
+    
     appendHeader(hi);
-
+    
     if (PrintImages) {
-        _objc_inform("IMAGES: loading image for %s%s%s%s\n", 
-                     hi->fname, 
-                     headerIsBundle(hi) ? " (bundle)" : "", 
-                     hi->info->isReplacement() ? " (replacement)":"", 
+        _objc_inform("IMAGES: loading image for %s%s%s%s\n",
+                     hi->fname,
+                     headerIsBundle(hi) ? " (bundle)" : "",
+                     hi->info->isReplacement() ? " (replacement)":"",
                      hi->info->hasCategoryClassProperties() ? " (has class properties)":"");
     }
-
+    
     // Count classes. Size various table based on the total.
     int total = 0;
     int unoptimizedTotal = 0;
     {
-      if (_getObjc2ClassList(hi, &count)) {
-        total += (int)count;
-        if (!hi->getInSharedCache()) unoptimizedTotal += count;
-      }
+        if (_getObjc2ClassList(hi, &count)) {
+            total += (int)count;
+            if (!hi->getInSharedCache()) unoptimizedTotal += count;
+        }
     }
-
+    
     _read_images(&hi, 1, total, unoptimizedTotal);
-
+    
     return hi;
 }
 
@@ -199,10 +199,10 @@ OBJC_EXPORT void _objc_unload_image(HMODULE image, header_info *hinfo)
 
 
 /***********************************************************************
-* libobjc 绝对不能运行静态析构函数。
-* Cover libc's __cxa_atexit with our own definition that runs nothing.
-* rdar://21734598  ER: Compiler option to suppress C++ static destructors
-**********************************************************************/
+ * libobjc 绝对不能运行静态析构函数。
+ * Cover libc's __cxa_atexit with our own definition that runs nothing.
+ * rdar://21734598  ER: Compiler option to suppress C++ static destructors
+ **********************************************************************/
 extern "C" int __cxa_atexit();
 extern "C" int __cxa_atexit() { return 0; }
 
@@ -210,7 +210,7 @@ extern "C" int __cxa_atexit() { return 0; }
 /* 判断是否支持设备的 CPU
  * @note mach_header_64 结构成员 magic 表示支持设备的 CPU 位数
  * @return 如果既不支持 32 位 CPU，又不支持 64 位 CPU，则返回 YES；否则返回 NO
-*/
+ */
 bool bad_magic(const headerType *mhdr){
     return (mhdr->magic != MH_MAGIC  &&  mhdr->magic != MH_MAGIC_64  &&
             mhdr->magic != MH_CIGAM  &&  mhdr->magic != MH_CIGAM_64);
@@ -218,7 +218,7 @@ bool bad_magic(const headerType *mhdr){
 
 static header_info * addHeader(const headerType *mhdr, const char *path, int &totalClasses, int &unoptimizedTotalClasses){
     header_info *hi;
-
+    
     if (bad_magic(mhdr)) return NULL;//如果不支持设备的 CPU，则直接返回
     
     bool inSharedCache = false;
@@ -242,7 +242,7 @@ static header_info * addHeader(const headerType *mhdr, const char *path, int &to
         if (PrintPreopt) {
             _objc_inform("PREOPTIMIZATION: honoring preoptimized header info at %p for %s", hi, hi->fname());
         }
-
+        
 #if !__OBJC2__
         _objc_fatal("shouldn't be here");
 #endif
@@ -254,24 +254,24 @@ static header_info * addHeader(const headerType *mhdr, const char *path, int &to
 #endif
     }else{
         // 在 dyld 共享缓存中没有发现 hinfo
-
+        
         // 剔除重复
         for (hi = FirstHeader; hi; hi = hi->getNext()) {
             if (mhdr == hi->mhdr()) return NULL;
         }
-
+        
         // 定位 __OBJC 段
         size_t info_size = 0;
         unsigned long seg_size;
         const objc_image_info *image_info = _getObjcImageInfo(mhdr,&info_size);
         const uint8_t *objc_segment = getsegmentdata(mhdr,SEG_OBJC,&seg_size);
         if (!objc_segment  &&  !image_info) return NULL;
-
+        
         // Allocate a header_info entry.
         // Note we also allocate space for a single header_info_rw in the
         // rw_data[] inside header_info.
         hi = (header_info *)calloc(sizeof(header_info) + sizeof(header_info_rw), 1);
-
+        
         // Set up the new header_info entry.
         hi->setmhdr(mhdr);
 #if !__OBJC2__
@@ -282,11 +282,11 @@ static header_info * addHeader(const headerType *mhdr, const char *path, int &to
         // Install a placeholder image_info if absent to simplify code elsewhere
         static const objc_image_info emptyInfo = {0, 0};
         hi->setinfo(image_info ?: &emptyInfo);
-
+        
         hi->setLoaded(true);
         hi->setAllClassesRealized(NO);
     }
-
+    
 #if __OBJC2__
     {
         size_t count = 0;
@@ -296,7 +296,7 @@ static header_info * addHeader(const headerType *mhdr, const char *path, int &to
         }
     }
 #endif
-
+    
     appendHeader(hi);
     
     return hi;
@@ -304,10 +304,10 @@ static header_info * addHeader(const headerType *mhdr, const char *path, int &to
 
 
 /***********************************************************************
-* linksToLibrary
-* Returns true if the image links directly to a dylib whose install name 
-* is exactly the given name.
-**********************************************************************/
+ * linksToLibrary
+ * Returns true if the image links directly to a dylib whose install name
+ * is exactly the given name.
+ **********************************************************************/
 bool
 linksToLibrary(const header_info *hi, const char *name)
 {
@@ -324,7 +324,7 @@ linksToLibrary(const header_info *hi, const char *name)
         }
         cmd = (const struct dylib_command *)((char *)cmd + cmd->cmdsize);
     }
-
+    
     return false;
 }
 
@@ -332,18 +332,18 @@ linksToLibrary(const header_info *hi, const char *name)
 #if SUPPORT_GC_COMPAT
 
 /***********************************************************************
-* shouldRejectGCApp
-* Return YES if the executable requires GC.
-**********************************************************************/
+ * shouldRejectGCApp
+ * Return YES if the executable requires GC.
+ **********************************************************************/
 static bool shouldRejectGCApp(const header_info *hi)
 {
     assert(hi->mhdr()->filetype == MH_EXECUTE);
-
+    
     if (!hi->info()->supportsGC()) {
         // App does not use GC. Don't reject it.
         return NO;
     }
-        
+    
     // Exception: Trivial AppleScriptObjC apps can run without GC.
     // 1. executable defines no classes
     // 2. executable references NSBundle only
@@ -359,14 +359,14 @@ static bool shouldRejectGCApp(const header_info *hi)
     else classcount = 1;
     _getObjcClassRefs(hi, &refcount);
 #endif
-    if (classcount == 0  &&  refcount == 1  &&  
+    if (classcount == 0  &&  refcount == 1  &&
         linksToLibrary(hi, "/System/Library/Frameworks"
                        "/AppleScriptObjC.framework/Versions/A"
                        "/AppleScriptObjC"))
     {
         // It's AppleScriptObjC. Don't reject it.
         return NO;
-    } 
+    }
     else {
         // GC and not trivial AppleScriptObjC. Reject it.
         return YES;
@@ -375,14 +375,14 @@ static bool shouldRejectGCApp(const header_info *hi)
 
 
 /***********************************************************************
-* rejectGCImage
-* Halt if an image requires GC.
-* Testing of the main executable should use rejectGCApp() instead.
-**********************************************************************/
+ * rejectGCImage
+ * Halt if an image requires GC.
+ * Testing of the main executable should use rejectGCApp() instead.
+ **********************************************************************/
 static bool shouldRejectGCImage(const headerType *mhdr)
 {
     assert(mhdr->filetype != MH_EXECUTE);
-
+    
     objc_image_info *image_info;
     size_t size;
     
@@ -406,7 +406,7 @@ static bool shouldRejectGCImage(const headerType *mhdr)
         return NO;
     }
 #endif
-
+    
     return image_info->requiresGC();
 }
 
@@ -443,12 +443,11 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
     if (firstTime) {// 如果需要，执行首次初始化
         preopt_init();//在普通库初始化之前优化共享缓存
     }
-
+    
     if (PrintImages) {
         _objc_inform("IMAGES: processing %u newly-mapped images...\n", mhCount);
     }
-
-
+    
     hCount = 0;// 查找带有Objective-C元数据的所有镜像
     //统计类的数量，调整各种哈希表的大小。
     int totalClasses = 0;
@@ -458,7 +457,6 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
         //倒序遍历
         while (i--) {
             const headerType *mhdr = (const headerType *)mhdrs[i];
-            
             auto hi = addHeader(mhdr, mhPaths[i], totalClasses, unoptimizedTotalClasses);
             if (!hi) {
                 // 此条目中没有objc数据
@@ -489,7 +487,7 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
             hList[hCount++] = hi;// 加载所有的类
             
             if (PrintImages) {
-                _objc_inform("IMAGES: loading image for %s%s%s%s%s\n", 
+                _objc_inform("IMAGES: loading image for %s%s%s%s%s\n",
                              hi->fname(),
                              mhdr->filetype == MH_BUNDLE ? " (bundle)" : "",
                              hi->info()->isReplacement() ? " (replacement)" : "",
@@ -498,12 +496,12 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
             }
         }
     }
-
+    
     //执行一次性的运行时初始化，必须延迟到找到可执行文件本身。这需要在进一步初始化之前完成。(如果可执行文件不包含Objective-C代码，但Objective-C稍后会动态加载，则可执行文件可能不在此 infoList 中。
     if (firstTime) {
         sel_init(selrefCount);//初始化方法列表并注册内部使用的方法
         arr_init();// 初始化自动释放池与哈希表
-
+        
 #if SUPPORT_GC_COMPAT //注：iOS 不兼容 Garbage Collection
         
         /* 拒绝任何链接到主程序的GC镜像。
@@ -515,12 +513,12 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
             auto mh = hi->mhdr();
             if (mh->filetype != MH_EXECUTE  &&  shouldRejectGCImage(mh)) {
                 _objc_fatal_with_reason(OBJC_EXIT_REASON_GC_NOT_SUPPORTED,
-                     OS_REASON_FLAG_CONSISTENT_FAILURE, 
-                     "%s requires Objective-C garbage collection which is no longer supported.", hi->fname());
+                                        OS_REASON_FLAG_CONSISTENT_FAILURE,
+                                        "%s requires Objective-C garbage collection which is no longer supported.", hi->fname());
             }
         }
 #endif
-
+        
 #if TARGET_OS_OSX
         /* 如果应用程序太旧(< 10.13)，禁用 +initialize 更安全。
          * 如果应用程序有 __DATA ，__objc_fork_ok 段，则禁用 +initialize。
@@ -534,7 +532,7 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
                              FORMAT_SDK(dyld_get_program_sdk_version()));
             }
         }
-
+        
         for (uint32_t i = 0; i < hCount; i++) {
             auto hi = hList[i];
             auto mh = hi->mhdr();
@@ -551,54 +549,46 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
             break;  // 假设只有一个可执行文件的镜像
         }
 #endif
-
+        
     }
-
+    
     if (hCount > 0) {
         //核心函数_read_images() : 从 headerList 开始对链表中的头文件执行初始处理。
         _read_images(hList, hCount, totalClasses, unoptimizedTotalClasses);
     }
-
+    
     firstTime = NO;
 }
 
-
-/***********************************************************************
-* unmap_image_nolock
-* Process the given image which is about to be unmapped by dyld.
-* mh is mach_header instead of headerType because that's what 
-*   dyld_priv.h says even for 64-bit.
-* 
-* Locking: loadMethodLock(both) and runtimeLock(new) acquired by unmap_image.
-**********************************************************************/
-void 
-unmap_image_nolock(const struct mach_header *mh)
-{
+/* 处理将要被 dyld 取消映射的指定镜像
+ * mh是 mach_header 而不是headerType，
+ */
+void unmap_image_nolock(const struct mach_header *mh){
     if (PrintImages) {
         _objc_inform("IMAGES: processing 1 newly-unmapped image...\n");
     }
-
+    
     header_info *hi;
     
-    // Find the runtime's header_info struct for the image
+    // 为镜像找到运行时的 header_info 结构
     for (hi = FirstHeader; hi != NULL; hi = hi->getNext()) {
         if (hi->mhdr() == (const headerType *)mh) {
             break;
         }
     }
-
+    
     if (!hi) return;
-
+    
     if (PrintImages) {
-        _objc_inform("IMAGES: unloading image for %s%s%s\n", 
+        _objc_inform("IMAGES: unloading image for %s%s%s\n",
                      hi->fname(),
                      hi->mhdr()->filetype == MH_BUNDLE ? " (bundle)" : "",
                      hi->info()->isReplacement() ? " (replacement)" : "");
     }
-
+    
     _unload_image(hi);
-
-    // Remove header_info from header list
+    
+    // 从 header 列表中删除 header_info
     removeHeader(hi);
     free(hi);
 }
@@ -618,16 +608,16 @@ static void static_init()
 
 
 /***********************************************************************
-* _objc_atfork_prepare
-* _objc_atfork_parent
-* _objc_atfork_child
-* Allow ObjC to be used between fork() and exec().
-* libc requires this because it has fork-safe functions that use os_objects.
-*
-* _objc_atfork_prepare() acquires all locks.
-* _objc_atfork_parent() releases the locks again.
-* _objc_atfork_child() forcibly resets the locks.
-**********************************************************************/
+ * _objc_atfork_prepare
+ * _objc_atfork_parent
+ * _objc_atfork_child
+ * Allow ObjC to be used between fork() and exec().
+ * libc requires this because it has fork-safe functions that use os_objects.
+ *
+ * _objc_atfork_prepare() acquires all locks.
+ * _objc_atfork_parent() releases the locks again.
+ * _objc_atfork_child() forcibly resets the locks.
+ **********************************************************************/
 
 // Declare lock ordering.
 #if LOCKDEBUG
@@ -656,7 +646,7 @@ static void defineLockOrder()
     PropertyLocks.precedeLock(&crashlog_lock);
     StructLocks.precedeLock(&crashlog_lock);
     CppObjectLocks.precedeLock(&crashlog_lock);
-
+    
     // loadMethodLock precedes everything
     // because it is held while +load methods run
     lockdebug_lock_precedes_lock(&loadMethodLock, &classInitLock);
@@ -678,9 +668,9 @@ static void defineLockOrder()
     PropertyLocks.succeedLock(&loadMethodLock);
     StructLocks.succeedLock(&loadMethodLock);
     CppObjectLocks.succeedLock(&loadMethodLock);
-
-    // PropertyLocks and CppObjectLocks and AssociationManagerLock 
-    // precede everything because they are held while objc_retain() 
+    
+    // PropertyLocks and CppObjectLocks and AssociationManagerLock
+    // precede everything because they are held while objc_retain()
     // or C++ copy are called.
     // (StructLocks do not precede everything because it calls memmove only.)
     auto PropertyAndCppObjectAndAssocLocksPrecedeLock = [&](const void *lock) {
@@ -702,18 +692,18 @@ static void defineLockOrder()
     PropertyAndCppObjectAndAssocLocksPrecedeLock(&cacheUpdateLock);
     PropertyAndCppObjectAndAssocLocksPrecedeLock(&objcMsgLogLock);
     PropertyAndCppObjectAndAssocLocksPrecedeLock(&AltHandlerDebugLock);
-
+    
     SideTableLocksSucceedLocks(PropertyLocks);
     SideTableLocksSucceedLocks(CppObjectLocks);
     SideTableLocksSucceedLock(&AssociationsManagerLock);
-
+    
     PropertyLocks.precedeLock(&AssociationsManagerLock);
     CppObjectLocks.precedeLock(&AssociationsManagerLock);
     
 #if __OBJC2__
     lockdebug_lock_precedes_lock(&classInitLock, &runtimeLock);
 #endif
-
+    
 #if __OBJC2__
     // Runtime operations may occur inside SideTable locks
     // (such as storeWeak calling getMethodImplementation)
@@ -736,7 +726,7 @@ static void defineLockOrder()
     lockdebug_lock_precedes_lock(&classLock, &selLock);
     lockdebug_lock_precedes_lock(&classLock, &cacheUpdateLock);
 #endif
-
+    
     // Striped locks use address order internally.
     SideTableDefineLockOrder();
     PropertyLocks.defineLockOrder();
@@ -751,10 +741,10 @@ void _objc_atfork_prepare()
 {
     // Save threaded-ness for the child's use.
     ForkIsMultithreaded = pthread_is_threaded_np();
-
+    
     lockdebug_assert_no_locks_locked();
     lockdebug_setInForkPrepare(true);
-
+    
     loadMethodLock.lock();
     PropertyLocks.lockAll();
     CppObjectLocks.lockAll();
@@ -776,7 +766,7 @@ void _objc_atfork_prepare()
     AltHandlerDebugLock.lock();
     StructLocks.lockAll();
     crashlog_lock.lock();
-
+    
     lockdebug_assert_all_locks_locked();
     lockdebug_setInForkPrepare(false);
 }
@@ -784,7 +774,7 @@ void _objc_atfork_prepare()
 void _objc_atfork_parent()
 {
     lockdebug_assert_all_locks_locked();
-
+    
     CppObjectLocks.unlockAll();
     StructLocks.unlockAll();
     PropertyLocks.unlockAll();
@@ -806,7 +796,7 @@ void _objc_atfork_parent()
     classLock.unlock();
 #endif
     classInitLock.leave();
-
+    
     lockdebug_assert_no_locks_locked();
 }
 
@@ -816,9 +806,9 @@ void _objc_atfork_child()
     if (ForkIsMultithreaded  &&  !DisableInitializeForkSafety) {
         MultithreadedForkChild = true;
     }
-
+    
     lockdebug_assert_all_locks_locked();
-
+    
     CppObjectLocks.forceResetAll();
     StructLocks.forceResetAll();
     PropertyLocks.forceResetAll();
@@ -840,7 +830,7 @@ void _objc_atfork_child()
     classLock.forceReset();
 #endif
     classInitLock.forceReset();
-
+    
     lockdebug_assert_no_locks_locked();
 }
 
@@ -881,10 +871,10 @@ static const header_info *_headerForAddress(void *addr)
     const char *segnames[] = { "__OBJC" };
 #endif
     header_info *hi;
-
+    
     for (hi = FirstHeader; hi != NULL; hi = hi->getNext()) {
         for (size_t i = 0; i < sizeof(segnames)/sizeof(segnames[0]); i++) {
-            unsigned long seg_size;            
+            unsigned long seg_size;
             uint8_t *seg = getsegmentdata(hi->mhdr(), segnames[i], &seg_size);
             if (!seg) continue;
             
@@ -894,17 +884,17 @@ static const header_info *_headerForAddress(void *addr)
             }
         }
     }
-
+    
     // Not found
     return 0;
 }
 
 
 /***********************************************************************
-* _headerForClass
-* Return the image header containing this class, or NULL.
-* Returns NULL on runtime-constructed classes, and the NSCF classes.
-**********************************************************************/
+ * _headerForClass
+ * Return the image header containing this class, or NULL.
+ * Returns NULL on runtime-constructed classes, and the NSCF classes.
+ **********************************************************************/
 const header_info *_headerForClass(Class cls)
 {
     return _headerForAddress(cls);
@@ -912,23 +902,23 @@ const header_info *_headerForClass(Class cls)
 
 
 /**********************************************************************
-* secure_open
-* Securely open a file from a world-writable directory (like /tmp)
-* If the file does not exist, it will be atomically created with mode 0600
-* If the file exists, it must be, and remain after opening: 
-*   1. a regular file (in particular, not a symlink)
-*   2. owned by euid
-*   3. permissions 0600
-*   4. link count == 1
-* Returns a file descriptor or -1. Errno may or may not be set on error.
-**********************************************************************/
+ * secure_open
+ * Securely open a file from a world-writable directory (like /tmp)
+ * If the file does not exist, it will be atomically created with mode 0600
+ * If the file exists, it must be, and remain after opening:
+ *   1. a regular file (in particular, not a symlink)
+ *   2. owned by euid
+ *   3. permissions 0600
+ *   4. link count == 1
+ * Returns a file descriptor or -1. Errno may or may not be set on error.
+ **********************************************************************/
 int secure_open(const char *filename, int flags, uid_t euid)
 {
     struct stat fs, ls;
     int fd = -1;
     bool truncate = NO;
     bool create = NO;
-
+    
     if (flags & O_TRUNC) {
         // Don't truncate the file until after it is open and verified.
         truncate = YES;
@@ -940,7 +930,7 @@ int secure_open(const char *filename, int flags, uid_t euid)
         flags &= ~O_CREAT;
         flags &= ~O_EXCL;
     }
-
+    
     if (lstat(filename, &ls) < 0) {
         if (errno == ENOENT  &&  create) {
             // No such file - create it
@@ -968,7 +958,7 @@ int secure_open(const char *filename, int flags, uid_t euid)
             fd = open(filename, flags, 0000);
             if (fd >= 0) {
                 // File is open - double-check attributes
-                if (0 == fstat(fd, &fs)  &&  
+                if (0 == fstat(fd, &fs)  &&
                     fs.st_nlink == ls.st_nlink  &&  // link count == 1?
                     fs.st_uid == ls.st_uid  &&      // owned by euid?
                     fs.st_mode == ls.st_mode  &&    // regular file, 0600?
@@ -1019,3 +1009,4 @@ const char *CRGetCrashLogMessage(void)
 
 
 #endif
+

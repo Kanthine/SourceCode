@@ -443,13 +443,13 @@ bool ImageLoader::decrementDlopenReferenceCount()
 	return false;
 }
 
-void ImageLoader::runInitializers(const LinkContext& context)
-{
+//初始化指定文件
+void ImageLoader::runInitializers(const LinkContext& context){
 #if IMAGE_NOTIFY_SUPPORT
 	ImageLoader* newImages[context.imageCount()];
 	ImageLoader** end = newImages;
-	this->recursiveImageAnnouncement(context, end);	 // build bottom up list images being added
-	context.notifyAdding(newImages, end-newImages);	// tell anyone who cares about these
+	this->recursiveImageAnnouncement(context, end);	 // 构建正在添加的自下向上列表镜像
+	context.notifyAdding(newImages, end-newImages);	//通知关心这些的镜像
 #endif
 
 	uint64_t t1 = mach_absolute_time();

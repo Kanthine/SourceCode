@@ -1420,8 +1420,7 @@ static void call_alt_handlers(struct _Unwind_Context *ctx)
  * exception_init 初始化 libobjc 的异常处理系统。
  * 通过调用 map_images().
  */
-void exception_init(void)
-{
+void exception_init(void){
     old_terminate = std::set_terminate(&_objc_terminate);
 }
 
@@ -1429,5 +1428,5 @@ void exception_init(void)
 // __OBJC2__
 #endif
 
-// Define this everywhere even if it isn't used, to simplify fork() safety code
+// 为了简化 fork() 安全代码，在任何地方都要定义它，即使不使用它
 mutex_t AltHandlerDebugLock;

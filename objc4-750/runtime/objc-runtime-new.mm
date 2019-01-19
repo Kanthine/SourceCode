@@ -76,7 +76,7 @@ void lock_init(void)
 
 
 /***********************************************************************
- * Class structure decoding
+ * Class 结构解码
  **********************************************************************/
 
 const uintptr_t objc_debug_class_rw_data_mask = FAST_DATA_MASK;
@@ -4554,26 +4554,24 @@ objc_class::nameForLogging()
 }
 
 
-/***********************************************************************
- * objc_class::demangledName
- * If realize=false, the class must already be realized or future.
- * Locking: If realize=true, runtimeLock must be held by the caller.
- **********************************************************************/
+/* 获取类的符号名称
+ * @param realize 该类是否实现；如果 realize=false，则类必须已经实现或将来实现。
+ * @note Demangle 符号重组  mangle 打乱
+ *
+ */
 mutex_t DemangleCacheLock;
 static NXHashTable *DemangleCache;
-const char *
-objc_class::demangledName(bool realize)
-{
-    // Return previously demangled name if available.
-    if (isRealized()  ||  isFuture()) {
+const char *objc_class::demangledName(bool realize) {
+    
+    if (isRealized()  ||  isFuture()) {// 如果可用则返回以前的符号名称
         if (data()->demangledName) return data()->demangledName;
     }
     
-    // Try demangling the mangled name.
+    // 重组符号名称
     const char *mangled = mangledName();
     char *de = copySwiftV1DemangledName(mangled);
     if (isRealized()  ||  isFuture()) {
-        // Class is already realized or future.
+        // Class 已经实现或是 future Class。
         // Save demangling result in rw data.
         // We may not own runtimeLock so use an atomic operation instead.
         if (! OSAtomicCompareAndSwapPtrBarrier(nil, (void*)(de ?: mangled),
@@ -4584,14 +4582,14 @@ objc_class::demangledName(bool realize)
         return data()->demangledName;
     }
     
-    // Class is not yet realized.
+    // Class 尚未实现
     if (!de) {
-        // Name is not mangled. Return it without caching.
+        // 名称没有重组。返回它而不缓存。
         return mangled;
     }
     
-    // Class is not yet realized and name is mangled. Realize the class.
-    // Only objc_copyClassNamesForImage() should get here.
+    // Class 尚未实现，名称被打乱。实现类。
+    // 只有 objc_copyClassNamesForImage() 应该到达这里。
     
     // fixme lldb's calls to class_getName() can also get here when
     // interrogating the dyld shared cache. (rdar://27258517)
@@ -4605,7 +4603,7 @@ objc_class::demangledName(bool realize)
         return de;
     }
     else {
-        // Save the string to avoid leaks.
+        // 保存字符串以避免泄漏
         char *cached;
         {
             mutex_locker_t lock(DemangleCacheLock);

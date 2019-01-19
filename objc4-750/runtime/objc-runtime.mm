@@ -254,7 +254,7 @@ void removeHeader(header_info *hi)
  */
 void environ_init(void) 
 {
-    if (issetugid()) {
+    if (issetugid()) {//受限模式
         //当 setuid 或 setgid 时，将以静默方式忽略所有环境变量: 这包括 OBJC_HELP 和 OBJC_PRINT_OPTIONS 本身。
         return;
     } 

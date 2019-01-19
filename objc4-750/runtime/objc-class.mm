@@ -27,173 +27,129 @@
 **********************************************************************/
 
 
-/***********************************************************************
- * Lazy method list arrays and method list locking  (2004-10-19)
- * 
- * cls->methodLists may be in one of three forms:
- * 1. nil: The class has no methods.
- * 2. non-nil, with CLS_NO_METHOD_ARRAY set: cls->methodLists points 
- *    to a single method list, which is the class's only method list.
- * 3. non-nil, with CLS_NO_METHOD_ARRAY clear: cls->methodLists points to 
- *    an array of method list pointers. The end of the array's block 
- *    is set to -1. If the actual number of method lists is smaller 
- *    than that, the rest of the array is nil.
- * 
- * Attaching categories and adding and removing classes may change 
- * the form of the class list. In addition, individual method lists 
- * may be reallocated when fixed up.
+/*
+ * 懒加载方法列表数组和方法列表锁定 (2004-10-19)
+ * cls->methodLists 有三种形式:
+ * 1. nil: 这个类没有方法。
+ * 2. 非nil，使用 CLS_NO_METHOD_ARRAY 设置:cls->methodLists指向一个方法列表，这是类唯一的方法列表。
+ * 3. 非nil，清除 CLS_NO_METHOD_ARRAY : cls->methodLists指向一个方法列表指针数组。数组块的末尾被设置为-1。如果方法列表的实际数量小于这个数，那么数组的其余部分就是nil。
  *
- * Classes are initially read as #1 or #2. If a category is attached 
- * or other methods added, the class is changed to #3. Once in form #3, 
- * the class is never downgraded to #1 or #2, even if methods are removed.
- * Classes added with objc_addClass are initially either #1 or #3.
- * 
- * Accessing and manipulating a class's method lists are synchronized, 
- * to prevent races when one thread restructures the list. However, 
- * if the class is not yet in use (i.e. not in class_hash), then the 
- * thread loading the class may access its method lists without locking.
- * 
- * The following functions acquire methodListLock:
- * class_getInstanceMethod
- * class_getClassMethod
- * class_nextMethodList
- * class_addMethods
- * class_removeMethods
- * class_respondsToMethod
- * _class_lookupMethodAndLoadCache
- * lookupMethodInClassAndLoadCache
- * _objc_add_category_flush_caches
  *
- * The following functions don't acquire methodListLock because they 
- * only access method lists during class load and unload:
- * _objc_register_category
- * _resolve_categories_for_class (calls _objc_add_category)
- * add_class_to_loadable_list
- * _objc_addClass
- * _objc_remove_classes_in_image
+ * 附加分类以及添加和删除类可能会更改类列表的形式。此外，单个方法列表可以在修复时重新分配。
  *
- * The following functions use method lists without holding methodListLock.
- * The caller must either hold methodListLock, or be loading the class.
- * _getMethod (called by class_getInstanceMethod, class_getClassMethod, 
- *   and class_respondsToMethod)
- * _findMethodInClass (called by _class_lookupMethodAndLoadCache, 
- *   lookupMethodInClassAndLoadCache, _getMethod)
- * _findMethodInList (called by _findMethodInClass)
- * nextMethodList (called by _findMethodInClass and class_nextMethodList
- * fixupSelectorsInMethodList (called by nextMethodList)
- * _objc_add_category (called by _objc_add_category_flush_caches, 
- *   resolve_categories_for_class and _objc_register_category)
- * _objc_insertMethods (called by class_addMethods and _objc_add_category)
- * _objc_removeMethods (called by class_removeMethods)
- * _objcTweakMethodListPointerForClass (called by _objc_insertMethods)
- * get_base_method_list (called by add_class_to_loadable_list)
- * lookupNamedMethodInMethodList (called by add_class_to_loadable_list)
- ***********************************************************************/
+ * 类最初读作#1或#2。如果附加了分类或添加了其他方法，则该类将更改为#3。一旦进入#3，即使删除了方法，类也不会降级为#1或#2。
+ * 使用 objc_addClass() 添加的类最初是#1或#3。
+ *
+ * 需要同步访问和操作类的方法列表，以防止在一个线程修改列表时发生数据竞争。但是，如果这个类还没有被使用(即不在class_hash中)，那么加载这个类的线程可以不加锁地访问它的方法列表。
+ * 下面的函数获取 methodListLock:
+ *     class_getInstanceMethod() 函数
+ *     class_getClassMethod() 函数
+ *     class_nextMethodList() 函数
+ *     class_addMethods() 函数
+ *     class_removeMethods() 函数
+ *     class_respondsToMethod() 函数
+ *     _class_lookupMethodAndLoadCache() 函数
+ *     lookupMethodInClassAndLoadCache() 函数
+ *     _objc_add_category_flush_caches() 函数
+ *
+ * 下面的函数不获取methodListLock，因为它们只在类加载和卸载期间访问方法列表:
+ *     _objc_register_category() 函数
+ *     _resolve_categories_for_class (calls _objc_add_category) 函数
+ *     add_class_to_loadable_list() 函数
+ *     _objc_addClass() 函数
+ *     _objc_remove_classes_in_image() 函数
+ *
+ * 下面的函数使用方法列表而不保存methodListLock ：调用方必须持有methodListLock或正在加载类。
+ *     _getMethod (called by class_getInstanceMethod, class_getClassMethod, class_respondsToMethod) 函数
+ *     _findMethodInClass (called by _class_lookupMethodAndLoadCache,lookupMethodInClassAndLoadCache, _getMethod)
+ *     _findMethodInList (called by _findMethodInClass)
+ *     nextMethodList (called by _findMethodInClass and class_nextMethodList
+ *     fixupSelectorsInMethodList (called by nextMethodList)
+ *     _objc_add_category (called by _objc_add_category_flush_caches, resolve_categories_for_class and _objc_register_category)
+ *     _objc_insertMethods (called by class_addMethods and _objc_add_category)
+ *     _objc_removeMethods (called by class_removeMethods)
+ *     _objcTweakMethodListPointerForClass (called by _objc_insertMethods)
+ *     get_base_method_list (called by add_class_to_loadable_list)
+ *     lookupNamedMethodInMethodList (called by add_class_to_loadable_list)
+ *
+ *
+ *
+ * 类信息位的线程安全性 （2004-10-19）
+ *
+ * 一些类信息位用于存储可变的运行时状态：信息位在特定时间的修改需要同步，以防止竞争。
+ *
+ * 提供三个线程安全的修改函数:
+ *   cls->setInfo()     // atomically 设置一些位
+ *   cls->clearInfo()   // atomically 清除一些位
+ *   cls->changeInfo()  // atomically 设置一些位、清除一些位
+ * 它们替换多线程情况下的 CLS_SETINFO()。
+ *
+ * 定义了三个修改窗口:
+ *   编译时
+ *   一个线程中的类构造或镜像加载（在+load之前）
+ *   多线程消息传递和方法缓存
+ * 编译时的信息位修改和类构造不需要锁定，因为只有一个线程在操作类。
+ * 消息传递期间的信息位修改需要锁定，因为可能有其他线程同时消息传递或以其他方式操作类。
+ *
+ *
+ * 每个标志的修改窗口:
+ *  CLS_CLASS: 编译时和类加载
+ *  CLS_META: 编译时和类加载
+ *  CLS_INITIALIZED: +initialize
+ *  CLS_POSING: 消息传递
+ *  CLS_MAPPED: 编译时
+ *  CLS_FLUSH_CACHE: 类加载和消息传递
+ *  CLS_GROW_CACHE: 消息传递
+ *  CLS_NEED_BIND: 未使用
+ *  CLS_METHOD_ARRAY: 未使用
+ *  CLS_JAVA_HYBRID: JavaBridge only
+ *  CLS_JAVA_CLASS: JavaBridge only
+ *  CLS_INITIALIZING: 消息传递
+ *  CLS_FROM_BUNDLE: 类加载
+ *  CLS_HAS_CXX_STRUCTORS: 编译时和类加载
+ *  CLS_NO_METHOD_ARRAY: 类加载和消息传递
+ *  CLS_HAS_LOAD_METHOD: 类加载
+ *
+ * CLS_INITIALIZED 和 CLS_INITIALIZING 有额外的线程安全约束来支持线程安全 +initialize。有关详细信息，请参见“类初始化期间的线程安全”。
+ * 在 JavaBridge 调用 objc_addClass() 之后立即设置 CLS_JAVA_HYBRID 和 CLS_JAVA_CLASS 。 JavaBridge不使用原子更新，但修改计为“类构造”，除非其他一些线程通过类列表快速找到类。 这种竞争很小，在行为良好的代码中不太可能发生。
+ *
+ * 在消息传递期间可能被修改的大多数信息位，不会在没有锁的情况下读取。信息位没有通用读锁。
+ *  CLS_INITIALIZED: classInitLock
+ *  CLS_FLUSH_CACHE: cacheUpdateLock
+ *  CLS_GROW_CACHE: cacheUpdateLock
+ *  CLS_NO_METHOD_ARRAY: methodListLock
+ *  CLS_INITIALIZING: classInitLock
+ */
 
-/***********************************************************************
- * Thread-safety of class info bits  (2004-10-19)
- * 
- * Some class info bits are used to store mutable runtime state. 
- * Modifications of the info bits at particular times need to be 
- * synchronized to prevent races.
- * 
- * Three thread-safe modification functions are provided:
- * cls->setInfo()     // atomically sets some bits
- * cls->clearInfo()   // atomically clears some bits
- * cls->changeInfo()  // atomically sets some bits and clears others
- * These replace CLS_SETINFO() for the multithreaded cases.
- * 
- * Three modification windows are defined:
- * - compile time
- * - class construction or image load (before +load) in one thread
- * - multi-threaded messaging and method caches
- * 
- * Info bit modification at compile time and class construction do not 
- *   need to be locked, because only one thread is manipulating the class.
- * Info bit modification during messaging needs to be locked, because 
- *   there may be other threads simultaneously messaging or otherwise 
- *   manipulating the class.
- *   
- * Modification windows for each flag:
- * 
- * CLS_CLASS: compile-time and class load
- * CLS_META: compile-time and class load
- * CLS_INITIALIZED: +initialize
- * CLS_POSING: messaging
- * CLS_MAPPED: compile-time
- * CLS_FLUSH_CACHE: class load and messaging
- * CLS_GROW_CACHE: messaging
- * CLS_NEED_BIND: unused
- * CLS_METHOD_ARRAY: unused
- * CLS_JAVA_HYBRID: JavaBridge only
- * CLS_JAVA_CLASS: JavaBridge only
- * CLS_INITIALIZING: messaging
- * CLS_FROM_BUNDLE: class load
- * CLS_HAS_CXX_STRUCTORS: compile-time and class load
- * CLS_NO_METHOD_ARRAY: class load and messaging
- * CLS_HAS_LOAD_METHOD: class load
- * 
- * CLS_INITIALIZED and CLS_INITIALIZING have additional thread-safety 
- * constraints to support thread-safe +initialize. See "Thread safety 
- * during class initialization" for details.
- * 
- * CLS_JAVA_HYBRID and CLS_JAVA_CLASS are set immediately after JavaBridge 
- * calls objc_addClass(). The JavaBridge does not use an atomic update, 
- * but the modification counts as "class construction" unless some other 
- * thread quickly finds the class via the class list. This race is 
- * small and unlikely in well-behaved code.
- *
- * Most info bits that may be modified during messaging are also never 
- * read without a lock. There is no general read lock for the info bits.
- * CLS_INITIALIZED: classInitLock
- * CLS_FLUSH_CACHE: cacheUpdateLock
- * CLS_GROW_CACHE: cacheUpdateLock
- * CLS_NO_METHOD_ARRAY: methodListLock
- * CLS_INITIALIZING: classInitLock
- ***********************************************************************/
-
-/***********************************************************************
-* Imports.
-**********************************************************************/
+/* Imports.
+ */
 
 #include "objc-private.h"
 #include "objc-abi.h"
 #include <objc/message.h>
 
-/***********************************************************************
-* Information about multi-thread support:
-*
-* Since we do not lock many operations which walk the superclass, method
-* and ivar chains, these chains must remain intact once a class is published
-* by inserting it into the class hashtable.  All modifications must be
-* atomic so that someone walking these chains will always geta valid
-* result.
-***********************************************************************/
+/* 关于多线程支持的信息:
+ * 由于不会锁定很多遍历超类、方法和ivars的操作，因此通过将类插入类hashtable，这些链必须在发布类时保持完整。所有的修改都必须是原子的，这样通过这些链的操作将始终得到有效的结果。
+ */
 
 
 
-/***********************************************************************
-* object_getClass.
-* Locking: None. If you add locking, tell gdb (rdar://7516456).
-**********************************************************************/
-Class object_getClass(id obj)
-{
+/* 获取一个对象所属的类
+ */
+Class object_getClass(id obj){
     if (obj) return obj->getIsa();
     else return Nil;
 }
 
 
-/***********************************************************************
-* object_setClass.
-**********************************************************************/
-Class object_setClass(id obj, Class cls)
-{
+/* 设置一个对象所属的类
+ */
+Class object_setClass(id obj, Class cls){
     if (!obj) return nil;
 
-    // Prevent a deadlock between the weak reference machinery
-    // and the +initialize machinery by ensuring that no 
-    // weakly-referenced object has an un-+initialized isa.
-    // Unresolved future classes are not so protected.
+    /* 防止弱引用机制之间的死锁
+     * 通过确保没有弱引用的对象具有未初始化的isa，防止弱引用机制和 +initialize 机制之间的死锁。 未解决的future classes不受保护。
+     */
     if (!cls->isFuture()  &&  !cls->isInitialized()) {
         _class_initialize(_class_getNonMetaClass(cls, nil));
     }
@@ -202,30 +158,28 @@ Class object_setClass(id obj, Class cls)
 }
 
 
-/***********************************************************************
-* object_isClass.
-**********************************************************************/
-BOOL object_isClass(id obj)
-{
+/* 判断指定的对象是否是一个 Objective—C 类
+ * @note 本质还是判断该实例的 isa 是否指向元类，如果指向元类，则是一个 Objective—C 类，否则不是 Objective—C 类；
+ * @note 如果是 Tagged Pointer 对象，则不是一个类
+ */
+BOOL object_isClass(id obj){
     if (!obj) return NO;
     return obj->isClass();
 }
 
 
-/***********************************************************************
-* object_getClassName.
-**********************************************************************/
-const char *object_getClassName(id obj)
-{
+/* 获取指定实例的类名
+ */
+const char *object_getClassName(id obj){
     return class_getName(obj ? obj->getIsa() : nil);
 }
 
 
-/***********************************************************************
- * object_getMethodImplementation.
- **********************************************************************/
-IMP object_getMethodImplementation(id obj, SEL name)
-{
+/* 获取一个实例中指定名称的方法实现
+ * @param obj 一个实例对象
+ * @param name 指定方法的名称
+ */
+IMP object_getMethodImplementation(id obj, SEL name){
     Class cls = (obj ? obj->getIsa() : nil);
     return class_getMethodImplementation(cls, name);
 }
@@ -243,8 +197,9 @@ IMP object_getMethodImplementation_stret(id obj, SEL name)
 #endif
 
 
-static bool isScanned(ptrdiff_t ivar_offset, const uint8_t *layout) 
-{
+/* 被扫描？
+ */
+static bool isScanned(ptrdiff_t ivar_offset, const uint8_t *layout) {
     if (!layout) return NO;
 
     ptrdiff_t index = 0, ivar_index = ivar_offset / sizeof(void*);
@@ -999,12 +954,9 @@ _class_createInstancesFromZone(Class cls, size_t extraBytes, void *zone,
 }
 
 
-/***********************************************************************
-* inform_duplicate. Complain about duplicate class implementations.
-**********************************************************************/
-void 
-inform_duplicate(const char *name, Class oldCls, Class newCls)
-{
+/*申诉重复的类实现。
+ */
+void inform_duplicate(const char *name, Class oldCls, Class newCls){
 #if TARGET_OS_WIN32
     (DebugDuplicateClasses ? _objc_fatal : _objc_inform)
         ("Class %s is implemented in two different images.", name);
@@ -1022,8 +974,7 @@ inform_duplicate(const char *name, Class oldCls, Class newCls)
 }
 
 
-const char *
-copyPropertyAttributeString(const objc_property_attribute_t *attrs,
+const char * copyPropertyAttributeString(const objc_property_attribute_t *attrs,
                             unsigned int count)
 {
     char *result;

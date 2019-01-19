@@ -101,10 +101,7 @@ extern "C" void dyld_fatal_error(const char* errString) __attribute__((noreturn)
 
 namespace dyld {
     
-    
-    //
-    // state of all environment variables dyld uses
-    //
+    // dyld 使用的所有环境变量的状态
     struct EnvironmentVariables {
         const char* const *            DYLD_FRAMEWORK_PATH;
         const char* const *            DYLD_FALLBACK_FRAMEWORK_PATH;
@@ -113,12 +110,12 @@ namespace dyld {
         const char*    const *            DYLD_ROOT_PATH;
         const char* const *            DYLD_INSERT_LIBRARIES;
         const char* const *            LD_LIBRARY_PATH;            // for unix conformance
-        bool                        DYLD_PRINT_LIBRARIES;
-        bool                        DYLD_PRINT_LIBRARIES_POST_LAUNCH;
+        bool                        DYLD_PRINT_LIBRARIES;//镜像文件加载后打印
+        bool                        DYLD_PRINT_LIBRARIES_POST_LAUNCH;//通过dlopen调用加载镜像时的日志;包含动态库的依赖库。
         bool                        DYLD_BIND_AT_LAUNCH;
-        bool                        DYLD_PRINT_STATISTICS;
-        bool                        DYLD_PRINT_OPTS;
-        bool                        DYLD_PRINT_ENV;
+        bool                        DYLD_PRINT_STATISTICS;//如果设置该环境变量为 YES，则打印启动时间
+        bool                        DYLD_PRINT_OPTS;//如果设置该环境变量为 YES，则打印参数
+        bool                        DYLD_PRINT_ENV;//如果设置该环境变量为 YES，则打印环境变量
         bool                        DYLD_DISABLE_DOFS;
         //    DYLD_IMAGE_SUFFIX                ==> gLinkContext.imageSuffix
         //    DYLD_PRINT_OPTS                    ==> gLinkContext.verboseOpts
@@ -562,14 +559,14 @@ namespace dyld {
         gRunInitializersOldWay = true;
     }
 #endif
-    
+    //将 image 添加到全局 sAllImages 中
     static void addImage(ImageLoader* image)
     {
-        // add to master list
+        // 添加到主列表
         sAllImages.push_back(image);
         
         if ( sEnv.DYLD_PRINT_LIBRARIES || (sEnv.DYLD_PRINT_LIBRARIES_POST_LAUNCH && (sMainExecutable!=NULL) && sMainExecutable->isLinked()) ) {
-            dyld::log("dyld: loaded: %s\n", image->getPath());
+            dyld::log("dyld: loaded: %s\n", image->getPath());//输出当前 image 的 path
         }
         
 #if OLD_GDB_DYLD_INTERFACE
@@ -578,9 +575,9 @@ namespace dyld {
 #endif
     }
     
-    void removeImage(ImageLoader* image)
-    {
-        // if in termination list, pull it out and run terminator
+    //将 image 从全局 sAllImages 中移除
+    void removeImage(ImageLoader* image){
+        // 如果在 termination 列表中，则将其取出并终止程序
         for (std::vector<ImageLoader*>::iterator it=sImageFilesNeedingTermination.begin(); it != sImageFilesNeedingTermination.end(); it++) {
             if ( *it == image ) {
                 sImageFilesNeedingTermination.erase(it);
@@ -690,30 +687,27 @@ namespace dyld {
      */
     void initializeMainExecutable(){
         
-        // record that we've reached this step
+        // 记录我们已经达到了这一步
         gLinkContext.startedInitializingMainExecutable = true;
         
 #if __i386__
-        // make all __IMPORT segments in the shared cache read-only
-        // before executing any code
+        // 在执行任何代码之前，将共享缓存中的所有 __IMPORT 段设置为只读
         makeSharedCacheImportSegmentsWritable(false);
 #endif
         
-        // run initialzers for any inserted dylibs
+        //先调用动态库的初始化方法，后调用主App的初始化方法
         const int rootCount = sImageRoots.size();
         if ( rootCount > 1 ) {
             for(int i=1; i < rootCount; ++i)
                 sImageRoots[i]->runInitializers(gLinkContext);
         }
-        
-        // run initializers for main executable and everything it brings up
         sMainExecutable->runInitializers(gLinkContext);
         
-        // register atexit() handler to run terminators in all loaded images when this process exits
+        // 注册 atexit()处理程序，以便在此进程退出时,在所有已加载的镜像中终止
         if ( gLibSystemHelpers != NULL )
             (*gLibSystemHelpers->cxa_atexit)(&runTerminators, NULL, NULL);
         
-        // dump info if requested
+        // 如果请求 dump 信息
         if ( sEnv.DYLD_PRINT_STATISTICS )
             ImageLoaderMachO::printStatistics(sAllImages.size());
     }
@@ -983,17 +977,16 @@ namespace dyld {
     }
     
     
-    //
-    // For security, setuid programs ignore DYLD_* environment variables.
-    // Additionally, the DYLD_* enviroment variables are removed
-    // from the environment, so that any child processes don't see them.
-    //
+    /* 设置uid 或 gid 受限
+     * 为了安全，setuid 程序忽略DYLD_ *环境变量。
+     * 此外，从环境中删除 DYLD_* environment 变量，以便任何子进程都看不到它们。
+     */
     static void pruneEnvironmentVariables(const char* envp[], const char*** applep)
     {
-        // setuit binaries don't trigger a cache rebuild
+        // setuit 二进制文件不会触发缓存重建
         gSharedCacheDontNotify = true;
         
-        // delete all DYLD_* and LD_LIBRARY_PATH environment variables
+        // 删除所有 DYLD_* 和 LD_LIBRARY_PATH 环境变量
         int removedCount = 0;
         const char** d = envp;
         for(const char** s = envp; *s != NULL; s++) {
@@ -1006,7 +999,7 @@ namespace dyld {
         }
         *d++ = NULL;
         
-        // slide apple parameters
+        // 移动 apple 参数
         if ( removedCount > 0 ) {
             *applep = d;
             do {
@@ -1014,13 +1007,15 @@ namespace dyld {
             } while ( *d++ != NULL );
         }
         
-        // disable framework and library fallback paths for setuid binaries rdar://problem/4589305
+        // 对于setuid二进制文件，禁用框架和库的回退路径 rdar://problem/4589305
         sEnv.DYLD_FALLBACK_FRAMEWORK_PATH = NULL;
         sEnv.DYLD_FALLBACK_LIBRARY_PATH = NULL;
     }
     
     
-    //检查设置环境变量
+    /* 配置设置环境变量
+     * 调用该函数根据环境变量设置相应的值，
+     */
     static void checkEnvironmentVariables(const char* envp[], bool ignoreEnviron)
     {
         const char* home = NULL;
@@ -1068,9 +1063,8 @@ namespace dyld {
         }
     }
     
-    
-    static void getHostInfo()
-    {
+    //获取当前运行架构的信息
+    static void getHostInfo(){
 #if 1
         struct host_basic_info info;
         mach_msg_type_number_t count = HOST_BASIC_INFO_COUNT;
@@ -1092,8 +1086,8 @@ namespace dyld {
 #endif
     }
     
-    static void checkSharedRegionDisable()
-    {
+    //检查共享缓存是否开启：在 iOS 中必须开启
+    static void checkSharedRegionDisable(){
 #if __ppc__ || __i386__
         // if main executable has segments that overlap the shared region,
         // then disable using the shared region
@@ -1428,16 +1422,15 @@ namespace dyld {
     
     
     
-    //
-    // This is used to validate if a non-fat (aka thin or raw) mach-o file can be used
-    // on the current processor. //
-    bool isCompatibleMachO(const uint8_t* firstPage)
-    {
+    /* 判断文件的架构是否和当前架构兼容
+     * 如果满足下列任何一个条件，则视为兼容:
+     *   1) mach_header subtype 在当前处理器的兼容子类型列表中
+     *   2) mach_header subtype 与当前处理器 subtype 相同
+     *   3) mach_header subtype 可以在所有处理器运行
+     */
+    bool isCompatibleMachO(const uint8_t* firstPage){
 #if CPU_SUBTYPES_SUPPORTED
-        // It is deemed compatible if any of the following are true:
-        //  1) mach_header subtype is in list of compatible subtypes for running processor
-        //  2) mach_header subtype is same as running processor subtype
-        //  3) mach_header subtype runs on all processor variants
+
         const mach_header* mh = (mach_header*)firstPage;
         if ( mh->magic == sMainExecutableMachHeader->magic ) {
             if ( mh->cputype == sMainExecutableMachHeader->cputype ) {
@@ -1488,18 +1481,19 @@ namespace dyld {
     
     
     
-    
-    // The kernel maps in main executable before dyld gets control.  We need to
-    // make an ImageLoader* for the already mapped in main executable.
+    /* 加载可执行文件并生成一个 ImageLoader 实例对象
+     * 在 dyld 获得控制权之前，内核映射在主程序中。需要为已经映射的主程序生成一个ImageLoader实例对象。
+     */
     static ImageLoader* instantiateFromLoadedImage(const struct mach_header* mh, uintptr_t slide, const char* path)
     {
         // try mach-o loader
-        if ( isCompatibleMachO((const uint8_t*)mh) ) {
+        if ( isCompatibleMachO((const uint8_t*)mh) ) {//判断文件的架构是否和当前架构兼容
             ImageLoader* image = new ImageLoaderMachO(mh, slide, path, gLinkContext);
-            addImage(image);
+            addImage(image);//将 image 添加到全局 sAllImages 中
             return image;
         }
         
+        //如果不兼容，抛出错误:主程序文件格式未知
         throw "main executable not a known format";
     }
     
@@ -2111,10 +2105,9 @@ namespace dyld {
     }
     
     //检查共享缓存是否映射到了共享区域
-    static void mapSharedCache()
-    {
+    static void mapSharedCache(){
         uint64_t cacheBaseAddress;
-        // quick check if a cache is alreay mapped into shared region
+        // 快速检查缓存是否已经映射到共享区域
         if ( _shared_region_check_np(&cacheBaseAddress) == 0 ) {
             sSharedCache = (dyld_cache_header*)cacheBaseAddress;
             // if we don't understand the currently mapped shared cache, then ignore
@@ -2125,13 +2118,12 @@ namespace dyld {
             }
         }
         else {
-            // <rdar://problem/5925940> Safe Boot should disable dyld shared cache
-            // if we are in safe-boot mode and the cache was not made during this boot cycle,
-            // delete the cache file and let it be regenerated
+            // <rdar://problem/5925940> 安全引导应该禁用dyld共享缓存
+            //如果我们处于安全启动模式，并且在此启动周期中缓存没有生成，删除缓存文件并让它重新生成
             uint32_t    safeBootValue = 0;
             size_t        safeBootValueSize = sizeof(safeBootValue);
             if ( (sysctlbyname("kern.safeboot", &safeBootValue, &safeBootValueSize, NULL, 0) == 0) && (safeBootValue != 0) ) {
-                // user booted machine in safe-boot mode
+                // 用户引导的机器处于安全引导模式
                 struct stat dyldCacheStatInfo;
                 if ( ::stat(DYLD_SHARED_CACHE_DIR DYLD_SHARED_CACHE_BASE_NAME ARCH_NAME, &dyldCacheStatInfo) == 0 ) {
                     struct timeval bootTimeValue;
@@ -2147,8 +2139,8 @@ namespace dyld {
                     }
                 }
             }
-            // map in shared cache to shared region
-            int fd = openSharedCacheFile();
+            // 在共享缓存中映射到共享区域
+            int fd = openSharedCacheFile();//打开共享缓存文件
             if ( fd != -1 ) {
                 uint8_t firstPage[4096];
                 if ( ::read(fd, firstPage, 4096) == 4096 ) {
@@ -2156,7 +2148,7 @@ namespace dyld {
                     if ( strcmp(header->magic, ARCH_CACHE_MAGIC) == 0 ) {
                         const shared_file_mapping_np* mappings = (shared_file_mapping_np*)&firstPage[header->mappingOffset];
                         const shared_file_mapping_np* const end = &mappings[header->mappingCount];
-                        // validate that the cache file has not been truncated
+                        // 验证缓存文件没有被截断
                         bool goodCache = false;
                         struct stat stat_buf;
                         if ( fstat(fd, &stat_buf) == 0 ) {
@@ -2171,7 +2163,7 @@ namespace dyld {
                         if ( goodCache ) {
                             const shared_file_mapping_np* mappings = (shared_file_mapping_np*)&firstPage[header->mappingOffset];
                             if (_shared_region_map_np(fd, header->mappingCount, mappings) == 0) {
-                                // sucessfully mapped cache into shared region
+                                // 成功地将缓存映射到共享区域
                                 sSharedCache = (dyld_cache_header*)mappings[0].sfm_address;
                             }
                         }
@@ -2622,9 +2614,8 @@ namespace dyld {
         return last;
     }
     
-#pragma mark - 1、设置上下文信息
-    static void setContext(const struct mach_header* mainExecutableMH, int argc, const char* argv[], const char* envp[], const char* apple[])
-    {
+    //设置上下文信息
+    static void setContext(const struct mach_header* mainExecutableMH, int argc, const char* argv[], const char* envp[], const char* apple[]){
         gLinkContext.loadLibrary            = &libraryLocator;
         gLinkContext.terminationRecorder    = &terminationRecorder;
         gLinkContext.flatExportFinder        = &flatFindExportedSymbol;
@@ -2813,7 +2804,14 @@ namespace dyld {
     }
     
     /* 一个程序从 dyldStartup.s 文件开始执行，其中用汇编实现的 __dyld_start 方法里面调用了 dyldbootstrap::start() 方法；
-     * 然后调用了 dyld 的 _main() 函数；
+     * 在  dyldbootstrap::start() 函数的末尾调用了 dyld 的 _main() 函数；
+     *
+     * @param mainExecutableMH  一个 App 的 Mach-O 头文件，有了它，相当于知道了 App 的所有的内容
+     * @param mainExecutableSlide 主程序基地址偏移量
+     * @param argc   环境变量的数组的元素数量
+     * @param argv[] 环境变量的数组
+     * @param envp[]
+     * @param apple[]
      * @return 返回__dyld_start 跳转到的目标程序中的 main()的地址
      */
     uintptr_t _main(const struct mach_header* mainExecutableMH, uintptr_t mainExecutableSlide, int argc, const char* argv[], const char* envp[], const char* apple[]){
@@ -2822,13 +2820,13 @@ namespace dyld {
         
         //获取可执行文件的路径
         sExecPath = apple[0];
-        bool ignoreEnvironmentVariables = false;
+        bool ignoreEnvironmentVariables = false;//忽视环境变量
 #if __i386__
         if ( isRosetta() ) {
             // under Rosetta (x86 side)
-            // When a 32-bit ppc program is run under emulation on an Intel processor,
-            // we want any i386 dylibs (e.g. any used by Rosetta) to not load in the shared region
-            // because the shared region is being used by ppc dylibs
+            
+            /* 当在 Intel 处理器上的模拟运行32位ppc程序时，我们希望任何 i386 dylib（例如Rosetta使用的任何一个）都不会加载到共享区域，因为ppc dylibs正在使用共享区域
+             */
             gLinkContext.sharedRegionMode = ImageLoader::kDontUseSharedRegion;
             ignoreEnvironmentVariables = true;
         }
@@ -2851,6 +2849,7 @@ namespace dyld {
         sMainExecutableMachHeader = mainExecutableMH;
         sMainExecutableIsSetuid = issetugid();
         if ( sMainExecutableIsSetuid )
+            //设置uid 或 gid 受限
             pruneEnvironmentVariables(envp, &apple);
         else
             checkEnvironmentVariables(envp, ignoreEnvironmentVariables);//检查设置环境变量
@@ -2881,6 +2880,7 @@ namespace dyld {
 #endif
             //加载所有 DYLD_INSERT_LIBRARIES 指定的库
             if    ( sEnv.DYLD_INSERT_LIBRARIES != NULL ) {
+                //遍历DYLD_INSERT_LIBRARIES环境变量
                 for (const char* const* lib = sEnv.DYLD_INSERT_LIBRARIES; *lib != NULL; ++lib)
                     loadInsertedDylib(*lib);
             }

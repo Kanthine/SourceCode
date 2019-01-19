@@ -20,12 +20,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * C runtime startup for i386 and ppc interface to the dynamic linker.
- * This is the same as the entry point in crt0.o with the addition of the
- * address of the mach header passed as the an extra first argument.
+/* C 运行时启动i386和ppc接口的动态链接器。这与 crt0.o 中的入口点相同，并添加了 mach 头的地址作为额外第一个参数传递。
  *
- * Kernel sets up stack frame to look like:
+ * 内核设置堆栈帧如下:
  *
  *	| STRING AREA |
  *	+-------------+
@@ -57,10 +54,12 @@
  *	+-------------+
  *	|     argc    |
  *	+-------------+
- * sp->	|      mh     | address of where the a.out's file offset 0 is in memory
+ * sp->	|      mh     | a.out 文件偏移量 0 在内存中的地址
  *	+-------------+
  *
  *	Where arg[i] and env[i] point into the STRING AREA
+ *
+ *  从下述汇编代码看出 __dyld_start() 内部调用函数 dyldbootstrap::start(app_mh, argc, argv, slide, dyld_mh, &startGlue)
  */
 
 	.globl __dyld_start
@@ -89,11 +88,11 @@ _dyld_func_lookup:
 	.align	4, 0x90
 	.globl __dyld_start
 __dyld_start:
-	pushl	$0		# push a zero for debugger end of frames marker
-	movl	%esp,%ebp	# pointer to base of kernel frame
-	andl    $-16,%esp       # force SSE alignment
+	pushl	$0		# 在帧标记的调试器端 push 0
+	movl	%esp,%ebp	# 指向基于内核帧的指针  （ %rsp 栈指针寄存器，指向栈顶）
+	andl    $-16,%esp       # 强制SSE对齐
 	
-	# call dyldbootstrap::start(app_mh, argc, argv, slide)
+	# 调用函数 dyldbootstrap::start(app_mh, argc, argv, slide)
 	call    L__dyld_start_picbase
 L__dyld_start_picbase:	
 	popl	%ebx		# set %ebx to runtime value of picbase
@@ -108,12 +107,11 @@ L__dyld_start_picbase:
 	pushl   %ebx		# param1 = mh
 	call	__ZN13dyldbootstrap5startEPK11mach_headeriPPKcl	
 
-    	# clean up stack and jump to result
-	movl	%ebp,%esp	# restore the unaligned stack pointer
-	addl	$8,%esp		# remove the mh argument, and debugger end
-				#  frame marker
-	movl	$0,%ebp		# restore ebp back to zero
-	jmp	*%eax		# jump to the entry point
+    	# 清理堆栈并跳转到结果
+	movl	%ebp,%esp	# 还原未对齐的堆栈指针
+	addl	$8,%esp		# 移除 mh 参数，调试器结束帧标记
+	movl	$0,%ebp		# 将 ebp 恢复为零
+	jmp	*%eax		# 跳到入口点
 
 
 	.globl dyld_stub_binding_helper
@@ -146,24 +144,24 @@ _dyld_func_lookup:
 	.align 2,0x90
 	.globl __dyld_start
 __dyld_start:
-	pushq	$0		# push a zero for debugger end of frames marker
-	movq	%rsp,%rbp	# pointer to base of kernel frame
-	andq    $-16,%rsp       # force SSE alignment
+	pushq	$0		# 在帧标记的调试器端 push 0
+	movq	%rsp,%rbp	# 指向基于内核帧的指针  （ %rsp 栈指针寄存器，指向栈顶）
+	andq    $-16,%rsp       # 强制SSE对齐
 	
-	# call dyldbootstrap::start(app_mh, argc, argv, slide)
-	movq	8(%rbp),%rdi	# param1 = mh into %rdi
-	movl	16(%rbp),%esi	# param2 = argc into %esi
-	leaq	24(%rbp),%rdx	# param3 = &argv[0] into %rdx
+	# 调用函数 dyldbootstrap::start(app_mh, argc, argv, slide)
+	movq	8(%rbp),%rdi	# param1 = mh into %rdi （ %rdi 对应第1个函数参数）
+	movl	16(%rbp),%esi	# param2 = argc into %esi （ %esi 对应第2个函数参数）
+	leaq	24(%rbp),%rdx	# param3 = &argv[0] into %rdx （ %rdx 对应第3个函数参数）
 	movq	__dyld_start_static(%rip), %r8
 	leaq	__dyld_start(%rip), %rcx
-	subq	 %r8, %rcx	# param4 = slide into %rcx
+	subq	 %r8, %rcx	# param4 = slide into %rcx （ %rdx 对应第4个函数参数）
 	call	__ZN13dyldbootstrap5startEPK11mach_headeriPPKcl	
 
-    	# clean up stack and jump to result
-	movq	%rbp,%rsp	# restore the unaligned stack pointer
-	addq	$16,%rsp	# remove the mh argument, and debugger end frame marker
-	movq	$0,%rbp		# restore ebp back to zero
-	jmp	*%rax		# jump to the entry point
+    	# 清理堆栈并跳转到结果
+	movq	%rbp,%rsp	# 还原未对齐的堆栈指针
+	addq	$16,%rsp	# 移除 mh 参数，调试器结束帧标记
+	movq	$0,%rbp		# 将 ebp 恢复为零
+	jmp	*%rax		# 跳到入口点 （ %rax 作为函数返回值使用）
 	
 #endif /* __x86_64__ */
 
@@ -235,10 +233,8 @@ L_end:
 #endif /* __ppc__ */
 
 
-/*
- * dyld calls this function to terminate a process.
- * It has a label so that CrashReporter can distinguish this
- * termination from a random crash.  rdar://problem/4764143
+/* dyld 调用此函数来终止进程。
+ * 它有一个标签，用于 CrashReporter 区分 此种终止 与 随机崩溃。 rdar://problem/4764143
  */
 	.text
 	.align 2

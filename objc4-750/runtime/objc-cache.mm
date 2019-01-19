@@ -32,25 +32,17 @@
 
 
 /***********************************************************************
- * Method cache locking (GrP 2001-1-14)
+ * 方法缓存锁 (GrP 2001-1-14)
  *
- * For speed, objc_msgSend does not acquire any locks when it reads 
- * method caches. Instead, all cache changes are performed so that any 
- * objc_msgSend running concurrently with the cache mutator will not 
- * crash or hang or get an incorrect result from the cache. 
+ * 为了运行速度，objc_msgSend() 函数在读取方法缓存时不会获取任何锁。
+ * 相反，执行所有缓存更改，以便任何与 cache mutator 并发运行的 objc_msgSend() 都不会崩溃、挂起或从缓存中获得不正确的结果。
  *
- * When cache memory becomes unused (e.g. the old cache after cache 
- * expansion), it is not immediately freed, because a concurrent 
- * objc_msgSend could still be using it. Instead, the memory is 
- * disconnected from the data structures and placed on a garbage list. 
- * The memory is now only accessible to instances of objc_msgSend that 
- * were running when the memory was disconnected; any further calls to 
- * objc_msgSend will not see the garbage memory because the other data 
- * structures don't point to it anymore. The collecting_in_critical
- * function checks the PC of all threads and returns FALSE when all threads 
- * are found to be outside objc_msgSend. This means any call to objc_msgSend 
- * that could have had access to the garbage has finished or moved past the 
- * cache lookup stage, so it is safe to free the memory.
+ * 当缓存内存未使用时(例如，缓存扩展后的旧缓存)，它不会立即被释放，因为并发的 objc_msgSend()可能仍在使用它。相反，内存与数据结构断开连接，并放在一个 garbage 列表中。
+ *
+ * 内存现在只能访问在内存断开时正在运行的objc_msgSend实例;对objc_msgSend的任何进一步调用都不会看到 garbage 内存，因为其他数据结构不再指向它。collecting_in_critical函数检查所有线程的PC，当发现所有线程都在objc_msgSend之外时，返回FALSE。这意味着对objc_msgSend的任何可能访问垃圾的调用都已经完成，或者已经移过了缓存查找阶段，因此释放内存是安全的。
+ * 现在只能在内存断开时运行的objc_msgSend实例访问内存; 对objc_msgSend的任何进一步调用都不会看到垃圾内存，因为其他数据结构不再指向它。 gather_in_critical函数检查所有线程的PC，并在发现所有线程都在objc_msgSend之外时返回FALSE。 这意味着对可能已经访问垃圾的objc_msgSend的任何调用已经完成或移过缓存查找阶段，因此释放内存是安全的。
+ *
+ * The memory is now only accessible to instances of objc_msgSend that were running when the memory was disconnected; any further calls to objc_msgSend will not see the garbage memory because the other data  structures don't point to it anymore. The collecting_in_critical function checks the PC of all threads and returns FALSE when all threads are found to be outside objc_msgSend. This means any call to objc_msgSend that could have had access to the garbage has finished or moved past the  cache lookup stage, so it is safe to free the memory.
  *
  * All functions that modify cache data or structures must acquire the 
  * cacheUpdateLock to prevent interference from concurrent modifications.
@@ -98,15 +90,13 @@ static int _collecting_in_critical(void);
 static void _garbage_make_room(void);
 
 
-/***********************************************************************
-* Cache statistics for OBJC_PRINT_CACHE_SETUP
-**********************************************************************/
+/* OBJC_PRINT_CACHE_SETUP 的缓存统计
+ */
 static unsigned int cache_counts[16];
 static size_t cache_allocations;
 static size_t cache_collections;
 
-static void recordNewCache(mask_t capacity)
-{
+static void recordNewCache(mask_t capacity){
     size_t bucket = log2u(capacity);
     if (bucket < countof(cache_counts)) {
         cache_counts[bucket]++;
@@ -114,18 +104,16 @@ static void recordNewCache(mask_t capacity)
     cache_allocations++;
 }
 
-static void recordDeadCache(mask_t capacity)
-{
+static void recordDeadCache(mask_t capacity){
     size_t bucket = log2u(capacity);
     if (bucket < countof(cache_counts)) {
         cache_counts[bucket]--;
     }
 }
 
-/***********************************************************************
-* Pointers used by compiled class objects
-* These use asm to avoid conflicts with the compiler's internal declarations
-**********************************************************************/
+/* 编译类对象使用的指针
+ * 它们使用 asm 来避免与编译器的内部声明冲突
+ */
 
 // EMPTY_BYTES includes space for a cache end marker bucket.
 // This end marker doesn't actually have the wrap-around pointer 
@@ -153,7 +141,7 @@ asm("\n .section __TEXT,__const"
 
 
 #if __arm__  ||  __x86_64__  ||  __i386__
-// objc_msgSend has few registers available.
+// objc_msgSend() 可用的寄存器很少。
 // Cache scan increments and wraps at special end-marking bucket.
 #define CACHE_END_MARKER 1
 static inline mask_t cache_next(mask_t i, mask_t mask) {
@@ -161,7 +149,7 @@ static inline mask_t cache_next(mask_t i, mask_t mask) {
 }
 
 #elif __arm64__
-// objc_msgSend has lots of registers available.
+// objc_msgSend() 有很多可用的寄存器。
 // Cache scan decrements. No end marker needed.
 #define CACHE_END_MARKER 0
 static inline mask_t cache_next(mask_t i, mask_t mask) {

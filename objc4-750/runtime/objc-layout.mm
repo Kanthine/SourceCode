@@ -27,22 +27,17 @@
 #include "objc-private.h"
 
 /**********************************************************************
-* Object Layouts.
+* 对象的布局。
 *
-* Layouts are used by the garbage collector to identify references from
-* the object to other objects.
-* 
-* Layout information is in the form of a '\0' terminated byte string. 
-* Each byte contains a word skip count in the high nibble and a
-* consecutive references count in the low nibble. Counts that exceed 15 are
-* continued in the succeeding byte with a zero in the opposite nibble. 
-* Objects that should be scanned conservatively will have a NULL layout.
-* Objects that have no references have a empty byte string.
+ * garbage 使用布局来标识从对象到其他对象的引用。
+ * 布局信息采用'\0'终止字节字符串的形式。
+ * 每个字节在高字节数中包含单词跳过计数，在低字节数中包含连续引用计数。超过15的计数在后续字节中继续，相反的字节中为0。
+ * 应该保守地扫描的对象将具有空布局。
+ * 没有引用的对象具有空字节字符串。
 *
-* Example;
-* 
-*   For a class with pointers at offsets 4,12, 16, 32-128
-*   the layout is { 0x11, 0x12, 0x3f, 0x0a, 0x00 } or
+* 例子;
+*
+ * 对于指针偏移量为 4、12、16、32-128 的类，其布局为{0x11、0x12、0x3f、0x0a、0x00} or
 *       skip 1 - 1 reference (4)
 *       skip 1 - 2 references (12, 16)
 *       skip 3 - 15 references (32-88)
@@ -54,7 +49,7 @@
 
 /**********************************************************************
 * compress_layout
-* Allocates and returns a compressed string matching the given layout bitmap.
+* 分配并返回与给定布局位图匹配的压缩字符串。
 **********************************************************************/
 static unsigned char *
 compress_layout(const uint8_t *bits, size_t bitmap_bits, bool weak)

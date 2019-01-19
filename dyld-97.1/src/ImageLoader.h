@@ -153,7 +153,7 @@ public:
         bool            prebinding;
         bool            bindFlat;
         bool            linkingMainExecutable;
-        bool            startedInitializingMainExecutable;
+        bool            startedInitializingMainExecutable;//记录初始化主程序的状态，对应initializeMainExecutable()函数
         bool            verboseOpts;
         bool            verboseEnv;
         bool            verboseMapping;

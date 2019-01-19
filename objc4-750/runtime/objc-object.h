@@ -62,10 +62,11 @@ enum ReturnDisposition : bool {
     
 #endif
     
-    
-    inline bool
-    objc_object::isClass()
-    {
+    /* 判断指定的对象是否是一个 Objective—C 类
+     * @note 本质还是判断该实例的 isa 是否指向元类，如果指向元类，则是一个 Objective—C 类，否则不是 Objective—C 类；
+     * @note 如果是 Tagged Pointer 对象，则不是一个类
+     */
+    inline bool objc_object::isClass(){
         if (isTaggedPointer()) return false;
         return ISA()->isMetaClass();
     }
@@ -73,7 +74,10 @@ enum ReturnDisposition : bool {
     
 #if SUPPORT_TAGGED_POINTERS
     
-    //获取一个对象的 isa 指针
+    /* 获取一个对象的 isa 指针
+     * @note 如果不是 Tagged Pointer 对象，则获取它的 isa
+     * @note 如果是 Tagged Pointer 对象，获取 Tagged Pointer 对象所属的类
+     */
     inline Class objc_object::getIsa(){
         //如果不是 Tagged Pointer zhi指针，则返回 isa 指针
         if (!isTaggedPointer()) return ISA();

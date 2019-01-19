@@ -167,7 +167,7 @@ void ImageLoaderMachO::init()
 #endif
 }
 
-// create image for main executable
+// 为主程序创建镜像
 ImageLoaderMachO::ImageLoaderMachO(const struct mach_header* mh, uintptr_t slide, const char* path, const LinkContext& context)
  : ImageLoader(path)
 {
