@@ -28,12 +28,21 @@
 
 __BEGIN_DECLS
 
+/* 声明的结构
+ *
+ */
 struct _objc_initializing_classes;
 
 extern void _class_initialize(Class cls);
 
+/* 释放指定初始化列表使用的内存。
+ * 列表的任何部分都可以是nil。
+ * 从 _objc_pthread_destroyspecific() 函数调用.
+ */
 extern void _destroyInitializingClassList(struct _objc_initializing_classes *list);
 
+/* 判断当前线程是否正在初始化指定的类
+ */
 extern bool _thisThreadIsInitializingClass(Class cls);
 
 __END_DECLS

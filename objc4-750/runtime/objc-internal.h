@@ -44,10 +44,9 @@
 #include <mach-o/loader.h>
 #include <dispatch/dispatch.h>
 
-
-// Termination reasons in the OS_REASON_OBJC namespace.
-#define OBJC_EXIT_REASON_UNSPECIFIED 1
-#define OBJC_EXIT_REASON_GC_NOT_SUPPORTED 2
+// OS_REASON_OBJC 命名空间中的终止原因。
+#define OBJC_EXIT_REASON_UNSPECIFIED 1 // 未指明的
+#define OBJC_EXIT_REASON_GC_NOT_SUPPORTED 2 // 不支持GC
 
 /* OBJC_MAX_CLASS_SIZE 是使用 objc_initializeClassPair() 和objc_readClassPair() 函数创建的每个类和元类所需的内存大小。
  * Runtime 类结构永远不会超出这个范围。

@@ -87,7 +87,9 @@ const option_t Settings[] = {
 };
 
 
-// objc的 pthread_getspecific 键
+/* 线程存储的键
+ * 在 tls_init() 函数中设置，该函数被 Runtime 的入口函数 _objc_init() 调用
+ */
 static tls_key_t _objc_pthread_key;
 
 // 选择器
@@ -118,14 +120,12 @@ header_info *LastHeader  = 0;  // NULL意味着无效;再计算它
 int HeaderCount = 0;
 
 
-// Set to true on the child side of fork() 
-// if the parent process was multithreaded when fork() was called.
+// 如果在调用 fork() 创建子进程时，父进程是多线程的，则在新建的子进程设置 MultithreadedForkChild 为 true
 bool MultithreadedForkChild = false;
 
 
-/***********************************************************************
-* objc_noop_imp. Used when we need to install a do-nothing method somewhere.
-**********************************************************************/
+/* 当我们需要在某处加载不执行任何代码的方法时使用。
+ */
 id objc_noop_imp(id self, SEL _cmd __unused) {
     return self;
 }
@@ -367,23 +367,18 @@ logReplacedMethod(const char *className, SEL s,
 }
 
 
-/***********************************************************************
-* _objc_fetch_pthread_data
-* Fetch objc's pthread data for this thread.
-* If the data doesn't exist yet and create is NO, return NULL.
-* If the data doesn't exist yet and create is YES, allocate and return it.
-**********************************************************************/
-_objc_pthread_data *_objc_fetch_pthread_data(bool create)
-{
+/* 为这个线程获取objc的线程数据
+*  @param create 当 data 不存在时，是否需要创建一个；
+*         入参为 YES ，创建_objc_pthread_data；入参为 NO，直接返回 NULL
+*/
+_objc_pthread_data *_objc_fetch_pthread_data(bool create){
     _objc_pthread_data *data;
 
-    data = (_objc_pthread_data *)tls_get(_objc_pthread_key);
-    if (!data  &&  create) {
-        data = (_objc_pthread_data *)
-            calloc(1, sizeof(_objc_pthread_data));
-        tls_set(_objc_pthread_key, data);
+    data = (_objc_pthread_data *)tls_get(_objc_pthread_key);//根据键获取线程上存储的数据
+    if (!data  &&  create) {//如果没有存储数据且 create=YES 时，
+        data = (_objc_pthread_data *) calloc(1, sizeof(_objc_pthread_data));//为该块数据分配内存
+        tls_set(_objc_pthread_key, data);//根据键将数据存储到线程
     }
-
     return data;
 }
 
@@ -394,8 +389,8 @@ _objc_pthread_data *_objc_fetch_pthread_data(bool create)
 * arg shouldn't be NULL, but we check anyway.
 **********************************************************************/
 extern void _destroyInitializingClassList(struct _objc_initializing_classes *list);
-void _objc_pthread_destroyspecific(void *arg)
-{
+//一个清理函数，用来在线程释放该线程存储的时候被调用
+void _objc_pthread_destroyspecific(void *arg){
     _objc_pthread_data *data = (_objc_pthread_data *)arg;
     if (data != NULL) {
         _destroyInitializingClassList(data->initializingClasses);
@@ -413,9 +408,10 @@ void _objc_pthread_destroyspecific(void *arg)
     }
 }
 
-
-void tls_init(void)
-{
+/* 初始化线程存储的键
+ * 函数 _objc_pthread_destroyspecific() 是一个清理函数，用来在线程释放该线程存储的时候被调用
+ */
+void tls_init(void){
 #if SUPPORT_DIRECT_THREAD_KEYS
     _objc_pthread_key = TLS_DIRECT_KEY;
     pthread_key_init_np(TLS_DIRECT_KEY, &_objc_pthread_destroyspecific);

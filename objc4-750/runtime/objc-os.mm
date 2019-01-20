@@ -524,7 +524,7 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
          * 如果应用程序有 __DATA ，__objc_fork_ok 段，则禁用 +initialize。
          */
         if (dyld_get_program_sdk_version() < DYLD_MACOSX_VERSION_10_13) {
-            DisableInitializeForkSafety = true;
+            DisableInitializeForkSafety = true;//禁用在fork() 创建子进程后安全检查 +initialize
             if (PrintInitializing) {
                 _objc_inform("INITIALIZE: disabling +initialize fork "
                              "safety enforcement because the app is "
@@ -539,7 +539,7 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
             if (mh->filetype != MH_EXECUTE) continue;
             unsigned long size;
             if (getsectiondata(hi->mhdr(), "__DATA", "__objc_fork_ok", &size)) {
-                DisableInitializeForkSafety = true;
+                DisableInitializeForkSafety = true;//禁用在fork() 创建子进程后安全检查 +initialize
                 if (PrintInitializing) {
                     _objc_inform("INITIALIZE: disabling +initialize fork "
                                  "safety enforcement because the app has "
@@ -736,10 +736,10 @@ static void defineLockOrder()
 // LOCKDEBUG
 #endif
 
-static bool ForkIsMultithreaded;
+static bool ForkIsMultithreaded;//布尔值：YES 表示已创建子进程
 void _objc_atfork_prepare()
 {
-    // Save threaded-ness for the child's use.
+    //如果已经调用 pthread_create() 函数或者 cthread_fork() 函数创建子进程，则返回非 0 值
     ForkIsMultithreaded = pthread_is_threaded_np();
     
     lockdebug_assert_no_locks_locked();
@@ -802,8 +802,10 @@ void _objc_atfork_parent()
 
 void _objc_atfork_child()
 {
-    // Turn on +initialize fork safety enforcement if applicable.
+    //ForkIsMultithreaded ：YES 表示已创建子进程
+    // DisableInitializeForkSafety ： 禁止在fork() 创建子进程后安全检查 +initialize
     if (ForkIsMultithreaded  &&  !DisableInitializeForkSafety) {
+        // 如果在调用 fork() 创建子进程时，父进程是多线程的，则在新建的子进程设置 MultithreadedForkChild 为 true
         MultithreadedForkChild = true;
     }
     
@@ -846,7 +848,7 @@ void _objc_init(void){
     
     // fixme 延迟初始化，直到找到一个使用对象的 Image ?
     environ_init();//环境初始化,读取影响运行时的环境变量; 如果需要，还可以打印环境变量帮助。
-    tls_init();
+    tls_init();//初始化线程存储的键
     static_init();//运行 C++ 静态构造函数
     lock_init();// 锁的初始化
     exception_init();//初始化 libobjc 的异常处理系统

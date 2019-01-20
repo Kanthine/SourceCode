@@ -660,20 +660,13 @@ OBJC_EXPORT const uint8_t * _Nullable
 class_getWeakIvarLayout(Class _Nullable cls)
     OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
-/** 
- * Adds a new method to a class with a given name and implementation.
- * 
- * @param cls The class to which to add a method.
- * @param name A selector that specifies the name of the method being added.
- * @param imp A function which is the implementation of the new method. The function must take at least two arguments—self and _cmd.
- * @param types An array of characters that describe the types of the arguments to the method. 
- * 
- * @return YES if the method was added successfully, otherwise NO 
- *  (for example, the class already contains a method implementation with that name).
- *
- * @note class_addMethod will add an override of a superclass's implementation, 
- *  but will not replace an existing implementation in this class. 
- *  To change an existing implementation, use method_setImplementation.
+/* 向指定类添加新方法
+ * @param cls 要添加方法的类。
+ * @param name 指定要添加方法的选择器 SEL。
+ * @param imp 函数指针，该函数必须具有至少两个参数 self 和 _cmd 。
+ * @param types 描述方法参数类型的字符数组。
+ * @return 如果方法添加成功，则为YES；否则为 NO，如添加该类已实现的方法则失败
+ * @note 该函数将重写父类的方法，但不会替换该类中的现有方法。要更改现有的实现，使用 method_setImplementation() 函数。
  */
 OBJC_EXPORT BOOL
 class_addMethod(Class _Nullable cls, SEL _Nonnull name, IMP _Nonnull imp, 

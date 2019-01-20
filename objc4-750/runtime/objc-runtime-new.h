@@ -1237,12 +1237,12 @@ struct objc_class : objc_object {
         return getMeta()->data()->flags & RW_INITIALIZING;
     }
     
-    void setInitializing() {
+    void setInitializing() {//设置该类的状态为：正在初始化
         assert(!isMetaClass());
-        ISA()->setInfo(RW_INITIALIZING);
+        ISA()->setInfo(RW_INITIALIZING);//正在初始化
     }
     
-    bool isInitialized() {
+    bool isInitialized() {//判断该类的状态为：已完成初始化
         return getMeta()->data()->flags & RW_INITIALIZED;
     }
     
@@ -1272,17 +1272,22 @@ struct objc_class : objc_object {
         return data()->ro->flags & RO_META;
     }
     
-    // NOT identical to this->ISA when this is a metaclass
+    /* 获取该类的元类
+     * @note 当该类就是元类时，只会返回自身，不会返回根元类 NSObject
+     */
     Class getMeta() {
         if (isMetaClass()) return (Class)this;
         else return this->ISA();
     }
     
+    //判断该类是否是根类
     bool isRootClass() {
-        return superclass == nil;
+        return superclass == nil;//根类的 superclass 为 nil
     }
+    
+    //判断该类是否是根元类
     bool isRootMetaclass() {
-        return ISA() == (Class)this;
+        return ISA() == (Class)this;//根元类的 isa 指向它自身
     }
     
     const char *mangledName() {

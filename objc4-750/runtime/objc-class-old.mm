@@ -891,10 +891,8 @@ static Method _class_getMethodNoSuper_nolock(Class cls, SEL sel)
 }
 
 
-/***********************************************************************
-* class_getInstanceMethod.  Return the instance method for the
-* specified class and selector.
-**********************************************************************/
+/* 获取指定类和选择器的实例方法。
+ */
 Method class_getInstanceMethod(Class cls, SEL sel)
 {
     if (!cls  ||  !sel) return nil;

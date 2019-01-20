@@ -149,7 +149,7 @@
 #   define SUPPORT_STRET 1
 #endif
 
-// Define SUPPORT_MESSAGE_LOGGING to enable NSObjCMessageLoggingEnabled
+// 定义 SUPPORT_MESSAGE_LOGGING 以启用 NSObjCMessageLoggingEnabled
 #if !TARGET_OS_OSX
 #   define SUPPORT_MESSAGE_LOGGING 0
 #else

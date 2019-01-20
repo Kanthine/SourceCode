@@ -138,7 +138,7 @@ class TrampolinePointerWrapper {
 #endif
         {
             const auto *mh =
-                dyld_image_header_containing_address((void *)impl.address());
+                dyld_image_header_containing_address((void *)impl.address());//获取包含指定地址的镜像头部
             unsigned long size = 0;
             textSegment = (uintptr_t)
                 getsegmentdata((headerType *)mh, "__TEXT", &size);

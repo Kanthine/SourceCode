@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2007 Apple Inc.  All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,14 +17,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /***********************************************************************
-* objc-os.h
-* OS portability layer.
-**********************************************************************/
+ * objc-os.h
+ * OS portability layer.
+ **********************************************************************/
 
 #ifndef _OBJC_OS_H
 #define _OBJC_OS_H
@@ -52,10 +52,10 @@ static inline size_t word_align(size_t x) {
 
 // Mix-in for classes that must not be copied.
 class nocopy_t {
-  private:
+private:
     nocopy_t(const nocopy_t&) = delete;
     const nocopy_t& operator=(const nocopy_t&) = delete;
-  protected:
+protected:
     constexpr nocopy_t() = default;
     ~nocopy_t() = default;
 };
@@ -107,7 +107,7 @@ class nocopy_t {
 #   include <System/pthread_machdep.h>
 #   include "objc-probes.h"  // generated dtrace probe definitions.
 
-// Some libc functions call objc_msgSend() 
+// Some libc functions call objc_msgSend()
 // so we can't use them without deadlocks.
 void syslog(int, const char *, ...) UNAVAILABLE_ATTRIBUTE;
 void vsyslog(int, const char *, va_list) UNAVAILABLE_ATTRIBUTE;
@@ -120,13 +120,13 @@ void vsyslog(int, const char *, va_list) UNAVAILABLE_ATTRIBUTE;
 #define slowpath(x) (__builtin_expect(bool(x), 0))
 
 
-static ALWAYS_INLINE uintptr_t 
+static ALWAYS_INLINE uintptr_t
 addc(uintptr_t lhs, uintptr_t rhs, uintptr_t carryin, uintptr_t *carryout)
 {
     return __builtin_addcl(lhs, rhs, carryin, carryout);
 }
 
-static ALWAYS_INLINE uintptr_t 
+static ALWAYS_INLINE uintptr_t
 subc(uintptr_t lhs, uintptr_t rhs, uintptr_t carryin, uintptr_t *carryout)
 {
     return __builtin_subcl(lhs, rhs, carryin, carryout);
@@ -143,22 +143,22 @@ subc(uintptr_t lhs, uintptr_t rhs, uintptr_t carryin, uintptr_t *carryout)
 # endif
 
 static ALWAYS_INLINE
-uintptr_t 
+uintptr_t
 LoadExclusive(uintptr_t *src)
 {
     uintptr_t result;
-    asm("ldxr %" p "0, [%x1]" 
-        : "=r" (result) 
+    asm("ldxr %" p "0, [%x1]"
+        : "=r" (result)
         : "r" (src), "m" (*src));
     return result;
 }
 
 static ALWAYS_INLINE
-bool 
+bool
 StoreExclusive(uintptr_t *dst, uintptr_t oldvalue __unused, uintptr_t value)
 {
     uint32_t result;
-    asm("stxr %w0, %" p "2, [%x3]" 
+    asm("stxr %w0, %" p "2, [%x3]"
         : "=&r" (result), "=m" (*dst)
         : "r" (value), "r" (dst));
     return !result;
@@ -166,18 +166,18 @@ StoreExclusive(uintptr_t *dst, uintptr_t oldvalue __unused, uintptr_t value)
 
 
 static ALWAYS_INLINE
-bool 
+bool
 StoreReleaseExclusive(uintptr_t *dst, uintptr_t oldvalue __unused, uintptr_t value)
 {
     uint32_t result;
-    asm("stlxr %w0, %" p "2, [%x3]" 
+    asm("stlxr %w0, %" p "2, [%x3]"
         : "=&r" (result), "=m" (*dst)
         : "r" (value), "r" (dst));
     return !result;
 }
 
 static ALWAYS_INLINE
-void 
+void
 ClearExclusive(uintptr_t *dst)
 {
     // pretend it writes to *dst for instruction ordering purposes
@@ -186,33 +186,33 @@ ClearExclusive(uintptr_t *dst)
 
 #undef p
 
-#elif __arm__  
+#elif __arm__
 
 static ALWAYS_INLINE
-uintptr_t 
+uintptr_t
 LoadExclusive(uintptr_t *src)
 {
     return *src;
 }
 
 static ALWAYS_INLINE
-bool 
+bool
 StoreExclusive(uintptr_t *dst, uintptr_t oldvalue, uintptr_t value)
 {
-    return OSAtomicCompareAndSwapPtr((void *)oldvalue, (void *)value, 
+    return OSAtomicCompareAndSwapPtr((void *)oldvalue, (void *)value,
                                      (void **)dst);
 }
 
 static ALWAYS_INLINE
-bool 
+bool
 StoreReleaseExclusive(uintptr_t *dst, uintptr_t oldvalue, uintptr_t value)
 {
-    return OSAtomicCompareAndSwapPtrBarrier((void *)oldvalue, (void *)value, 
+    return OSAtomicCompareAndSwapPtrBarrier((void *)oldvalue, (void *)value,
                                             (void **)dst);
 }
 
 static ALWAYS_INLINE
-void 
+void
 ClearExclusive(uintptr_t *dst __unused)
 {
 }
@@ -221,14 +221,14 @@ ClearExclusive(uintptr_t *dst __unused)
 #elif __x86_64__  ||  __i386__
 
 static ALWAYS_INLINE
-uintptr_t 
+uintptr_t
 LoadExclusive(uintptr_t *src)
 {
     return *src;
 }
 
 static ALWAYS_INLINE
-bool 
+bool
 StoreExclusive(uintptr_t *dst, uintptr_t oldvalue, uintptr_t value)
 {
     
@@ -236,20 +236,20 @@ StoreExclusive(uintptr_t *dst, uintptr_t oldvalue, uintptr_t value)
 }
 
 static ALWAYS_INLINE
-bool 
+bool
 StoreReleaseExclusive(uintptr_t *dst, uintptr_t oldvalue, uintptr_t value)
 {
     return StoreExclusive(dst, oldvalue, value);
 }
 
 static ALWAYS_INLINE
-void 
+void
 ClearExclusive(uintptr_t *dst __unused)
 {
 }
 
 
-#else 
+#else
 #   error unknown architecture
 #endif
 
@@ -257,18 +257,18 @@ ClearExclusive(uintptr_t *dst __unused)
 #if !TARGET_OS_IPHONE
 #   include <CrashReporterClient.h>
 #else
-    // CrashReporterClient not yet available on iOS
-    __BEGIN_DECLS
-    extern const char *CRSetCrashLogMessage(const char *msg);
-    extern const char *CRGetCrashLogMessage(void);
-    __END_DECLS
+// CrashReporterClient not yet available on iOS
+__BEGIN_DECLS
+extern const char *CRSetCrashLogMessage(const char *msg);
+extern const char *CRGetCrashLogMessage(void);
+__END_DECLS
 #endif
 
 #   if __cplusplus
 #       include <vector>
 #       include <algorithm>
 #       include <functional>
-        using namespace std;
+using namespace std;
 #   endif
 
 #   define PRIVATE_EXTERN __attribute__((visibility("hidden")))
@@ -278,18 +278,18 @@ ClearExclusive(uintptr_t *dst __unused)
 #   define private_extern use_PRIVATE_EXTERN_instead
 
 /* Use this for functions that are intended to be breakpoint hooks.
-   If you do not, the compiler may optimize them away.
-   BREAKPOINT_FUNCTION( void stop_on_error(void) ); */
+ If you do not, the compiler may optimize them away.
+ BREAKPOINT_FUNCTION( void stop_on_error(void) ); */
 #   define BREAKPOINT_FUNCTION(prototype)                             \
-    OBJC_EXTERN __attribute__((noinline, used, visibility("hidden"))) \
-    prototype { asm(""); }
+OBJC_EXTERN __attribute__((noinline, used, visibility("hidden"))) \
+prototype { asm(""); }
 
 #elif TARGET_OS_WIN32
 
-#   define WINVER 0x0501		// target Windows XP and later
-#   define _WIN32_WINNT 0x0501	// target Windows XP and later
+#   define WINVER 0x0501        // target Windows XP and later
+#   define _WIN32_WINNT 0x0501    // target Windows XP and later
 #   define WIN32_LEAN_AND_MEAN
-    // hack: windef.h typedefs BOOL as int
+// hack: windef.h typedefs BOOL as int
 #   define BOOL WINBOOL
 #   include <windows.h>
 #   undef BOOL
@@ -307,7 +307,7 @@ ClearExclusive(uintptr_t *dst __unused)
 #       include <vector>
 #       include <algorithm>
 #       include <functional>
-        using namespace std;
+using namespace std;
 #       define __BEGIN_DECLS extern "C" {
 #       define __END_DECLS   }
 #   else
@@ -320,13 +320,13 @@ ClearExclusive(uintptr_t *dst __unused)
 #   define inline __inline
 
 /* Use this for functions that are intended to be breakpoint hooks.
-   If you do not, the compiler may optimize them away.
-   BREAKPOINT_FUNCTION( void MyBreakpointFunction(void) ); */
+ If you do not, the compiler may optimize them away.
+ BREAKPOINT_FUNCTION( void MyBreakpointFunction(void) ); */
 #   define BREAKPOINT_FUNCTION(prototype) \
-    __declspec(noinline) prototype { __asm { } }
+__declspec(noinline) prototype { __asm { } }
 
 /* stub out dtrace probes */
-#   define OBJC_RUNTIME_OBJC_EXCEPTION_RETHROW() do {} while(0)  
+#   define OBJC_RUNTIME_OBJC_EXCEPTION_RETHROW() do {} while(0)
 #   define OBJC_RUNTIME_OBJC_EXCEPTION_THROW(arg0) do {} while(0)
 
 #else
@@ -337,40 +337,39 @@ ClearExclusive(uintptr_t *dst __unused)
 #include <objc/objc.h>
 #include <objc/objc-api.h>
 
-extern void _objc_fatal(const char *fmt, ...) 
-    __attribute__((noreturn, format (printf, 1, 2)));
-extern void _objc_fatal_with_reason(uint64_t reason, uint64_t flags, 
-                                    const char *fmt, ...) 
-    __attribute__((noreturn, format (printf, 3, 4)));
+extern void _objc_fatal(const char *fmt, ...)
+__attribute__((noreturn, format (printf, 1, 2)));
+extern void _objc_fatal_with_reason(uint64_t reason, uint64_t flags,
+                                    const char *fmt, ...)
+__attribute__((noreturn, format (printf, 3, 4)));
 
 #define INIT_ONCE_PTR(var, create, delete)                              \
-    do {                                                                \
-        if (var) break;                                                 \
-        typeof(var) v = create;                                         \
-        while (!var) {                                                  \
-            if (OSAtomicCompareAndSwapPtrBarrier(0, (void*)v, (void**)&var)){ \
-                goto done;                                              \
-            }                                                           \
-        }                                                               \
-        delete;                                                         \
-    done:;                                                              \
-    } while (0)
+do {                                                                \
+if (var) break;                                                 \
+typeof(var) v = create;                                         \
+while (!var) {                                                  \
+if (OSAtomicCompareAndSwapPtrBarrier(0, (void*)v, (void**)&var)){ \
+goto done;                                              \
+}                                                           \
+}                                                               \
+delete;                                                         \
+done:;                                                              \
+} while (0)
 
 #define INIT_ONCE_32(var, create, delete)                               \
-    do {                                                                \
-        if (var) break;                                                 \
-        typeof(var) v = create;                                         \
-        while (!var) {                                                  \
-            if (OSAtomicCompareAndSwap32Barrier(0, v, (volatile int32_t *)&var)) { \
-                goto done;                                              \
-            }                                                           \
-        }                                                               \
-        delete;                                                         \
-    done:;                                                              \
-    } while (0)
+do {                                                                \
+if (var) break;                                                 \
+typeof(var) v = create;                                         \
+while (!var) {                                                  \
+if (OSAtomicCompareAndSwap32Barrier(0, v, (volatile int32_t *)&var)) { \
+goto done;                                              \
+}                                                           \
+}                                                               \
+delete;                                                         \
+done:;                                                              \
+} while (0)
 
-
-// Thread keys reserved by libc for our use.
+// libc 保留的线程键供我们使用。
 #if defined(__PTK_FRAMEWORK_OBJC_KEY0)
 #   define SUPPORT_DIRECT_THREAD_KEYS 1
 #   define TLS_DIRECT_KEY        ((tls_key_t)__PTK_FRAMEWORK_OBJC_KEY0)
@@ -415,21 +414,21 @@ static __inline size_t malloc_size(const void *p) { return _msize((void*)p); /* 
 
 // OSAtomic
 
-static __inline BOOL OSAtomicCompareAndSwapLong(long oldl, long newl, long volatile *dst) 
-{ 
+static __inline BOOL OSAtomicCompareAndSwapLong(long oldl, long newl, long volatile *dst)
+{
     // fixme barrier is overkill
     long original = InterlockedCompareExchange(dst, newl, oldl);
     return (original == oldl);
 }
 
-static __inline BOOL OSAtomicCompareAndSwapPtrBarrier(void *oldp, void *newp, void * volatile *dst) 
-{ 
+static __inline BOOL OSAtomicCompareAndSwapPtrBarrier(void *oldp, void *newp, void * volatile *dst)
+{
     void *original = InterlockedCompareExchangePointer(dst, newp, oldp);
     return (original == oldp);
 }
 
-static __inline BOOL OSAtomicCompareAndSwap32Barrier(int32_t oldl, int32_t newl, int32_t volatile *dst) 
-{ 
+static __inline BOOL OSAtomicCompareAndSwap32Barrier(int32_t oldl, int32_t newl, int32_t volatile *dst)
+{
     long original = InterlockedCompareExchange((volatile long *)dst, newl, oldl);
     return (original == oldl);
 }
@@ -448,29 +447,29 @@ static __inline int32_t OSAtomicIncrement32Barrier(volatile int32_t *dst)
 // Internal data types
 
 typedef DWORD objc_thread_t;  // thread ID
-static __inline int thread_equal(objc_thread_t t1, objc_thread_t t2) { 
-    return t1 == t2; 
+static __inline int thread_equal(objc_thread_t t1, objc_thread_t t2) {
+    return t1 == t2;
 }
-static __inline objc_thread_t thread_self(void) { 
-    return GetCurrentThreadId(); 
+static __inline objc_thread_t thread_self(void) {
+    return GetCurrentThreadId();
 }
 
 typedef struct {
     DWORD key;
     void (*dtor)(void *);
 } tls_key_t;
-static __inline tls_key_t tls_create(void (*dtor)(void*)) { 
+static __inline tls_key_t tls_create(void (*dtor)(void*)) {
     // fixme need dtor registry for DllMain to call on thread detach
     tls_key_t k;
     k.key = TlsAlloc();
     k.dtor = dtor;
     return k;
 }
-static __inline void *tls_get(tls_key_t k) { 
-    return TlsGetValue(k.key); 
+static __inline void *tls_get(tls_key_t k) {
+    return TlsGetValue(k.key);
 }
-static __inline void tls_set(tls_key_t k, void *value) { 
-    TlsSetValue(k.key, value); 
+static __inline void tls_set(tls_key_t k, void *value) {
+    TlsSetValue(k.key, value);
 }
 
 typedef struct {
@@ -478,24 +477,24 @@ typedef struct {
 } mutex_t;
 #define MUTEX_INITIALIZER {0};
 extern void mutex_init(mutex_t *m);
-static __inline int _mutex_lock_nodebug(mutex_t *m) { 
+static __inline int _mutex_lock_nodebug(mutex_t *m) {
     // fixme error check
     if (!m->lock) {
         mutex_init(m);
     }
-    EnterCriticalSection(m->lock); 
+    EnterCriticalSection(m->lock);
     return 0;
 }
-static __inline bool _mutex_try_lock_nodebug(mutex_t *m) { 
+static __inline bool _mutex_try_lock_nodebug(mutex_t *m) {
     // fixme error check
     if (!m->lock) {
         mutex_init(m);
     }
-    return TryEnterCriticalSection(m->lock); 
+    return TryEnterCriticalSection(m->lock);
 }
-static __inline int _mutex_unlock_nodebug(mutex_t *m) { 
+static __inline int _mutex_unlock_nodebug(mutex_t *m) {
     // fixme error check
-    LeaveCriticalSection(m->lock); 
+    LeaveCriticalSection(m->lock);
     return 0;
 }
 
@@ -512,27 +511,27 @@ typedef struct {
 #define RECURSIVE_MUTEX_INITIALIZER {0};
 #define RECURSIVE_MUTEX_NOT_LOCKED 1
 extern void recursive_mutex_init(recursive_mutex_t *m);
-static __inline int _recursive_mutex_lock_nodebug(recursive_mutex_t *m) { 
+static __inline int _recursive_mutex_lock_nodebug(recursive_mutex_t *m) {
     assert(m->mutex);
     return WaitForSingleObject(m->mutex, INFINITE);
 }
-static __inline bool _recursive_mutex_try_lock_nodebug(recursive_mutex_t *m) { 
+static __inline bool _recursive_mutex_try_lock_nodebug(recursive_mutex_t *m) {
     assert(m->mutex);
     return (WAIT_OBJECT_0 == WaitForSingleObject(m->mutex, 0));
 }
-static __inline int _recursive_mutex_unlock_nodebug(recursive_mutex_t *m) { 
+static __inline int _recursive_mutex_unlock_nodebug(recursive_mutex_t *m) {
     assert(m->mutex);
     return ReleaseMutex(m->mutex) ? 0 : RECURSIVE_MUTEX_NOT_LOCKED;
 }
 
 
 /*
-typedef HANDLE mutex_t;
-static inline void mutex_init(HANDLE *m) { *m = CreateMutex(NULL, FALSE, NULL); }
-static inline void _mutex_lock(mutex_t *m) { WaitForSingleObject(*m, INFINITE); }
-static inline bool mutex_try_lock(mutex_t *m) { return WaitForSingleObject(*m, 0) == WAIT_OBJECT_0; }
-static inline void _mutex_unlock(mutex_t *m) { ReleaseMutex(*m); }
-*/
+ typedef HANDLE mutex_t;
+ static inline void mutex_init(HANDLE *m) { *m = CreateMutex(NULL, FALSE, NULL); }
+ static inline void _mutex_lock(mutex_t *m) { WaitForSingleObject(*m, INFINITE); }
+ static inline bool mutex_try_lock(mutex_t *m) { return WaitForSingleObject(*m, 0) == WAIT_OBJECT_0; }
+ static inline void _mutex_unlock(mutex_t *m) { ReleaseMutex(*m); }
+ */
 
 // based on http://www.cs.wustl.edu/~schmidt/win32-cv-1.html
 // Vista-only CONDITION_VARIABLE would be better
@@ -542,7 +541,7 @@ typedef struct {
     HANDLE waitersDone;  // auto-reset event after everyone gets a broadcast
     CRITICAL_SECTION waitCountLock;  // guards waitCount and didBroadcast
     unsigned int waitCount;
-    int didBroadcast; 
+    int didBroadcast;
 } monitor_t;
 #define MONITOR_INITIALIZER { 0 }
 #define MONITOR_NOT_ENTERED 1
@@ -559,44 +558,44 @@ static inline int _monitor_leave_nodebug(monitor_t *c) {
     if (!ReleaseMutex(c->mutex)) return MONITOR_NOT_ENTERED;
     else return 0;
 }
-static inline int _monitor_wait_nodebug(monitor_t *c) { 
+static inline int _monitor_wait_nodebug(monitor_t *c) {
     int last;
     EnterCriticalSection(&c->waitCountLock);
     c->waitCount++;
     LeaveCriticalSection(&c->waitCountLock);
-
+    
     SignalObjectAndWait(c->mutex, c->waiters, INFINITE, FALSE);
-
+    
     EnterCriticalSection(&c->waitCountLock);
     c->waitCount--;
     last = c->didBroadcast  &&  c->waitCount == 0;
     LeaveCriticalSection(&c->waitCountLock);
-
+    
     if (last) {
         // tell broadcaster that all waiters have awoken
         SignalObjectAndWait(c->waitersDone, c->mutex, INFINITE, FALSE);
     } else {
         WaitForSingleObject(c->mutex, INFINITE);
     }
-
+    
     // fixme error checking
     return 0;
 }
-static inline int monitor_notify(monitor_t *c) { 
+static inline int monitor_notify(monitor_t *c) {
     int haveWaiters;
-
+    
     EnterCriticalSection(&c->waitCountLock);
     haveWaiters = c->waitCount > 0;
     LeaveCriticalSection(&c->waitCountLock);
-
+    
     if (haveWaiters) {
         ReleaseSemaphore(c->waiters, 1, 0);
     }
-
+    
     // fixme error checking
     return 0;
 }
-static inline int monitor_notifyAll(monitor_t *c) { 
+static inline int monitor_notifyAll(monitor_t *c) {
     EnterCriticalSection(&c->waitCountLock);
     if (c->waitCount == 0) {
         LeaveCriticalSection(&c->waitCountLock);
@@ -605,12 +604,12 @@ static inline int monitor_notifyAll(monitor_t *c) {
     c->didBroadcast = 1;
     ReleaseSemaphore(c->waiters, c->waitCount, 0);
     LeaveCriticalSection(&c->waitCountLock);
-
+    
     // fairness: wait for everyone to move from waiters to mutex
     WaitForSingleObject(c->waitersDone, INFINITE);
     // not under waitCountLock, but still under mutex
     c->didBroadcast = 0;
-
+    
     // fixme error checking
     return 0;
 }
@@ -622,7 +621,7 @@ typedef IMAGE_DOS_HEADER headerType;
 OBJC_EXTERN IMAGE_DOS_HEADER __ImageBase;
 #define libobjc_header ((headerType *)&__ImageBase)
 
-// Prototypes
+// 原型
 
 
 #elif TARGET_OS_MAC
@@ -641,43 +640,100 @@ OBJC_EXTERN IMAGE_DOS_HEADER __ImageBase;
 #endif
 
 
-// Compiler compatibility
+// 编译器的兼容性
 
-// OS compatibility
+// 操作系统兼容性
 
 static inline uint64_t nanoseconds() {
     return mach_absolute_time();
 }
 
-// Internal data types
+// 内部数据类型
+
+
+/* pthread_t 的真面目：
+ 
+ typedef __darwin_pthread_t pthread_t;//是一个  __darwin_pthread_t 类型
+ 
+ typedef struct _opaque_pthread_t *__darwin_pthread_t;//是指向_opaque_pthread_t 的结构指针
+ 
+ struct _opaque_pthread_t {
+ long __sig;
+ struct __darwin_pthread_handler_rec  *__cleanup_stack;
+ char __opaque[__PTHREAD_SIZE__];
+ };
+ 
+ //该结构体封装了 pthread 线程的函数入口和参数以及下一个节点
+ struct __darwin_pthread_handler_rec {
+ void (*__routine)(void *);    //函数入口
+ void *__arg;            // 传递的参数列表
+ struct __darwin_pthread_handler_rec *__next;//指向下一个节点
+ };
+ */
 
 typedef pthread_t objc_thread_t;
 
-static __inline int thread_equal(objc_thread_t t1, objc_thread_t t2) { 
-    return pthread_equal(t1, t2); 
+/* 判断指定的两个线程是否相等
+ */
+static __inline int thread_equal(objc_thread_t t1, objc_thread_t t2) {
+    return pthread_equal(t1, t2);//对两个线程的线程标识号进行比较
 }
-static __inline objc_thread_t thread_self(void) { 
-    return pthread_self(); 
+static __inline objc_thread_t thread_self(void) {
+    return pthread_self(); //线程自身的ID
 }
 
+/* 线程中特有的线程存储: 用于线程维护只属于它自己的全局变量！
+ *
+ * 我们知道：一个进程中线程直接除了线程自己的栈和寄存器之外，其他几乎都是共享的；
+ * 如果线程想维护一个只属于线程自己的全局变量怎么办？线程的私有存储解决了这个问题
+ */
+/* pthread_key_t 的真面目：
+ 
+ typedef __darwin_pthread_key_t pthread_key_t;
+ 
+ typedef unsigned long __darwin_pthread_key_t;
+ *
+ * glibc 定义了一个全局数组用于管理键是否已被创建；
+ * 每个键都会对应于数组中一个 pthread_struct_t 结构体，该结构体描述了键是否已正被使用。
+ *  一个进程中最多个通过 pthread_key_create() 函数创建 PTHREAD_KEYS_MAX （1024）个键。
+ */
+typedef pthread_key_t tls_key_t;//一个无符长整型：表示
 
-typedef pthread_key_t tls_key_t;
-
-static inline tls_key_t tls_create(void (*dtor)(void*)) { 
+//创建用于标识进程中线程特定数据的键并返回
+static inline tls_key_t tls_create(void (*dtor)(void*)) {
     tls_key_t k;
-    pthread_key_create(&k, dtor); 
+    
+    /* 调用 pthread_key_create() 来创建该变量:该函数有两个参数
+     * @param1 声明的 pthread_key_t 变量
+     * @param2 是一个清理函数，用来在线程释放该线程存储的时候被调用。
+     *         该函数指针可以设成 NULL，这样系统将调用默认的清理函数.
+     * @return 成功返回 0，其他任何返回值都表示出现了错误
+     */
+    pthread_key_create(&k, dtor); //分配用于标识进程中线程特定数据的键
     return k;
 }
-static inline void *tls_get(tls_key_t k) { 
-    return pthread_getspecific(k); 
+
+//根据指定的键获取存储在线程上的数据
+static inline void *tls_get(tls_key_t k) {
+    return pthread_getspecific(k); //获取调用线程的键绑定，并将该绑定存储在 value 指向的位置中
 }
-static inline void tls_set(tls_key_t k, void *value) { 
-    pthread_setspecific(k, value); 
+
+//根据指定的键，在线程上存储数据
+static inline void tls_set(tls_key_t k, void *value) {
+    /* 当线程中需要存储特殊值的时候，可以调用 pthread_setspcific() 函数：该函数有两个参数
+     * @param1 声明的 pthread_key_t 变量
+     * @param2 void*变量
+     * 这样可以存储任何类型的值
+     */
+    pthread_setspecific(k, value); //为指定线程特定数据键设置线程特定绑定
 }
 
 #if SUPPORT_DIRECT_THREAD_KEYS
 
 #if DEBUG
+/* 判断是否是有效的直接键
+ *
+ */
 static bool is_valid_direct_key(tls_key_t k) {
     return (   k == SYNC_DATA_DIRECT_KEY
             || k == SYNC_COUNT_DIRECT_KEY
@@ -685,28 +741,28 @@ static bool is_valid_direct_key(tls_key_t k) {
 #   if SUPPORT_RETURN_AUTORELEASE
             || k == RETURN_DISPOSITION_KEY
 #   endif
-               );
+            );
 }
 #endif
 
-static inline void *tls_get_direct(tls_key_t k) 
-{ 
+static inline void *tls_get_direct(tls_key_t k)
+{
     assert(is_valid_direct_key(k));
-
+    
     if (_pthread_has_direct_tsd()) {
         return _pthread_getspecific_direct(k);
     } else {
-        return pthread_getspecific(k);
+        return pthread_getspecific(k);//获取调用线程的键绑定，并将该绑定存储在 value 指向的位置中
     }
 }
-static inline void tls_set_direct(tls_key_t k, void *value) 
-{ 
+static inline void tls_set_direct(tls_key_t k, void *value)
+{
     assert(is_valid_direct_key(k));
-
+    
     if (_pthread_has_direct_tsd()) {
         _pthread_setspecific_direct(k, value);
     } else {
-        pthread_setspecific(k, value);
+        pthread_setspecific(k, value);//为指定线程特定数据键设置线程特定绑定
     }
 }
 
@@ -717,13 +773,13 @@ static inline void tls_set_direct(tls_key_t k, void *value)
 static inline pthread_t pthread_self_direct()
 {
     return (pthread_t)
-        _pthread_getspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_SELF);
+    _pthread_getspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_SELF);
 }
 
-static inline mach_port_t mach_thread_self_direct() 
+static inline mach_port_t mach_thread_self_direct()
 {
     return (mach_port_t)(uintptr_t)
-        _pthread_getspecific_direct(_PTHREAD_TSD_SLOT_MACH_THREAD_SELF);
+    _pthread_getspecific_direct(_PTHREAD_TSD_SLOT_MACH_THREAD_SELF);
 }
 
 
@@ -742,7 +798,7 @@ using mutex_t = mutex_tt<LOCKDEBUG>;
 using monitor_t = monitor_tt<LOCKDEBUG>;
 using recursive_mutex_t = recursive_mutex_tt<LOCKDEBUG>;
 
-// Use fork_unsafe_lock to get a lock that isn't 
+// Use fork_unsafe_lock to get a lock that isn't
 // acquired and released around fork().
 // All fork-safe locks are checked in debug builds.
 struct fork_unsafe_lock_t {
@@ -755,75 +811,75 @@ extern const fork_unsafe_lock_t fork_unsafe_lock;
 template <bool Debug>
 class mutex_tt : nocopy_t {
     os_unfair_lock mLock;
- public:
+public:
     constexpr mutex_tt() : mLock(OS_UNFAIR_LOCK_INIT) {
         lockdebug_remember_mutex(this);
     }
-
+    
     constexpr mutex_tt(const fork_unsafe_lock_t unsafe) : mLock(OS_UNFAIR_LOCK_INIT) { }
-
+    
     void lock() {
         lockdebug_mutex_lock(this);
-
+        
         os_unfair_lock_lock_with_options_inline
-            (&mLock, OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION);
+        (&mLock, OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION);
     }
-
+    
     void unlock() {
         lockdebug_mutex_unlock(this);
-
+        
         os_unfair_lock_unlock_inline(&mLock);
     }
-
+    
     void forceReset() {
         lockdebug_mutex_unlock(this);
-
+        
         bzero(&mLock, sizeof(mLock));
         mLock = os_unfair_lock OS_UNFAIR_LOCK_INIT;
     }
-
+    
     void assertLocked() {
         lockdebug_mutex_assert_locked(this);
     }
-
+    
     void assertUnlocked() {
         lockdebug_mutex_assert_unlocked(this);
     }
-
-
+    
+    
     // Address-ordered lock discipline for a pair of locks.
-
+    
     static void lockTwo(mutex_tt *lock1, mutex_tt *lock2) {
         if (lock1 < lock2) {
             lock1->lock();
             lock2->lock();
         } else {
             lock2->lock();
-            if (lock2 != lock1) lock1->lock(); 
+            if (lock2 != lock1) lock1->lock();
         }
     }
-
+    
     static void unlockTwo(mutex_tt *lock1, mutex_tt *lock2) {
         lock1->unlock();
         if (lock2 != lock1) lock2->unlock();
     }
-
+    
     // Scoped lock and unlock
     class locker : nocopy_t {
         mutex_tt& lock;
     public:
-        locker(mutex_tt& newLock) 
-            : lock(newLock) { lock.lock(); }
+        locker(mutex_tt& newLock)
+        : lock(newLock) { lock.lock(); }
         ~locker() { lock.unlock(); }
     };
-
+    
     // Either scoped lock and unlock, or NOP.
     class conditional_locker : nocopy_t {
         mutex_tt& lock;
         bool didLock;
     public:
         conditional_locker(mutex_tt& newLock, bool shouldLock)
-            : lock(newLock), didLock(shouldLock)
+        : lock(newLock), didLock(shouldLock)
         {
             if (shouldLock) lock.lock();
         }
@@ -838,37 +894,37 @@ using conditional_mutex_locker_t = mutex_tt<LOCKDEBUG>::conditional_locker;
 template <bool Debug>
 class recursive_mutex_tt : nocopy_t {
     os_unfair_recursive_lock mLock;
-
-  public:
+    
+public:
     constexpr recursive_mutex_tt() : mLock(OS_UNFAIR_RECURSIVE_LOCK_INIT) {
         lockdebug_remember_recursive_mutex(this);
     }
-
+    
     constexpr recursive_mutex_tt(const fork_unsafe_lock_t unsafe)
-        : mLock(OS_UNFAIR_RECURSIVE_LOCK_INIT)
+    : mLock(OS_UNFAIR_RECURSIVE_LOCK_INIT)
     { }
-
+    
     void lock()
     {
         lockdebug_recursive_mutex_lock(this);
         os_unfair_recursive_lock_lock(&mLock);
     }
-
+    
     void unlock()
     {
         lockdebug_recursive_mutex_unlock(this);
-
+        
         os_unfair_recursive_lock_unlock(&mLock);
     }
-
+    
     void forceReset()
     {
         lockdebug_recursive_mutex_unlock(this);
-
+        
         bzero(&mLock, sizeof(mLock));
         mLock = os_unfair_recursive_lock OS_UNFAIR_RECURSIVE_LOCK_INIT;
     }
-
+    
     bool tryUnlock()
     {
         if (os_unfair_recursive_lock_tryunlock4objc(&mLock)) {
@@ -877,11 +933,11 @@ class recursive_mutex_tt : nocopy_t {
         }
         return false;
     }
-
+    
     void assertLocked() {
         lockdebug_recursive_mutex_assert_locked(this);
     }
-
+    
     void assertUnlocked() {
         lockdebug_recursive_mutex_assert_unlocked(this);
     }
@@ -892,54 +948,54 @@ template <bool Debug>
 class monitor_tt {
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-
-  public:
+    
+public:
     constexpr monitor_tt()
-        : mutex(PTHREAD_MUTEX_INITIALIZER), cond(PTHREAD_COND_INITIALIZER)
+    : mutex(PTHREAD_MUTEX_INITIALIZER), cond(PTHREAD_COND_INITIALIZER)
     {
         lockdebug_remember_monitor(this);
     }
-
-    monitor_tt(const fork_unsafe_lock_t unsafe) 
-        : mutex(PTHREAD_MUTEX_INITIALIZER), cond(PTHREAD_COND_INITIALIZER)
+    
+    monitor_tt(const fork_unsafe_lock_t unsafe)
+    : mutex(PTHREAD_MUTEX_INITIALIZER), cond(PTHREAD_COND_INITIALIZER)
     { }
-
-    void enter() 
+    
+    void enter()
     {
         lockdebug_monitor_enter(this);
-
+        
         int err = pthread_mutex_lock(&mutex);
         if (err) _objc_fatal("pthread_mutex_lock failed (%d)", err);
     }
-
-    void leave() 
+    
+    void leave()
     {
         lockdebug_monitor_leave(this);
-
+        
         int err = pthread_mutex_unlock(&mutex);
         if (err) _objc_fatal("pthread_mutex_unlock failed (%d)", err);
     }
-
-    void wait() 
+    
+    void wait()
     {
         lockdebug_monitor_wait(this);
-
+        
         int err = pthread_cond_wait(&cond, &mutex);
         if (err) _objc_fatal("pthread_cond_wait failed (%d)", err);
     }
-
-    void notify() 
+    
+    void notify()
     {
         int err = pthread_cond_signal(&cond);
-        if (err) _objc_fatal("pthread_cond_signal failed (%d)", err);        
+        if (err) _objc_fatal("pthread_cond_signal failed (%d)", err);
     }
-
-    void notifyAll() 
+    
+    void notifyAll()
     {
-        int err = pthread_cond_broadcast(&cond);
-        if (err) _objc_fatal("pthread_cond_broadcast failed (%d)", err);        
+        int err = pthread_cond_broadcast(&cond);//会根据加入等待队列中的先后顺序依次唤醒他们
+        if (err) _objc_fatal("pthread_cond_broadcast failed (%d)", err);
     }
-
+    
     void forceReset()
     {
         lockdebug_monitor_leave(this);
@@ -949,12 +1005,12 @@ class monitor_tt {
         mutex = pthread_mutex_t PTHREAD_MUTEX_INITIALIZER;
         cond = pthread_cond_t PTHREAD_COND_INITIALIZER;
     }
-
+    
     void assertLocked()
     {
         lockdebug_monitor_assert_locked(this);
     }
-
+    
     void assertUnlocked()
     {
         lockdebug_monitor_assert_unlocked(this);
@@ -1046,7 +1102,7 @@ ustrdupMaybeNil(const uint8_t *str)
 // DYLD_OS_VERSION(mac, ios, tv, watch, bridge)
 // sdkIsOlderThan(mac, ios, tv, watch, bridge)
 // sdkIsAtLeast(mac, ios, tv, watch, bridge)
-// 
+//
 // This version order matches OBJC_AVAILABLE.
 
 #if TARGET_OS_OSX
@@ -1058,7 +1114,7 @@ ustrdupMaybeNil(const uint8_t *str)
 #   define sdkVersion() dyld_get_program_sdk_version()
 
 #elif TARGET_OS_TV
-    // dyld does not currently have distinct constants for tvOS
+// dyld does not currently have distinct constants for tvOS
 #   define DYLD_OS_VERSION(x, i, t, w, b) DYLD_IOS_VERSION_##t
 #   define sdkVersion() dyld_get_program_sdk_version()
 
@@ -1066,13 +1122,13 @@ ustrdupMaybeNil(const uint8_t *str)
 #   if TARGET_OS_WATCH
 #       error bridgeOS 1.0 not supported
 #   endif
-    // fixme don't need bridgeOS versioning yet
+// fixme don't need bridgeOS versioning yet
 #   define DYLD_OS_VERSION(x, i, t, w, b) DYLD_IOS_VERSION_##t
 #   define sdkVersion() dyld_get_program_sdk_bridge_os_version()
 
 #elif TARGET_OS_WATCH
 #   define DYLD_OS_VERSION(x, i, t, w, b) DYLD_WATCHOS_VERSION_##w
-    // watchOS has its own API for compatibility reasons
+// watchOS has its own API for compatibility reasons
 #   define sdkVersion() dyld_get_program_sdk_watch_os_version()
 
 #else
@@ -1081,9 +1137,9 @@ ustrdupMaybeNil(const uint8_t *str)
 
 
 #define sdkIsOlderThan(x, i, t, w, b)                           \
-            (sdkVersion() < DYLD_OS_VERSION(x, i, t, w, b))
+(sdkVersion() < DYLD_OS_VERSION(x, i, t, w, b))
 #define sdkIsAtLeast(x, i, t, w, b)                             \
-            (sdkVersion() >= DYLD_OS_VERSION(x, i, t, w, b))
+(sdkVersion() >= DYLD_OS_VERSION(x, i, t, w, b))
 
 // Allow bare 0 to be used in DYLD_OS_VERSION() and sdkIsOlderThan()
 #define DYLD_MACOSX_VERSION_0 0
@@ -1095,9 +1151,9 @@ ustrdupMaybeNil(const uint8_t *str)
 // Pretty-print a DYLD_*_VERSION_* constant.
 #define SDK_FORMAT "%hu.%hhu.%hhu"
 #define FORMAT_SDK(v) \
-    (unsigned short)(((uint32_t)(v))>>16),  \
-    (unsigned  char)(((uint32_t)(v))>>8),   \
-    (unsigned  char)(((uint32_t)(v))>>0)
+(unsigned short)(((uint32_t)(v))>>16),  \
+(unsigned  char)(((uint32_t)(v))>>8),   \
+(unsigned  char)(((uint32_t)(v))>>0)
 
 // fork() safety requires careful tracking of all locks.
 // Our custom lock types check this in debug builds.
@@ -1109,3 +1165,4 @@ typedef struct os_unfair_lock_s os_unfair_lock UNAVAILABLE_ATTRIBUTE;
 
 
 #endif
+

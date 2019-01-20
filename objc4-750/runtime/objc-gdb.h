@@ -68,7 +68,7 @@ OBJC_EXPORT Class _Nonnull gdb_object_getClass(id _Nullable obj)
 
 #if __OBJC2__
 
-// Maps class name to Class, for in-use classes only. NXStrValueMapPrototype.
+//哈希表：将类名映射到类，仅用于使用中的类
 OBJC_EXPORT NXMapTable * _Nullable gdb_objc_realized_classes
     OBJC_AVAILABLE(10.6, 3.1, 9.0, 1.0, 2.0);
 

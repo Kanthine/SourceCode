@@ -484,18 +484,12 @@ static Cache _cache_expand(Class cls)
 }
 
 
-/***********************************************************************
-* _cache_fill.  Add the specified method to the specified class' cache.
-* Returns NO if the cache entry wasn't added: cache was busy, 
-*  class is still being initialized, new entry is a duplicate.
-*
-* Called only from _class_lookupMethodAndLoadCache and
-* class_respondsToMethod and _cache_addForwardEntry.
-*
-* Cache locks: cacheUpdateLock must not be held.
-**********************************************************************/
-bool _cache_fill(Class cls, Method smt, SEL sel)
-{
+/* 将指定的方法添加到指定的类的缓存中。
+ * 如果没有添加到缓存中，则返回NO；比如缓存繁忙，类仍在初始化，新条目是一个副本。
+ * 仅仅被 _class_lookupMethodAndLoadCache() 函数、 class_respondsToMethod() 函数、 _cache_addForwardEntry() 函数 调用.
+ * 缓存锁:不能持有cacheUpdateLock。
+ */
+bool _cache_fill(Class cls, Method smt, SEL sel){
     uintptr_t newOccupied;
     uintptr_t index;
     cache_entry **buckets;
@@ -504,26 +498,24 @@ bool _cache_fill(Class cls, Method smt, SEL sel)
 
     cacheUpdateLock.assertUnlocked();
 
-    // Never cache before +initialize is done
+    // 在类完成初始化之前不能缓存
     if (!cls->isInitialized()) {
         return NO;
     }
 
-    // Keep tally of cache additions
+    // 保持缓存添加的计数
     totalCacheFills += 1;
 
     mutex_locker_t lock(cacheUpdateLock);
 
     entry = (cache_entry *)smt;
-
+    
     cache = cls->cache;
 
-    // Make sure the entry wasn't added to the cache by some other thread 
-    // before we grabbed the cacheUpdateLock.
-    // Don't use _cache_getMethod() because _cache_getMethod() doesn't 
-    // return forward:: entries.
+    // 在获取 cacheUpdateLock 之前，确保 cache_entry 没有被其他线程添加到缓存中。
+    // 不要使用 _cache_getMethod()，因为_cache_getMethod()不会返回 forward:: entries。
     if (_cache_getImp(cls, sel)) {
-        return NO; // entry is already cached, didn't add new one
+        return NO; // entry 已经存在于缓存，不能再添加
     }
 
     // Use the cache as-is if it is less than 3/4 full

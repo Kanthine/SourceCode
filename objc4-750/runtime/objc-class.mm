@@ -529,21 +529,18 @@ static void _class_resolveClassMethod(Class cls, SEL sel, id inst)
 {
     assert(cls->isMetaClass());
 
-    if (! lookUpImpOrNil(cls, SEL_resolveClassMethod, inst, 
-                         NO/*initialize*/, YES/*cache*/, NO/*resolver*/)) 
+    if (! lookUpImpOrNil(cls, SEL_resolveClassMethod, inst, NO, YES, NO))
     {
-        // Resolver not implemented.
+        // SEL_resolveClassMethod 方法没有实现。
         return;
     }
 
     BOOL (*msg)(Class, SEL, SEL) = (typeof(msg))objc_msgSend;
-    bool resolved = msg(_class_getNonMetaClass(cls, inst), 
-                        SEL_resolveClassMethod, sel);
+    bool resolved = msg(_class_getNonMetaClass(cls, inst), SEL_resolveClassMethod, sel);
 
-    // Cache the result (good or bad) so the resolver doesn't fire next time.
-    // +resolveClassMethod adds to self->ISA() a.k.a. cls
-    IMP imp = lookUpImpOrNil(cls, sel, inst, 
-                             NO/*initialize*/, YES/*cache*/, NO/*resolver*/);
+    // 缓存结果(好或坏)，这样 SEL_resolveInstanceMethod 下次就不会触发。
+    // +resolveClassMethod 增加了 self->ISA()
+    IMP imp = lookUpImpOrNil(cls, sel, inst,NO, YES, NO);
 
     if (resolved  &&  PrintResolving) {
         if (imp) {
@@ -564,40 +561,32 @@ static void _class_resolveClassMethod(Class cls, SEL sel, id inst)
 }
 
 
-/***********************************************************************
-* _class_resolveInstanceMethod
-* Call +resolveInstanceMethod, looking for a method to be added to class cls.
-* cls may be a metaclass or a non-meta class.
-* Does not check if the method already exists.
-**********************************************************************/
-static void _class_resolveInstanceMethod(Class cls, SEL sel, id inst)
-{
-    if (! lookUpImpOrNil(cls->ISA(), SEL_resolveInstanceMethod, cls, 
-                         NO/*initialize*/, YES/*cache*/, NO/*resolver*/)) 
-    {
-        // Resolver not implemented.
+/* 调用 +resolveInstanceMethod: ，查找要添加到类cls中的方法。
+ * @param cls 可以是元类，也可以是非元类。
+ * @note 不检查方法是否已经存在。
+ * @note 关键处在于 class_addMethod() 函数，在 +resolveInstanceMethod: 中是否调用了该函数添加 IMP
+ */
+static void _class_resolveInstanceMethod(Class cls, SEL sel, id inst){
+    if (! lookUpImpOrNil(cls->ISA(), SEL_resolveInstanceMethod, cls, NO, YES, NO)){
+        // SEL_resolveInstanceMethod 方法没有实现。
         return;
     }
-
+    
     BOOL (*msg)(Class, SEL, SEL) = (typeof(msg))objc_msgSend;
-    bool resolved = msg(cls, SEL_resolveInstanceMethod, sel);
-
-    // Cache the result (good or bad) so the resolver doesn't fire next time.
-    // +resolveInstanceMethod adds to self a.k.a. cls
-    IMP imp = lookUpImpOrNil(cls, sel, inst, 
-                             NO/*initialize*/, YES/*cache*/, NO/*resolver*/);
-
+    bool resolved = msg(cls, SEL_resolveInstanceMethod, sel);//执行 SEL_resolveInstanceMethod，并获取返回值
+    
+    // 缓存结果(好或坏)，这样 SEL_resolveInstanceMethod 下次就不会触发。
+    // +resolveInstanceMethod 增加了 self ，即 cls
+    IMP imp = lookUpImpOrNil(cls, sel, inst, NO, YES, NO);
+    
     if (resolved  &&  PrintResolving) {
         if (imp) {
-            _objc_inform("RESOLVE: method %c[%s %s] "
-                         "dynamically resolved to %p", 
+            _objc_inform("RESOLVE: method %c[%s %s] dynamically resolved to %p",
                          cls->isMetaClass() ? '+' : '-', 
                          cls->nameForLogging(), sel_getName(sel), imp);
-        }
-        else {
-            // Method resolver didn't add anything?
-            _objc_inform("RESOLVE: +[%s resolveInstanceMethod:%s] returned YES"
-                         ", but no new implementation of %c[%s %s] was found",
+        }else {
+            // 方法解析器没有添加任何东西吗?
+            _objc_inform("RESOLVE: +[%s resolveInstanceMethod:%s] returned YES, but no new implementation of %c[%s %s] was found",
                          cls->nameForLogging(), sel_getName(sel), 
                          cls->isMetaClass() ? '+' : '-', 
                          cls->nameForLogging(), sel_getName(sel));
@@ -606,25 +595,20 @@ static void _class_resolveInstanceMethod(Class cls, SEL sel, id inst)
 }
 
 
-/***********************************************************************
-* _class_resolveMethod
-* Call +resolveClassMethod or +resolveInstanceMethod.
-* Returns nothing; any result would be potentially out-of-date already.
-* Does not check if the method already exists.
-**********************************************************************/
+/* 动态方法决议
+ * 调用 NSObject 的 +resolveClassMethod: 类方法与 +resolveInstanceMethod: 类方法 以动态方式实现由选择器指定的实例和类方法
+ * @note 该函数不会去检查指定的类 cls 中选择器sel对应的方法是否已经存在。
+ */
 void _class_resolveMethod(Class cls, SEL sel, id inst)
 {
-    if (! cls->isMetaClass()) {
-        // try [cls resolveInstanceMethod:sel]
+    if (! cls->isMetaClass()) {//不是元类
+        // 尝试调用 [cls resolveInstanceMethod:sel]
         _class_resolveInstanceMethod(cls, sel, inst);
     } 
     else {
-        // try [nonMetaClass resolveClassMethod:sel]
-        // and [cls resolveInstanceMethod:sel]
+        //元类： 尝试调用 [nonMetaClass resolveClassMethod:sel] 和 [cls resolveInstanceMethod:sel]
         _class_resolveClassMethod(cls, sel, inst);
-        if (!lookUpImpOrNil(cls, sel, inst, 
-                            NO/*initialize*/, YES/*cache*/, NO/*resolver*/)) 
-        {
+        if (!lookUpImpOrNil(cls, sel, inst, NO, YES, NO)){
             _class_resolveInstanceMethod(cls, sel, inst);
         }
     }
@@ -954,7 +938,7 @@ _class_createInstancesFromZone(Class cls, size_t extraBytes, void *zone,
 }
 
 
-/*申诉重复的类实现。
+/* 警告重复的类实现。
  */
 void inform_duplicate(const char *name, Class oldCls, Class newCls){
 #if TARGET_OS_WIN32

@@ -545,16 +545,17 @@ void cache_t::expand()
     reallocate(oldCapacity, newCapacity);
 }
 
-
-static void cache_fill_nolock(Class cls, SEL sel, IMP imp, id receiver)
-{
+/* 填充缓存
+ * @param cls 缓存到该类
+ * @param receiver 接收器：消息的发送目标
+ */
+static void cache_fill_nolock(Class cls, SEL sel, IMP imp, id receiver){
     cacheUpdateLock.assertLocked();
 
-    // Never cache before +initialize is done
+    // 永远不要在 +initialize 完成之前缓存
     if (!cls->isInitialized()) return;
 
-    // Make sure the entry wasn't added to the cache by some other thread 
-    // before we grabbed the cacheUpdateLock.
+    // 在获取 cacheUpdateLock 之前，确保 entry 没有被其他线程添加到缓存中。
     if (cache_getImp(cls, sel)) return;
 
     cache_t *cache = getCache(cls);
@@ -583,6 +584,10 @@ static void cache_fill_nolock(Class cls, SEL sel, IMP imp, id receiver)
     bucket->set(key, imp);
 }
 
+/* 填充缓存
+ * @param cls 缓存到该类
+ * @param receiver 接收器：消息的发送目标
+ */
 void cache_fill(Class cls, SEL sel, IMP imp, id receiver)
 {
 #if !DEBUG_TASK_THREADS

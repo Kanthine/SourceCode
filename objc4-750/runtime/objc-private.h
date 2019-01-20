@@ -470,7 +470,7 @@ extern bool sharedRegionContains(const void *ptr);
 
 extern Class _calloc_class(size_t size);
 
-/* method lookup */
+/* 查找方法的实现 */
 extern IMP lookUpImpOrNil(Class, SEL, id obj, bool initialize, bool cache, bool resolver);
 extern IMP lookUpImpOrForward(Class, SEL, id obj, bool initialize, bool cache, bool resolver);
 
@@ -489,6 +489,7 @@ extern IMP _class_lookupMethodAndLoadCache3(id, SEL, Class);
 #if !OBJC_OLD_DISPATCH_PROTOTYPES
 extern void _objc_msgForward_impcache(void);
 #else
+//找不到方法时，消息转发机制的实现 IMP 
 extern id _objc_msgForward_impcache(id, SEL, ...);
 #endif
 
@@ -549,7 +550,7 @@ extern void gdb_objc_class_changed(Class cls, unsigned long changes, const char 
     __attribute__((noinline));
 
 
-// Settings from environment variables
+// 环境变量设置
 #define OPTION(var, env, help) extern bool var;
 #include "objc-env.h"
 #undef OPTION
@@ -559,16 +560,14 @@ extern void environ_init(void);
 extern void logReplacedMethod(const char *className, SEL s, bool isMeta, const char *catName, IMP oldImp, IMP newImp);
 
 
-// objc per-thread storage
+// 线程存储的数据
 typedef struct {
     struct _objc_initializing_classes *initializingClasses; // for +initialize
     struct SyncCache *syncCache;  // for @synchronize
     struct alt_handler_list *handlerList;  // for exception alt handlers
-    char *printableNames[4];  // temporary demangled names for logging
+    char *printableNames[4];  // 日志记录的临时名称
 
-    // If you add new fields here, don't forget to update 
-    // _objc_pthread_destroyspecific()
-
+    // 如果在这里添加新字段，不要忘记调用 _objc_pthread_destroyspecific() 更新
 } _objc_pthread_data;
 
 extern _objc_pthread_data *_objc_fetch_pthread_data(bool create);
@@ -616,6 +615,7 @@ extern void layout_bitmap_print(layout_bitmap bits);
 
 
 // fixme runtime
+// 如果在调用 fork() 创建子进程时，父进程是多线程的，则在新建的子进程设置 MultithreadedForkChild 为 true
 extern bool MultithreadedForkChild;
 extern id objc_noop_imp(id self, SEL _cmd);
 extern Class look_up_class(const char *aClassName, bool includeUnconnected, bool includeClassHandler);

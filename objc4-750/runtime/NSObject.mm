@@ -247,8 +247,8 @@ objc_storeStrong(id *location, id obj)
 enum CrashIfDeallocating {
     DontCrashIfDeallocating = false, DoCrashIfDeallocating = true
 };
-template <HaveOld haveOld, HaveNew haveNew,
-CrashIfDeallocating crashIfDeallocating>
+
+template <HaveOld haveOld, HaveNew haveNew,CrashIfDeallocating crashIfDeallocating>
 static id storeWeak(id *location, objc_object *newObj){
     assert(haveOld  ||  haveNew);
     if (!haveNew) assert(newObj == nil);
@@ -258,9 +258,9 @@ static id storeWeak(id *location, objc_object *newObj){
     SideTable *oldTable;
     SideTable *newTable;
     
-    // Acquire locks for old and new values.
+    // 获取新旧值的锁。
     // Order by lock address to prevent lock ordering problems.
-    // Retry if the old value changes underneath us.
+    // 如果下面的旧值发生变化，请重试。
 retry:
     if (haveOld) {
         oldObj = *location;
@@ -280,10 +280,7 @@ retry:
         SideTable::unlockTwo<haveOld, haveNew>(oldTable, newTable);
         goto retry;
     }
-    
-    // Prevent a deadlock between the weak reference machinery
-    // and the +initialize machinery by ensuring that no
-    // weakly-referenced object has an un-+initialized isa.
+    // 通过确保没有弱引用的对象具有未初始化的isa，防止弱引用机制和 +initialize 机制之间的死锁。
     if (haveNew  &&  newObj) {
         Class cls = newObj->getIsa();
         if (cls != previouslyInitializedClass  &&
@@ -292,40 +289,37 @@ retry:
             SideTable::unlockTwo<haveOld, haveNew>(oldTable, newTable);
             _class_initialize(_class_getNonMetaClass(cls, (id)newObj));
             
-            // If this class is finished with +initialize then we're good.
-            // If this class is still running +initialize on this thread
-            // (i.e. +initialize called storeWeak on an instance of itself)
-            // then we may proceed but it will appear initializing and
-            // not yet initialized to the check above.
-            // Instead set previouslyInitializedClass to recognize it on retry.
+            // 如果这个类是用 +initialize 完成的，那就好了。
+            // 如果这个类仍然在这个线程上运行 +initialize (即在它自身的一个实例上调用storeWeak进行 +initialize )，那么我们可以继续，但是它将显示为正在初始化，并且还没有初始化到上面的检查中。
+            // 设置 previouslyInitializedClass 以在重试时识别它。
             previouslyInitializedClass = cls;
             
             goto retry;
         }
     }
     
-    // Clean up old value, if any.
+    // 清理旧值(如果有的话)。
     if (haveOld) {
         weak_unregister_no_lock(&oldTable->weak_table, oldObj, location);
     }
     
-    // Assign new value, if any.
+    // 分配新值(如果有的话)。
     if (haveNew) {
         newObj = (objc_object *)
         weak_register_no_lock(&newTable->weak_table, (id)newObj, location,
                               crashIfDeallocating);
-        // weak_register_no_lock returns nil if weak store should be rejected
+        // 如果拒绝弱存储，weak_register_no_lock返回nil
         
-        // Set is-weakly-referenced bit in refcount table.
+        // 在refcount table 中设置 is-weakly-referenced 位。
         if (newObj  &&  !newObj->isTaggedPointer()) {
             newObj->setWeaklyReferenced_nolock();
         }
         
-        // Do not set *location anywhere else. That would introduce a race.
+        // 不要在其他地方设置 *location。那会引起数据竞争。
         *location = (id)newObj;
     }
     else {
-        // No new value. The storage is not changed.
+        // 没有新值。存储没有更改。
     }
     
     SideTable::unlockTwo<haveOld, haveNew>(oldTable, newTable);
@@ -426,18 +420,10 @@ objc_destroyWeak(id *location)
 
 
 /*
- Once upon a time we eagerly cleared *location if we saw the object
- was deallocating. This confuses code like NSPointerFunctions which
- tries to pre-flight the raw storage and assumes if the storage is
- zero then the weak system is done interfering. That is false: the
- weak system is still going to check and clear the storage later.
- This can cause objc_weak_error complaints and crashes.
- So we now don't touch the storage until deallocation completes.
+ * 曾几何时，如果我们看到对象正在释放，我们会急切地清除 *location。这会混淆像NSPointerFunctions这样试图预先存储原始存储，并假设存储为零那么弱系统就会干扰的代码。这是错误的：弱系统仍然会检查并稍后清除存储。这可能会导致objc_weak_error投诉和崩溃。 因此，在释放完成之前，不去碰存储
  */
 
-id
-objc_loadWeakRetained(id *location)
-{
+id objc_loadWeakRetained(id *location){
     id obj;
     id result;
     Class cls;
@@ -470,11 +456,9 @@ retry:
         }
     }
     else {
-        // Slow case. We must check for +initialize and call it outside
-        // the lock if necessary in order to avoid deadlocks.
+        // 缓慢的情况。我们必须检查 +initialize 并在必要时在锁外部调用它，以避免死锁。
         if (cls->isInitialized() || _thisThreadIsInitializingClass(cls)) {
-            BOOL (*tryRetain)(id, SEL) = (BOOL(*)(id, SEL))
-            class_getMethodImplementation(cls, SEL_retainWeakReference);
+            BOOL (*tryRetain)(id, SEL) = (BOOL(*)(id, SEL))class_getMethodImplementation(cls, SEL_retainWeakReference);
             if ((IMP)tryRetain == _objc_msgForward) {
                 result = nil;
             }

@@ -104,8 +104,8 @@ __BEGIN_DECLS
  * opt被初始化为 ~0，以便在 preopt_init() 之前检测错误的使用
  */
 static const objc_opt_t *opt = (objc_opt_t *)~0;
-static uintptr_t shared_cache_start;
-static uintptr_t shared_cache_end;
+static uintptr_t shared_cache_start;//共享缓存的开始地址
+static uintptr_t shared_cache_end;//共享缓存的结束地址：如果一个指针在 start 与 end 之间，则位于共享缓存内
 static bool preoptimized;//是否预优化
 
 extern const objc_opt_t _objc_opt_data;  // in __TEXT, __objc_opt_ro
@@ -227,12 +227,11 @@ Class* copyPreoptimizedClasses(const char *name, int *outCount){
     return nil;
 }
 
-/***********************************************************************
-* Return YES if the given pointer lies within the shared cache.
-* If the shared cache is not set up or is not valid,
-**********************************************************************/
-bool sharedRegionContains(const void *ptr)
-{
+/* 判断指定的指针是否位于共享缓存中
+ * @param ptr 指定的指针
+ * @return 如果指定指针位于共享缓存内，则返回 YES。
+ */
+bool sharedRegionContains(const void *ptr){
     uintptr_t address = (uintptr_t)ptr;
     return shared_cache_start <= address && address < shared_cache_end;
 }

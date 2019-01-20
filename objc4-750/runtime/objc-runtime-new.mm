@@ -174,11 +174,9 @@ const uintptr_t objc_debug_isa_magic_value = 0;
 #endif
 
 
-/***********************************************************************
- * allocatedClasses
- * A table of all classes (and metaclasses) which have been allocated
- * with objc_allocateClassPair.
- **********************************************************************/
+/* 哈希表 allocatedClasses
+ * 用于存储使用 objc_allocateClassPair() 函数分配的类和元类
+ */
 static NXHashTable *allocatedClasses = nil;
 
 
@@ -385,16 +383,11 @@ static NXMapTable *unattachedCategories(void)
 }
 
 
-/***********************************************************************
- * dataSegmentsContain
- * Returns true if the given address lies within a data segment in any
- * loaded image.
- *
- * This is optimized for use where the return value is expected to be
- * true. A call where the return value is false always results in a
- * slow linear search of all loaded images. A call where the return
- * value is fast will often be fast due to caching.
- **********************************************************************/
+/* 判断指定的指针是否位于加载镜像的数据段中
+ * @param ptr 指定的指针
+ * @return 如果指定地址位于任何已加载镜像的数据段中，则返回true。
+ * @note 这是为预期返回值为true而优化的。返回值为false的调用始终会导致对所有已加载镜像进行缓慢的线性搜索。由于缓存，返回值快的调用通常会很快。
+ */
 static bool dataSegmentsContain(const void *ptr) {
     struct Range {
         uintptr_t start, end;
@@ -403,28 +396,25 @@ static bool dataSegmentsContain(const void *ptr) {
         }
     };
     
-    // This is a really simple linear searched cache. On a cache hit,
-    // the hit entry is moved to the front of the array. On a cache
-    // miss where a range is successfully found on the slow path, the
-    // found range is inserted at the beginning of the cache. This gives
-    // us fast access to the most recently used elements, and LRU
-    // eviction.
+    /* 这是一个非常简单的线性搜索缓存:
+     *    在缓存命中时，命中条目将移动到数组的前面;
+     *    如果在慢速路径上成功找到一个范围，则在缓存的开头插入找到的范围。
+     * 这使我们能够快速访问最近使用的元素和LRU回收。
+     */
     enum { cacheCount = 16 };
     static Range cache[cacheCount];
     
     uintptr_t addr = (uintptr_t)ptr;
     
-    // Special case a hit on the first entry of the cache. No
-    // bookkeeping is required at all in this case.
+    // 命中缓存的第一个条目,在这种特殊情况下根本不需要记录。
     if (cache[0].contains(addr)) {
         return true;
     }
     
-    // Search the rest of the cache.
+    // 遍历缓存，搜索缓存的其余部分
     for (unsigned i = 1; i < cacheCount; i++) {
         if (cache[i].contains(addr)) {
-            // Cache hit. Move all preceding entries down one element,
-            // then place this entry at the front.
+            // 缓存命中。将前面的所有项向下移动一个元素，然后将这个项放在前面。
             Range r = cache[i];
             memmove(&cache[1], &cache[0], i * sizeof(cache[0]));
             cache[0] = r;
@@ -432,22 +422,17 @@ static bool dataSegmentsContain(const void *ptr) {
         }
     }
     
-    // Cache miss. Find the image header containing the given address.
-    // If there isn't one, then we're definitely not in any image,
-    // so return false.
+    // 缓存丢失,查找包含指定地址的镜像头部: 如果没有，那么肯定不在任何镜像中，返回false。
     Range found = { 0, 0 };
-    auto *h = (headerType *)dyld_image_header_containing_address(ptr);
+    auto *h = (headerType *)dyld_image_header_containing_address(ptr);//获取包含指定地址的镜像头部
     if (h == nullptr)
         return false;
     
-    // Iterate over the data segments in the found image. If the address
-    // lies within one, note the data segment range in `found`.
-    // TODO: this is more work than we'd like to do. All we really need
-    // is the full range of the image. Addresses within the TEXT segment
-    // would also be acceptable for our use case. If possible, we should
-    // change this to work with the full address range of the found
-    // image header. Another possibility would be to use the range
-    // from `h` to the end of the page containing `addr`.
+    /* 迭代找到镜像中的数据段。如果地址在一个范围内，请注意“found”中的数据段范围。
+     * TODO：这比我们想做的更多，我们真正需要的是整个镜像的范围。对于我们的用例，TEXT段内的地址也是可以接受的。
+     *       如果可能，我们应该将其更改为使用找到的镜像 header 的完整地址范围。
+     *       另一种可能是使用从`h`到包含`addr`的页面末尾的范围。
+     */
     foreach_data_segment(h, [&](const segmentType *seg, intptr_t slide) {
         Range r;
         r.start = seg->vmaddr + slide;
@@ -466,19 +451,19 @@ static bool dataSegmentsContain(const void *ptr) {
 }
 
 
-/***********************************************************************
- * isKnownClass
- * Return true if the class is known to the runtime (located within the
- * shared cache, within the data segment of a loaded image, or has been
- * allocated with obj_allocateClassPair).
- **********************************************************************/
+/* 检查指定的类是否已知：
+ * @note 按指定的顺序查找：
+ *       1、检查共享区域
+ *       2、检查哈希表 allocatedClasses
+ *       3、检查加载镜像的数据段中
+ * 只要在任何一处查找到，则返回 YES
+ */
 static bool isKnownClass(Class cls) {
-    // The order of conditionals here is important for speed. We want to
-    // put the most common cases first, but also the fastest cases
-    // first. Checking the shared region is both fast and common.
-    // Checking allocatedClasses is fast, but may not be common,
-    // depending on what the program is doing. Checking if data segments
-    // contain the address is slow, so do it last.
+    /* 下述判断的条件顺序对处理的速度很重要：
+     * sharedRegionContains() 检查共享区域既快速又常见，将其放在第一位;
+     * allocatedClasses 用于存储使用 objc_allocateClassPair() 函数分配的类和元类的哈希表；检查该哈希表很快，但可能不常见，具体取决于程序正在执行的操作;
+     * dataSegmentsContain() 检查数据段中是否包含地址，速度很慢，所以最后执行。
+     */
     return (sharedRegionContains(cls) ||
             NXHashMember(allocatedClasses, cls) ||
             dataSegmentsContain(cls));
@@ -505,14 +490,15 @@ static void addClassTableEntry(Class cls, bool addMeta = true) {
 }
 
 
-/***********************************************************************
- * checkIsKnownClass
- * Checks the given class against the list of all known classes. Dies
- * with a fatal error if the class is not known.
- * Locking: runtimeLock must be held by the caller.
- **********************************************************************/
-static void checkIsKnownClass(Class cls)
-{
+/* 检查指定的类是否已知：
+ * @note 按指定的顺序查找：
+ *       1、检查共享区域
+ *       2、检查哈希表 allocatedClasses
+ *       3、检查加载镜像的数据段中
+ * 只要在任何一处查找到，则返回 YES
+ * 如果没有找到，则程序终止。
+ */
+static void checkIsKnownClass(Class cls){
     if (!isKnownClass(cls))
         _objc_fatal("Attempt to use unknown class %p.", cls);
 }
@@ -964,8 +950,7 @@ static void addNonMetaClass(Class cls)
 }
 
 
-static void removeNonMetaClass(Class cls)
-{
+static void removeNonMetaClass(Class cls){
     runtimeLock.assertLocked();
     NXMapRemove(nonMetaClasses(), cls->ISA());
 }
@@ -1094,8 +1079,12 @@ static char *copySwiftV1MangledName(const char *string, bool isProtocol = false)
  */
 
 // 这是一个misnomer: gdb_objc_implemzed_classes 实际上是一个不在dyld共享缓存中的命名类列表，不管是否实现。
-NXMapTable *gdb_objc_realized_classes;  // exported for debuggers in objc-gdb.h
+//哈希表：将类名映射到类，仅存储已实现的类
+NXMapTable *gdb_objc_realized_classes;
 
+/* 根据指定的名称获取一个类
+ * @param name 指定的名称
+ */
 static Class getClass_impl(const char *name)
 {
     runtimeLock.assertLocked();
@@ -1111,6 +1100,9 @@ static Class getClass_impl(const char *name)
     return getPreoptimizedClass(name);
 }
 
+/* 根据指定的名称获取一个类
+ * @param name 指定的名称
+ */
 static Class getClass(const char *name)
 {
     runtimeLock.assertLocked();
@@ -1130,14 +1122,18 @@ static Class getClass(const char *name)
 }
 
 
-/***********************************************************************
- * addNamedClass
+/*
+ *
+ * @param cls 指定的类
+ * @param name 指定的名称
+ * @param
+ *
+ * 将 name=>cls 添加到命名的非元类映射。
  * Adds name => cls to the named non-meta class map.
- * Warns about duplicate class names and keeps the old mapping.
+ * 警告类名重复，并保留旧映射。
  * Locking: runtimeLock must be held by the caller
- **********************************************************************/
-static void addNamedClass(Class cls, const char *name, Class replacing = nil)
-{
+ */
+static void addNamedClass(Class cls, const char *name, Class replacing = nil){
     runtimeLock.assertLocked();
     Class old;
     if ((old = getClass(name))  &&  old != replacing) {
@@ -1156,20 +1152,17 @@ static void addNamedClass(Class cls, const char *name, Class replacing = nil)
 }
 
 
-/***********************************************************************
- * removeNamedClass
- * Removes cls from the name => cls map.
+/* 从哈希表的 name=>cls 映射中删除cls。
+ * @param cls 指定的类：该类不能是元类
  * Locking: runtimeLock must be held by the caller
- **********************************************************************/
-static void removeNamedClass(Class cls, const char *name)
-{
+ */
+static void removeNamedClass(Class cls, const char *name){
     runtimeLock.assertLocked();
     assert(!(cls->data()->flags & RO_META));
     if (cls == NXMapGet(gdb_objc_realized_classes, name)) {
         NXMapRemove(gdb_objc_realized_classes, name);
     } else {
-        // cls has a name collision with another class - don't remove the other
-        // but do remove cls from the secondary metaclass->class map.
+        // cls 与另一个类有名称冲突——不要删除另一个类，但要从secondary metaclass->class 映射中删除cls。
         removeNonMetaClass(cls);
     }
 }
@@ -1379,43 +1372,49 @@ static void remapClassRef(Class *clsref)
 }
 
 
-/***********************************************************************
- * getNonMetaClass
- * Return the ordinary class for this class or metaclass.
- * `inst` is an instance of `cls` or a subclass thereof, or nil.
- * Non-nil inst is faster.
+/* 获取指定的普通类
+ * @param metacls 如果该类不是元类，则返回它自身；
+ *                如果该类是一个元类，需要返回元类对应的类
+ * @param inst 不管inst是实例或者子类，它的superclass都指向inst的父类；（inst 非空时处理速度更快）
+ * @note 查找规则：
+ *          1、如果 metacls 不是元类，则返回它自身
+ *          2、如果 metacls 是根元类，则返回根类（根元类的superclass是根类）
+ *          3、如果 inst 非空，判断 inst 的 superclass 是否是 metacls
+ *          4、利用 metacls 的名称查找
+ *          1、
+ *          1、
+ *          1、
+ * @note 如果最终没有找到该类，则终止程序
  * Used by +initialize.
  * Locking: runtimeLock must be read- or write-locked by the caller
- **********************************************************************/
-static Class getNonMetaClass(Class metacls, id inst)
-{
+ */
+static Class getNonMetaClass(Class metacls, id inst){
     static int total, named, secondary, sharedcache;
     runtimeLock.assertLocked();
     
-    realizeClass(metacls);
+    realizeClass(metacls);//实现一个类
     
     total++;
     
-    // return cls itself if it's already a non-meta class
+    // 如果 metacls 不是元类，则返回它
     if (!metacls->isMetaClass()) return metacls;
     
-    // metacls really is a metaclass
+    // metacls 是一个元类
     
-    // special case for root metaclass
-    // where inst == inst->ISA() == metacls is possible
+    // 根元类的特殊情况：根元类的 isa 指向根元类
     if (metacls->ISA() == metacls) {
-        Class cls = metacls->superclass;
+        Class cls = metacls->superclass;//根类
         assert(cls->isRealized());
         assert(!cls->isMetaClass());
         assert(cls->ISA() == metacls);
-        if (cls->ISA() == metacls) return cls;
+        if (cls->ISA() == metacls) return cls;//返回根类
     }
     
-    // use inst if available
+    // 如果可能，使用inst
     if (inst) {
         Class cls = (Class)inst;
         realizeClass(cls);
-        // cls may be a subclass - find the real class for metacls
+        // cls 可能是一个子类——为 metacls 找到真正的类
         while (cls  &&  cls->ISA() != metacls) {
             cls = cls->superclass;
             realizeClass(cls);
@@ -1432,14 +1431,13 @@ static Class getNonMetaClass(Class metacls, id inst)
 #endif
     }
     
-    // try name lookup
+    // 尝试从名称查找
     {
         Class cls = getClass(metacls->mangledName());
         if (cls->ISA() == metacls) {
             named++;
             if (PrintInitializing) {
-                _objc_inform("INITIALIZE: %d/%d (%g%%) "
-                             "successful by-name metaclass lookups",
+                _objc_inform("INITIALIZE: %d/%d (%g%%) successful by-name metaclass lookups",
                              named, total, named*100.0/total);
             }
             
@@ -1448,7 +1446,7 @@ static Class getNonMetaClass(Class metacls, id inst)
         }
     }
     
-    // try secondary table
+    // 尝试从哈希表 nonmeta_class_map 中查找
     {
         Class cls = (Class)NXMapGet(nonMetaClasses(), metacls);
         if (cls) {
@@ -1465,7 +1463,7 @@ static Class getNonMetaClass(Class metacls, id inst)
         }
     }
     
-    // try any duplicates in the dyld shared cache
+    // 尝试从 dyld 共享缓存中的任何副本查找
     {
         Class cls = nil;
         
@@ -1484,8 +1482,7 @@ static Class getNonMetaClass(Class metacls, id inst)
         if (cls) {
             sharedcache++;
             if (PrintInitializing) {
-                _objc_inform("INITIALIZE: %d/%d (%g%%) "
-                             "successful shared cache metaclass lookups",
+                _objc_inform("INITIALIZE: %d/%d (%g%%) successful shared cache metaclass lookups",
                              sharedcache, total, sharedcache*100.0/total);
             }
             
@@ -1494,18 +1491,19 @@ static Class getNonMetaClass(Class metacls, id inst)
         }
     }
     
+    //还是没有找到，终止程序
     _objc_fatal("no class for metaclass %p", (void*)metacls);
 }
 
 
 /***********************************************************************
  * _class_getNonMetaClass
+ * 获取指定类或元类的普通类。
  * Return the ordinary class for this class or metaclass.
  * Used by +initialize.
  * Locking: acquires runtimeLock
  **********************************************************************/
-Class _class_getNonMetaClass(Class cls, id obj)
-{
+Class _class_getNonMetaClass(Class cls, id obj){
     mutex_locker_t lock(runtimeLock);
     cls = getNonMetaClass(cls, obj);
     assert(cls->isRealized());
@@ -1838,8 +1836,7 @@ static void reconcileInstanceVariables(Class cls, Class supercls, const class_ro
 /* 实现一个类：对类 cls 执行首次初始化，分配可读写数据空间；返回真正的类结构
  * Locking: runtimeLock must be write-locked by the caller
  */
-static Class realizeClass(Class cls)
-{
+static Class realizeClass(Class cls){
     runtimeLock.assertLocked();
     
     const class_ro_t *ro;
@@ -2505,13 +2502,9 @@ hIndex++
         // namedClasses
         // Preoptimized classes don't go in this table.
         // 4/3 is NXMapTable's load factor
-        int namedClassesSize =
-        (isPreoptimized() ? unoptimizedTotalClasses : totalClasses) * 4 / 3;
-        gdb_objc_realized_classes =
-        NXCreateMapTable(NXStrValueMapPrototype, namedClassesSize);
-        
+        int namedClassesSize = (isPreoptimized() ? unoptimizedTotalClasses : totalClasses) * 4 / 3;//哈希表的内存大小
+        gdb_objc_realized_classes = NXCreateMapTable(NXStrValueMapPrototype, namedClassesSize);
         allocatedClasses = NXCreateHashTable(NXPtrPrototype, 0, nil);
-        
         ts.log("IMAGE TIMES: first time tasks");
     }
     
@@ -4727,8 +4720,7 @@ static method_t *search_method_list(const method_list_t *mlist, SEL sel)
     return nil;
 }
 
-static method_t *
-getMethodNoSuper_nolock(Class cls, SEL sel)
+static method_t *getMethodNoSuper_nolock(Class cls, SEL sel)
 {
     runtimeLock.assertLocked();
     
@@ -4811,16 +4803,15 @@ Method class_getInstanceMethod(Class cls, SEL sel)
 }
 
 
-/***********************************************************************
- * log_and_fill_cache
- * Log this method call. If the logger permits it, fill the method cache.
- * cls is the method whose cache should be filled.
- * implementer is the class that owns the implementation in question.
- **********************************************************************/
-static void
-log_and_fill_cache(Class cls, IMP imp, SEL sel, id receiver, Class implementer)
+/* 记录和填充缓存
+ * 记录这个方法调用。如果记录器允许，则填充方法缓存。
+ * @param cls 缓存到该类
+ * @param receiver 接收器：消息的发送目标
+ * @param implementer 是拥有相关实现的类
+ */
+static void log_and_fill_cache(Class cls, IMP imp, SEL sel, id receiver, Class implementer)
 {
-#if SUPPORT_MESSAGE_LOGGING
+#if SUPPORT_MESSAGE_LOGGING //iOS 下禁用该功能
     if (objcMsgLogEnabled) {
         bool cacheIt = logMessageSend(implementer->isMetaClass(),
                                       cls->nameForLogging(),
@@ -4845,69 +4836,68 @@ IMP _class_lookupMethodAndLoadCache3(id obj, SEL sel, Class cls)
                               YES/*initialize*/, NO/*cache*/, YES/*resolver*/);
 }
 
-
-/***********************************************************************
- * lookUpImpOrForward.
- * The standard IMP lookup.
- * initialize==NO tries to avoid +initialize (but sometimes fails)
- * cache==NO skips optimistic unlocked lookup (but uses cache elsewhere)
- * Most callers should use initialize==YES and cache==YES.
- * inst is an instance of cls or a subclass thereof, or nil if none is known.
- *   If cls is an un-initialized metaclass then a non-nil inst is faster.
- * May return _objc_msgForward_impcache. IMPs destined for external use
- *   must be converted to _objc_msgForward or _objc_msgForward_stret.
- *   If you don't want forwarding at all, use lookUpImpOrNil() instead.
- **********************************************************************/
-IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
-                       bool initialize, bool cache, bool resolver)
-{
+/* 查找某个类指定选择器的方法实现 IMP （ 标准IMP查找 ）
+ * @param cls 指定的类
+ * @param sel 指定的选择器
+ * @param inst 类cls的实例或者子类；如果cls未初始化需要初始化，那么 inst 非空时效率更高
+ * @param initialize 是否初始化：当没有初始化时 (NO)，避免调用 +initialize (但有时失败)
+ * @param cache 是否先去缓存中查找
+ * @param resolver 是否需要执行动态方法决议；
+ * @return 返回 IMP
+ *
+ * @note 标准IMP查找流程：
+ *        1、先去该类的缓存中查找，如果找到则返回；否则接着查找
+ *        2、检查该类是否是未知的，如果是个未知类，终止程序；否则接着查找
+ *        3、检查该类是否已实现，如果未实现，则去实现；然后接着查找
+ *        4、如果入参 initialize 为 YES ，且该类没有完成初始化，则先去初始化该类；然后接着查找；
+ *        5、再去该类的缓存中查找，如果找到则返回；否则接着查找
+ *        6、从这个类的方法列表中查找，如果找到，加入缓存列表，并返回 IMP；否则接着查找
+ *        7、从这个类的父类缓存和方法列表中查找；如果找到；缓存到该类，并返回 IMP；否则接着查找
+ *        8、查找父类一直找到根类，如果根类也没有找到，一般会抛出 unrecognized selector 错误；但该函数还没执行完
+ *        9、如果入参 resolver 为 YES，则执行第一次补救措施：动态方法决议；如果动态方法决议成功，则返回步骤 5 执行；否则往下执行
+ *       10、第二次补救错误：消息转发机制，将 IMP 赋值为 _objc_msgForward_impcache ，然后缓存到方法列表，然后返回 IMP
+ *
+ * @note 如果不想执行消息转发机制，可以调用 lookUpImpOrNil() 函数，而不是调用该函数
+ */
+IMP lookUpImpOrForward(Class cls, SEL sel, id inst, bool initialize, bool cache, bool resolver){
     IMP imp = nil;
-    bool triedResolver = NO;
+    bool triedResolver = NO;//是否实行动态决议的标记，指标记防止循环调用 动态方法决议
     
     runtimeLock.assertUnlocked();
     
-    // Optimistic cache lookup
-    if (cache) {
+    if (cache) {// 先去缓存查找
         imp = cache_getImp(cls, sel);
         if (imp) return imp;
     }
     
-    // runtimeLock is held during isRealized and isInitialized checking
-    // to prevent races against concurrent realization.
-    
-    // runtimeLock is held during method search to make
-    // method-lookup + cache-fill atomic with respect to method addition.
-    // Otherwise, a category could be added but ignored indefinitely because
-    // the cache was re-filled with the old value after the cache flush on
-    // behalf of the category.
+    // 在 isRealized 和 isInitialized 检查期间持有 runtimeLock，以防并发时数据竞争。
+    // 在方法搜索期间持有 runtimeLock，以便对方法添加进行 method-lookup+cache-fill 原子操作。
+    // 否则，可以添加分类，但会无限期地忽略它，因为在代表分类的缓存刷新之后，缓存会被旧值重新填充。
     
     runtimeLock.lock();
-    checkIsKnownClass(cls);
+    checkIsKnownClass(cls);//检查指定的类是否已知；如果未知就终止程序
     
     if (!cls->isRealized()) {
         realizeClass(cls);
     }
     
-    if (initialize  &&  !cls->isInitialized()) {
+    if (initialize  &&  !cls->isInitialized()) {//初始化但还没完成时
         runtimeLock.unlock();
         _class_initialize (_class_getNonMetaClass(cls, inst));
         runtimeLock.lock();
-        // If sel == initialize, _class_initialize will send +initialize and
-        // then the messenger will send +initialize again after this
-        // procedure finishes. Of course, if this is not being called
-        // from the messenger then it won't happen. 2778172
+        
+        // 如果 sel == initialize， _class_initialize将发送+initialize，然后在此过程完成后，messenger将再次发送 +initialize。当然，如果这不是由 messenger 调用，那么它就不会发生。2778172
     }
     
     
-retry:
+retry: // 重试
     runtimeLock.assertLocked();
     
-    // Try this class's cache.
     
-    imp = cache_getImp(cls, sel);
+    imp = cache_getImp(cls, sel);//从这个类的缓存中查找
     if (imp) goto done;
     
-    // Try this class's method lists.
+    // 从这个类的方法列表中查找
     {
         Method meth = getMethodNoSuper_nolock(cls, sel);
         if (meth) {
@@ -4917,37 +4907,34 @@ retry:
         }
     }
     
-    // Try superclass caches and method lists.
+    // 从这个类的父类缓存和方法列表中查找
     {
         unsigned attempts = unreasonableClassCount();
-        for (Class curClass = cls->superclass;
-             curClass != nil;
-             curClass = curClass->superclass)
-        {
-            // Halt if there is a cycle in the superclass chain.
+        for (Class curClass = cls->superclass; curClass != nil; curClass = curClass->superclass){
+            // 如果超类链中存在循环，则停止。
             if (--attempts == 0) {
                 _objc_fatal("Memory corruption in class list.");
             }
             
-            // Superclass cache.
+            // 父类缓存中查找
             imp = cache_getImp(curClass, sel);
             if (imp) {
                 if (imp != (IMP)_objc_msgForward_impcache) {
-                    // Found the method in a superclass. Cache it in this class.
+                    // 在超类中找到该方法；在 cls 中缓存它。
                     log_and_fill_cache(cls, imp, sel, inst, curClass);
                     goto done;
                 }
                 else {
-                    // Found a forward:: entry in a superclass.
-                    // Stop searching, but don't cache yet; call method
-                    // resolver for this class first.
+                    // 在超类中找到 forward::entry。
+                    // 停止搜索，但不要缓存;首先调用该类的方法解析器。
                     break;
                 }
             }
             
-            // Superclass method list.
+            // 父类方法列表中查找
             Method meth = getMethodNoSuper_nolock(curClass, sel);
             if (meth) {
+                // 在超类中找到该方法。在这个类中缓存它。
                 log_and_fill_cache(cls, meth->imp, sel, inst, curClass);
                 imp = meth->imp;
                 goto done;
@@ -4955,21 +4942,17 @@ retry:
         }
     }
     
-    // No implementation found. Try method resolver once.
-    
+    // 如果指定选择器 SEL 对应的方法没有实现，而且没有执行方法决议；第一次解决：尝试动态决议
     if (resolver  &&  !triedResolver) {
         runtimeLock.unlock();
         _class_resolveMethod(cls, sel, inst);
         runtimeLock.lock();
-        // Don't cache the result; we don't hold the lock so it may have
-        // changed already. Re-do the search from scratch instead.
-        triedResolver = YES;
+        // 不要缓存结果; 我们没有锁定所以它可能已经改变了。改为从头开始重新搜索。
+        triedResolver = YES;//标记为已经执行动态决议
         goto retry;
     }
     
-    // No implementation found, and method resolver didn't help.
-    // Use forwarding.
-    
+    // 没有找到 IMP ，动态决议也没有结果：第二次补救机会：消息转发机制
     imp = (IMP)_objc_msgForward_impcache;
     cache_fill(cls, sel, imp, inst);
     
@@ -4980,13 +4963,11 @@ done:
 }
 
 
-/***********************************************************************
- * lookUpImpOrNil.
- * Like lookUpImpOrForward, but returns nil instead of _objc_msgForward_impcache
- **********************************************************************/
-IMP lookUpImpOrNil(Class cls, SEL sel, id inst,
-                   bool initialize, bool cache, bool resolver)
-{
+/* 查找某个类指定选择器的方法实现 IMP
+ * 内部实现基于 lookUpImpOrForward() 函数，但是与 lookUpImpOrForward() 函数的区别在于：
+ * 该函数找不到对应的 IMP 且没有实现动态决议时，不会执行消息转发机制
+ */
+IMP lookUpImpOrNil(Class cls, SEL sel, id inst,bool initialize, bool cache, bool resolver){
     IMP imp = lookUpImpOrForward(cls, sel, inst, initialize, cache, resolver);
     if (imp == _objc_msgForward_impcache) return nil;
     else return imp;
@@ -5676,14 +5657,12 @@ BOOL class_conformsToProtocol(Class cls, Protocol *proto_gen)
 }
 
 
-/**********************************************************************
+/*
  * addMethod
  * fixme
  * Locking: runtimeLock must be held by the caller
- **********************************************************************/
-static IMP
-addMethod(Class cls, SEL name, IMP imp, const char *types, bool replace)
-{
+ */
+static IMP addMethod(Class cls, SEL name, IMP imp, const char *types, bool replace){
     IMP result = nil;
     
     runtimeLock.assertLocked();
@@ -5801,9 +5780,15 @@ addMethods(Class cls, const SEL *names, const IMP *imps, const char **types,
 }
 
 
-BOOL
-class_addMethod(Class cls, SEL name, IMP imp, const char *types)
-{
+/* 向指定类添加新方法
+ * @param cls 要添加方法的类。
+ * @param name 指定要添加方法的选择器 SEL。
+ * @param imp 函数指针，该函数必须具有至少两个参数 self 和 _cmd 。
+ * @param types 描述方法参数类型的字符数组。
+ * @return 如果方法添加成功，则为YES；否则为 NO，如添加该类已实现的方法则失败
+ * @note 该函数将重写父类的方法，但不会替换该类中的现有方法。要更改现有的实现，使用 method_setImplementation() 函数。
+ */
+BOOL class_addMethod(Class cls, SEL name, IMP imp, const char *types){
     if (!cls) return NO;
     
     mutex_locker_t lock(runtimeLock);
@@ -6996,4 +6981,6 @@ Class class_setSuperclass(Class cls, Class newSuper)
 
 // __OBJC2__
 #endif
+
+
 
