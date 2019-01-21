@@ -30,8 +30,7 @@
 
 #include "objc-config.h"
 
-/* Isolate ourselves from the definitions of id and Class in the compiler 
- * and public headers.
+/* Isolate ourselves from the definitions of id and Class in the compiler and public headers.
  */
 
 #ifdef _OBJC_OBJC_H_
@@ -57,7 +56,7 @@ namespace {
 };
 
 #include "isa.h"
-
+// 联合类型
 union isa_t {
     isa_t() { }
     isa_t(uintptr_t value) : bits(value) { }
@@ -71,42 +70,29 @@ union isa_t {
 #endif
 };
 
-
+//对象的结构体实例
 struct objc_object {
 private:
     isa_t isa;
-
 public:
 
-    // ISA() assumes this is NOT a tagged pointer object
-    Class ISA();
+    Class ISA();// ISA() 假设不是tagged pointer对象
+    Class getIsa();// getIsa() 允许这是tagged pointer对象
 
-    // getIsa() allows this to be a tagged pointer object
-    Class getIsa();
-
-    // initIsa() should be used to init the isa of new objects only.
-    // If this object already has an isa, use changeIsa() for correctness.
-    // initInstanceIsa(): objects with no custom RR/AWZ
-    // initClassIsa(): class objects
-    // initProtocolIsa(): protocol objects
-    // initIsa(): other objects
-    void initIsa(Class cls /*nonpointer=false*/);
-    void initClassIsa(Class cls /*nonpointer=maybe*/);
-    void initProtocolIsa(Class cls /*nonpointer=maybe*/);
-    void initInstanceIsa(Class cls, bool hasCxxDtor);
-
-    // changeIsa() should be used to change the isa of existing objects.
-    // If this is a new object, use initIsa() for performance.
-    Class changeIsa(Class newCls);
+    void initIsa(Class cls /*nonpointer=false*/);//其他对象：只用于初始化新对象的 isa
+    void initClassIsa(Class cls /*nonpointer=maybe*/);//类对象
+    void initProtocolIsa(Class cls /*nonpointer=maybe*/);//协议对象
+    void initInstanceIsa(Class cls, bool hasCxxDtor);//没有自定义RR/AWZ的对象
+    Class changeIsa(Class newCls);//更改现有对象的 isa，如果这是一个新对象，则使用initIsa()来提高性能。
 
     bool hasNonpointerIsa();
-    bool isTaggedPointer();
+    bool isTaggedPointer();//判断是否是 Tagged Pointer 指针
     bool isBasicTaggedPointer();
     bool isExtTaggedPointer();
-    bool isClass();
+    bool isClass();//判断Objective—C 类: 如果是Tagged Pointer对象，则不是一个类
 
-    // object may have associated objects?
-    bool hasAssociatedObjects();
+    
+    bool hasAssociatedObjects();//判断有无关联对象
     void setHasAssociatedObjects();
 
     // object may be weakly referenced?
@@ -194,7 +180,7 @@ typedef struct old_category *Category;
 typedef struct old_property *objc_property_t;
 #endif
 
-// Public headers
+// 公共头文件
 
 #include "objc.h"
 #include "runtime.h"
@@ -214,7 +200,7 @@ typedef struct old_property *objc_property_t;
 #undef __APPLE_API_PRIVATE
 
 
-// Private headers
+// 私有头文件
 
 #include "objc-ptrauth.h"
 
@@ -255,7 +241,6 @@ typedef struct header_info_rw {
     bool getLoaded() const {
         return isLoaded;//判断是否已加载
     }
-
     void setLoaded(bool v) {
         isLoaded = v ? 1: 0;
     }
@@ -263,7 +248,6 @@ typedef struct header_info_rw {
     bool getAllClassesRealized() const {
         return allClassesRealized;
     }
-
     void setAllClassesRealized(bool v) {
         allClassesRealized = v ? 1: 0;
     }
@@ -271,7 +255,6 @@ typedef struct header_info_rw {
     header_info *getNext() const {
         return (header_info *)(next << 2);
     }
-
     void setNext(header_info *v) {
         next = ((uintptr_t)v) >> 2;
     }
@@ -306,8 +289,7 @@ private:
 public:
 
     header_info_rw *getHeaderInfoRW() {
-        header_info_rw *preopt =
-            isPreoptimized() ? getPreoptimizedHeaderRW(this) : nil;
+        header_info_rw *preopt = isPreoptimized() ? getPreoptimizedHeaderRW(this) : nil;
         if (preopt) return preopt;
         else return &rw_data[0];
     }
@@ -566,7 +548,7 @@ typedef struct {
     struct SyncCache *syncCache;  // for @synchronize
     struct alt_handler_list *handlerList;  // for exception alt handlers
     char *printableNames[4];  // 日志记录的临时名称
-
+    
     // 如果在这里添加新字段，不要忘记调用 _objc_pthread_destroyspecific() 更新
 } _objc_pthread_data;
 

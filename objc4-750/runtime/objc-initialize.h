@@ -29,7 +29,7 @@
 __BEGIN_DECLS
 
 /* 声明的结构
- *
+ * 用于线程存储的数据 _objc_pthread_data结构的一个成员：用于存储正在初始化的 Class
  */
 struct _objc_initializing_classes;
 

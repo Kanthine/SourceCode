@@ -81,18 +81,25 @@
  */
 monitor_t classInitLock;
 
+#pragma mark - 关于 _objc_initializing_classes 的增删查改操作
 
-/* 当前由该线程初始化的类的每个线程列表。
- * 在初始化期间，允许该线程向该类发送消息，但其他线程必须等待。
- * 列表是一个简单的元类数组(元类存储初始化状态)。
+/* 线程存储的数据 _objc_pthread_data 的一个结构成员
+ * 在每个线程都会有该线程自己的特定数据 _objc_initializing_classes
+ * @note 结构体实例 _objc_initializing_classes 在创建之初，metaclasses 的内存空间已经初始化；
+ *       因此不必担心 metaclasses 上存在垃圾数据；
+ * @note 在一个线程上初始化一个类时，即 class_rw_t -> flags = RW_INITIALIZING 时：
+ *       Runtime 会将该类的元类存储至元类数组 metaclasses 中的空闲内存上；
+ *       如果 metaclasses 已经存储满，则将数组元素数量 classesAllocated 变大一倍，然后扩容 metaclasses 并初始化未使用的内存；
+ * @note 在一个线程上一个类完成初始化时，即 class_rw_t -> flags = ISINITIALIZED 时：
+ *       Runtime 会立即将该类的元类从 metaclasses 上移除
  */
 typedef struct _objc_initializing_classes {
-    int classesAllocated;//在该线程允许同时类分配的最大数量
+    int classesAllocated; //数组 metaclasses 的元素数量
     Class *metaclasses;// 元类数组：分配的内存大小为 (classesAllocated * sizeof(Class)) 字节
 } _objc_initializing_classes;
 
 
-/* 获取该线程中正在初始化的类列表。
+/* 获取该线程存储的 _objc_initializing_classes
  * @param create 当前线程没有初始化任何类时，是否需要创建一个列表；
  *               入参为 YES 时，创建一个列表；否则返回 nil
  */
@@ -117,26 +124,17 @@ static _objc_initializing_classes *_fetchInitializingClassList(bool create){
     classes = list->metaclasses;
     if (classes == nil) {//如果元类数组不存在，分配元类数组
         list->classesAllocated = 4;// 在 realloc() 之前，在此线程上允许4个类同时inits。
-        
-        /* void* calloc(size_t count, size_t size) 函数
-         * 在内存的动态存储区中分配 count 个长度为 size 的连续空间，
-         * 函数返回一个指向分配起始地址的指针；
-         * 如果分配不成功，返回NULL。
-         * calloc() 函数在动态分配完内存后，自动初始化该内存空间为零；而malloc()不初始化，里边数据是随机的垃圾数据。
-         */
         classes = (Class *)calloc(list->classesAllocated, sizeof(Class));
         list->metaclasses = classes;
     }
     return list;
 }
 
-
-/* 释放指定初始化列表使用的内存。
+/* 释放该线程存储的 _objc_initializing_classes
  * 列表的任何部分都可以是nil。
  * 从 _objc_pthread_destroyspecific() 函数调用.
  */
-void _destroyInitializingClassList(struct _objc_initializing_classes *list)
-{
+void _destroyInitializingClassList(struct _objc_initializing_classes *list){
     if (list != nil) {
         if (list->metaclasses != nil) {
             free(list->metaclasses);
@@ -145,8 +143,8 @@ void _destroyInitializingClassList(struct _objc_initializing_classes *list)
     }
 }
 
-
 /* 判断当前线程是否正在初始化指定的类
+ * @note 遍历该线程存储的结构体_objc_initializing_classes的结构成员 metaclasses ，是否有指定的类
  */
 bool _thisThreadIsInitializingClass(Class cls){
     int i;
@@ -163,11 +161,10 @@ bool _thisThreadIsInitializingClass(Class cls){
     return NO;
 }
 
-
-/* 将指定的类存储到 正在初始化的类列表
+/* 将指定的类存储至该线程存储的结构体_objc_initializing_classes的结构成员 metaclasses
  * @param cls 指定的类
- * @note 如果该类已经在该类表，则终止程序
- * @note 如果列表已满，需要扩展列表并初始化新内存空间
+ * @note 如果该类已经在该类表，还要再次去存储，意味着异常，终止程序；
+ * @note 如果列表 metaclasses 已满，需要扩展列表 metaclasses 并初始化新内存空间
  * @note 这个线程将被允许向类发送消息，但是其他线程必须等待。
  */
 static void _setThisThreadIsInitializingClass(Class cls){
@@ -202,8 +199,7 @@ static void _setThisThreadIsInitializingClass(Class cls){
     }
 }
 
-
-/* 将指定的类 从 正在初始化的类列表 移除
+/* 将指定的类从该线程存储的结构体_objc_initializing_classes的结构成员 metaclasses 上移除
  * @note 如果该类不在列表，则终止程序
  */
 static void _setThisThreadIsNotInitializingClass(Class cls){
@@ -225,19 +221,28 @@ static void _setThisThreadIsNotInitializingClass(Class cls){
     _objc_fatal("thread is not initializing this class!");
 }
 
+#pragma mark - 关于 PendingInitialize
 
+/* 一个链表的节点：存储指定类的挂起子类
+ * @note 当一个类已经完成初始化了流程，就差标记 ISINITIALIZED 了，但是它的父类没有完成初始化，怎么办？
+ *       遇到这种情况，Runtime 会将该类挂起，等待它的父类标记为 ISINITIALIZED 之后；
+ *       遍历链表的每个节点，将 subclass 标记为 ISINITIALIZED 即可；
+ */
 typedef struct PendingInitialize {
     Class subclass;//挂起的子类
     struct PendingInitialize *next;//指向下一个挂起的子类
-} PendingInitialize;//指定类class 挂起子类的链表
+} PendingInitialize;
 
-//哈希表：存储 class-> PendingInitialize 映射关系
+/* 哈希表：映射关系为 class-> PendingInitialize
+ * @key : class 一个没有完成初始化的类
+ * @value : PendingInitialize 链表，存储着挂起的子类
+ */
 static NXMapTable *pendingInitializeMap;
 
 /* 标记一个类的状态为完成初始化： class_rw_t -> flags = RW_INITIALIZED
  * @param supercls 要标记类的父类；父类必须已被标记完成，否则断言失败程序终止；
- * 标记完成后，通知所有等待的队列；
- * 遍历挂起的子类，将这些子类全部标记为已完成
+ * @note 标记 RW_INITIALIZED 后，通知所有等待的队列；
+ *       遍历挂起的子类，将这些子类全部标记为已完成
  */
 static void _finishInitializing(Class cls, Class supercls){
     PendingInitialize *pending;//挂起的子类的链表
@@ -249,7 +254,7 @@ static void _finishInitializing(Class cls, Class supercls){
         _objc_inform("INITIALIZE: thread %p: %s is fully +initialized",pthread_self(), cls->nameForLogging());
     }
     
-    // 将这个类标记为完全+initialized
+    // 将这个类标记为 RW_INITIALIZED
     cls->setInitialized();
     classInitLock.notifyAll();//根据加入等待队列中的先后顺序依次唤醒他们
     _setThisThreadIsNotInitializingClass(cls);// 将指定的类 从 正在初始化的类列表 移除
@@ -266,7 +271,6 @@ static void _finishInitializing(Class cls, Class supercls){
         NXFreeMapTable(pendingInitializeMap);
         pendingInitializeMap = nil;
     }
-    
     while (pending) {
         PendingInitialize *next = pending->next;
         if (pending->subclass) _finishInitializing(pending->subclass, cls);
@@ -275,15 +279,13 @@ static void _finishInitializing(Class cls, Class supercls){
     }
 }
 
-
 /* cls 已经完成了它的 +initialize 方法，但是它的超类还没有；
  * 此时不能将 cls 标记为 RW_INITIALIZED ，必须等待 supercls 完成。
  * 那么父类完成后，如何知道有些子类在苦苦等待呢？通过哈希表 pendingInitializeMap
  * 哈希表 pendingInitializeMap 映射 class-> PendingInitialize 关系
  * class 是要等待完成的父类，PendingInitialize 是一个链表：存储着一个个等等 supercls 完成的子类
  */
-static void _finishInitializingAfter(Class cls, Class supercls)
-{
+static void _finishInitializingAfter(Class cls, Class supercls){
     PendingInitialize *pending;//指定类 class 挂起子类的链表
     
     classInitLock.assertLocked();
@@ -307,18 +309,13 @@ static void _finishInitializingAfter(Class cls, Class supercls)
 }
 
 // 在堆栈跟踪中提供有用的消息。
-OBJC_EXTERN __attribute__((noinline, used, visibility("hidden")))
-void waitForInitializeToComplete(Class cls)
-asm("_WAITING_FOR_ANOTHER_THREAD_TO_FINISH_CALLING_+initialize");
-OBJC_EXTERN __attribute__((noinline, used, visibility("hidden")))
-void callInitialize(Class cls)
-asm("_CALLING_SOME_+initialize_METHOD");
+OBJC_EXTERN __attribute__((noinline, used, visibility("hidden"))) void waitForInitializeToComplete(Class cls) asm("_WAITING_FOR_ANOTHER_THREAD_TO_FINISH_CALLING_+initialize");
+OBJC_EXTERN __attribute__((noinline, used, visibility("hidden"))) void callInitialize(Class cls) asm("_CALLING_SOME_+initialize_METHOD");
 
 //没有完成初始化，则执行等待
 void waitForInitializeToComplete(Class cls){
     if (PrintInitializing) {
-        _objc_inform("INITIALIZE: thread %p: blocking until +[%s initialize] "
-                     "completes", pthread_self(), cls->nameForLogging());
+        _objc_inform("INITIALIZE: thread %p: blocking until +[%s initialize] completes", pthread_self(), cls->nameForLogging());
     }
     
     monitor_locker_t lock(classInitLock);
@@ -327,7 +324,6 @@ void waitForInitializeToComplete(Class cls){
     }
     asm("");
 }
-
 
 void callInitialize(Class cls){
     ((void(*)(Class, SEL))objc_msgSend)(cls, SEL_initialize);
@@ -343,12 +339,10 @@ static bool classHasTrivialInitialize(Class cls){
     //如果是根类或者根元类，则肯定没有重写 +initialize 方法
     if (cls->isRootClass() || cls->isRootMetaclass()) return true;
     
-    Class rootCls = cls->ISA()->ISA()->superclass;//拿到根类
-    
-    //获取根类 +initialize 方法的 IMP
+    Class rootCls = cls->ISA()->ISA()->superclass;//拿到根类：获取根类 +initialize 方法实现
     IMP rootImp = lookUpImpOrNil(rootCls->ISA(), SEL_initialize, rootCls, NO, YES, NO);
     
-    //如果该类或者它的父类重写了 +initialize，则 imp 一定不为 nil
+    //如果该类或者它的父类重写了 +initialize，则 imp 一定不是 rootImp
     IMP imp = lookUpImpOrNil(cls->ISA(), SEL_initialize, cls ,NO, YES, NO);
     
     return (imp == nil  ||  imp == (IMP)&objc_noop_imp  ||  imp == rootImp);
@@ -362,8 +356,8 @@ static bool classHasTrivialInitialize(Class cls){
  */
 static void lockAndFinishInitializing(Class cls, Class supercls){
     monitor_locker_t lock(classInitLock);
-    if (!supercls  ||  supercls->isInitialized()) {//如果父类为空，或者父类完成初始化
-        _finishInitializing(cls, supercls);
+    if (!supercls  ||  supercls->isInitialized()) {
+        _finishInitializing(cls, supercls);//如果父类为空，或者父类完成初始化
     } else {
         _finishInitializingAfter(cls, supercls);//挂起该类，等待父类完成
     }

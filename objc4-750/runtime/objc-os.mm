@@ -23,21 +23,22 @@
 
 /***********************************************************************
  * objc-os.m
- * OS portability layer.
+ * 操作系统可移植性层。
  **********************************************************************/
 
 #include "objc-private.h"
 #include "objc-loadmethod.h"
 
+
 #if TARGET_OS_WIN32
+#pragma mark - 适配系统 TARGET_OS_WIN32
 
 #include "objc-runtime-old.h"
 #include "objcrt.h"
 
 const fork_unsafe_lock_t fork_unsafe_lock;
 
-int monitor_init(monitor_t *c)
-{
+int monitor_init(monitor_t *c){
     // fixme error checking
     HANDLE mutex = CreateMutex(NULL, TRUE, NULL);
     while (!c->mutex) {
@@ -60,8 +61,7 @@ int monitor_init(monitor_t *c)
     return 0;
 }
 
-void mutex_init(mutex_t *m)
-{
+void mutex_init(mutex_t *m){
     while (!m->lock) {
         CRITICAL_SECTION *newlock = malloc(sizeof(CRITICAL_SECTION));
         InitializeCriticalSection(newlock);
@@ -76,8 +76,7 @@ void mutex_init(mutex_t *m)
 }
 
 
-void recursive_mutex_init(recursive_mutex_t *m)
-{
+void recursive_mutex_init(recursive_mutex_t *m){
     // fixme error checking
     HANDLE newmutex = CreateMutex(NULL, FALSE, NULL);
     while (!m->mutex) {
@@ -96,8 +95,7 @@ void recursive_mutex_init(recursive_mutex_t *m)
 WINBOOL APIENTRY DllMain( HMODULE hModule,
                          DWORD  ul_reason_for_call,
                          LPVOID lpReserved
-                         )
-{
+                         ){
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH:
             environ_init();
@@ -193,6 +191,7 @@ OBJC_EXPORT void _objc_unload_image(HMODULE image, header_info *hinfo)
 
 // TARGET_OS_WIN32
 #elif TARGET_OS_MAC
+#pragma mark - 适配系统 TARGET_OS_MAC
 
 #include "objc-file-old.h"
 #include "objc-file.h"
@@ -216,6 +215,11 @@ bool bad_magic(const headerType *mhdr){
             mhdr->magic != MH_CIGAM  &&  mhdr->magic != MH_CIGAM_64);
 }
 
+/* 构建 header_info , 并返回
+ *
+ *
+ *
+ */
 static header_info * addHeader(const headerType *mhdr, const char *path, int &totalClasses, int &unoptimizedTotalClasses){
     header_info *hi;
     
@@ -303,14 +307,10 @@ static header_info * addHeader(const headerType *mhdr, const char *path, int &to
 }
 
 
-/***********************************************************************
- * linksToLibrary
- * Returns true if the image links directly to a dylib whose install name
- * is exactly the given name.
- **********************************************************************/
-bool
-linksToLibrary(const header_info *hi, const char *name)
-{
+/* 链接库
+ * @return 如果镜直接链接到 install name与 given name 完全相同的dylib，则返回true。
+ */
+bool linksToLibrary(const header_info *hi, const char *name){
     const struct dylib_command *cmd;
     unsigned long i;
     
@@ -329,8 +329,7 @@ linksToLibrary(const header_info *hi, const char *name)
 }
 
 
-#if SUPPORT_GC_COMPAT
-
+#if SUPPORT_GC_COMPAT //iOS 不兼容 Garbage Collection
 /***********************************************************************
  * shouldRejectGCApp
  * Return YES if the executable requires GC.
@@ -372,7 +371,6 @@ static bool shouldRejectGCApp(const header_info *hi)
         return YES;
     }
 }
-
 
 /***********************************************************************
  * rejectGCImage
@@ -429,7 +427,7 @@ static bool shouldRejectGCImage(const headerType *mhdr)
  * 指定 _read_images来处理信息.
  * info[] 是自下而上的顺序，即在数组中与其它库相比 libobjc 将最早链接到 libobjc。
  *
- * @param mhCount
+ * @param mhCount 数组 mhdrs[] 的元素数量
  * @param mhPaths[] 存储路径的字符串数组
  * @param mhdrs[] 存储 .o 文件头信息的结构数组
  */
@@ -439,7 +437,6 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
     uint32_t hCount;
     size_t selrefCount = 0;
     
-    /* 1、优化共享缓存   */
     if (firstTime) {// 如果需要，执行首次初始化
         preopt_init();//在普通库初始化之前优化共享缓存
     }
@@ -448,15 +445,17 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
         _objc_inform("IMAGES: processing %u newly-mapped images...\n", mhCount);
     }
     
-    hCount = 0;// 查找带有Objective-C元数据的所有镜像
+    hCount = 0;// 查找带有 Objective-C 元数据的所有镜像
     //统计类的数量，调整各种哈希表的大小。
     int totalClasses = 0;
-    int unoptimizedTotalClasses = 0;
+    int unoptimizedTotalClasses = 0;//未优化的类总数
     {
         uint32_t i = mhCount;
         //倒序遍历
         while (i--) {
             const headerType *mhdr = (const headerType *)mhdrs[i];
+            
+            //调用 addHeader() 尝试读取每一个image文件的是否包含Objc的segment header信息，如果有统计Objc Class的数量。
             auto hi = addHeader(mhdr, mhPaths[i], totalClasses, unoptimizedTotalClasses);
             if (!hi) {
                 // 此条目中没有objc数据
@@ -467,7 +466,7 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
                 // 根据主可执行文件的大小调整一些数据结构的大小
 #if __OBJC2__
                 size_t count;
-                _getObjc2SelectorRefs(hi, &count);//获取所有的选择器
+                _getObjc2SelectorRefs(hi, &count);//获取所有被引用的选择器
                 selrefCount += count;
                 _getObjc2MessageRefs(hi, &count);
                 selrefCount += count;
@@ -478,8 +477,7 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
 #if SUPPORT_GC_COMPAT //注意：iOS 不兼容 Garbage Collection
                 // 如果这是GC应用程序，则停止。
                 if (shouldRejectGCApp(hi)) {
-                    _objc_fatal_with_reason(OBJC_EXIT_REASON_GC_NOT_SUPPORTED,
-                                            OS_REASON_FLAG_CONSISTENT_FAILURE,
+                    _objc_fatal_with_reason(OBJC_EXIT_REASON_GC_NOT_SUPPORTED,OS_REASON_FLAG_CONSISTENT_FAILURE,
                                             "Objective-C garbage collection is no longer supported.");
                 }
 #endif
@@ -487,8 +485,7 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
             hList[hCount++] = hi;// 加载所有的类
             
             if (PrintImages) {
-                _objc_inform("IMAGES: loading image for %s%s%s%s%s\n",
-                             hi->fname(),
+                _objc_inform("IMAGES: loading image for %s%s%s%s%s\n",hi->fname(),
                              mhdr->filetype == MH_BUNDLE ? " (bundle)" : "",
                              hi->info()->isReplacement() ? " (replacement)" : "",
                              hi->info()->hasCategoryClassProperties() ? " (has class properties)" : "",
@@ -503,33 +500,23 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
         arr_init();// 初始化自动释放池与哈希表
         
 #if SUPPORT_GC_COMPAT //注：iOS 不兼容 Garbage Collection
-        
-        /* 拒绝任何链接到主程序的GC镜像。
-         * 我们已经拒绝了上面的应用程序本身
-         * 启动后加载的镜像将被 dyld 拒绝。
-         */
         for (uint32_t i = 0; i < hCount; i++) {
             auto hi = hList[i];
             auto mh = hi->mhdr();
             if (mh->filetype != MH_EXECUTE  &&  shouldRejectGCImage(mh)) {
-                _objc_fatal_with_reason(OBJC_EXIT_REASON_GC_NOT_SUPPORTED,
-                                        OS_REASON_FLAG_CONSISTENT_FAILURE,
+                _objc_fatal_with_reason(OBJC_EXIT_REASON_GC_NOT_SUPPORTED, OS_REASON_FLAG_CONSISTENT_FAILURE,
                                         "%s requires Objective-C garbage collection which is no longer supported.", hi->fname());
             }
         }
 #endif
-        
 #if TARGET_OS_OSX
         /* 如果应用程序太旧(< 10.13)，禁用 +initialize 更安全。
          * 如果应用程序有 __DATA ，__objc_fork_ok 段，则禁用 +initialize。
          */
         if (dyld_get_program_sdk_version() < DYLD_MACOSX_VERSION_10_13) {
-            DisableInitializeForkSafety = true;//禁用在fork() 创建子进程后安全检查 +initialize
+            DisableInitializeForkSafety = true; //禁用在fork() 创建子进程后安全检查 +initialize
             if (PrintInitializing) {
-                _objc_inform("INITIALIZE: disabling +initialize fork "
-                             "safety enforcement because the app is "
-                             "too old (SDK version " SDK_FORMAT ")",
-                             FORMAT_SDK(dyld_get_program_sdk_version()));
+                _objc_inform("INITIALIZE: disabling +initialize fork safety enforcement because the app is too old (SDK version " SDK_FORMAT ")",FORMAT_SDK(dyld_get_program_sdk_version()));
             }
         }
         
@@ -541,9 +528,7 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
             if (getsectiondata(hi->mhdr(), "__DATA", "__objc_fork_ok", &size)) {
                 DisableInitializeForkSafety = true;//禁用在fork() 创建子进程后安全检查 +initialize
                 if (PrintInitializing) {
-                    _objc_inform("INITIALIZE: disabling +initialize fork "
-                                 "safety enforcement because the app has "
-                                 "a __DATA,__objc_fork_ok section");
+                    _objc_inform("INITIALIZE: disabling +initialize fork safety enforcement because the app has a __DATA,__objc_fork_ok section");
                 }
             }
             break;  // 假设只有一个可执行文件的镜像
@@ -553,7 +538,7 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
     }
     
     if (hCount > 0) {
-        //核心函数_read_images() : 从 headerList 开始对链表中的头文件执行初始处理。
+        //核心函数 _read_images() : 从 headerList 开始对链表中的头文件执行初始处理。
         _read_images(hList, hCount, totalClasses, unoptimizedTotalClasses);
     }
     
@@ -561,7 +546,7 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
 }
 
 /* 处理将要被 dyld 取消映射的指定镜像
- * mh是 mach_header 而不是headerType，
+ * mh是 mach_header 而不是 headerType，
  */
 void unmap_image_nolock(const struct mach_header *mh){
     if (PrintImages) {
@@ -1006,6 +991,7 @@ const char *CRGetCrashLogMessage(void)
 // TARGET_OS_MAC
 #else
 
+// 未知系统
 
 #error unknown OS
 

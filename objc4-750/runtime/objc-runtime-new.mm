@@ -23,7 +23,7 @@
 
 /***********************************************************************
  * objc-runtime-new.m
- * Support for new-ABI classes and images.
+ * 支持新ABI 类和镜像
  **********************************************************************/
 
 #if __OBJC2__
@@ -63,7 +63,7 @@ static bool ClassNSObjectRRSwizzled;
 
 
 /***********************************************************************
- * Lock management
+ * 锁管理
  **********************************************************************/
 mutex_t runtimeLock;
 mutex_t selLock;
@@ -89,17 +89,17 @@ const uintptr_t objc_debug_class_rw_data_mask = FAST_DATA_MASK;
 
 // Indexed non-pointer isa.
 
-// These are used to mask the ISA and see if its got an index or not.
+// 这些用于掩码 ISA，查看它是否有索引。
 const uintptr_t objc_debug_indexed_isa_magic_mask  = ISA_INDEX_MAGIC_MASK;
 const uintptr_t objc_debug_indexed_isa_magic_value = ISA_INDEX_MAGIC_VALUE;
 
-// die if masks overlap
+// 如果掩码重叠则终止程序
 STATIC_ASSERT((ISA_INDEX_MASK & ISA_INDEX_MAGIC_MASK) == 0);
 
-// die if magic is wrong
+// 如果 CPU 架构不支持则终止程序
 STATIC_ASSERT((~ISA_INDEX_MAGIC_MASK & ISA_INDEX_MAGIC_VALUE) == 0);
 
-// Then these are used to extract the index from the ISA.
+// 然后使用它们从 ISA 中提取索引
 const uintptr_t objc_debug_indexed_isa_index_mask  = ISA_INDEX_MASK;
 const uintptr_t objc_debug_indexed_isa_index_shift  = ISA_INDEX_SHIFT;
 
@@ -112,23 +112,18 @@ asm("\n .globl _objc_absolute_indexed_isa_index_mask"                   \
 asm("\n .globl _objc_absolute_indexed_isa_index_shift" \
     "\n _objc_absolute_indexed_isa_index_shift = " STRINGIFY2(ISA_INDEX_SHIFT));
 
+// 然后我们可以使用该索引从此数组中获取类。注意，提供的size是为了让客户端可以确保它们获得的索引处于边界内，而不是从数组的末尾读取。
+// 定义在 objc-msg-*.s 文件： const Class objc_indexed_classes[]
 
-// And then we can use that index to get the class from this array.  Note
-// the size is provided so that clients can ensure the index they get is in
-// bounds and not read off the end of the array.
-// Defined in the objc-msg-*.s files
-// const Class objc_indexed_classes[]
-
-// When we don't have enough bits to store a class*, we can instead store an
-// index in to this array.  Classes are added here when they are realized.
-// Note, an index of 0 is illegal.
+// 当我们没有足够的位来存储 class* 时，我们可以将索引存储到这个数组中。当实现类时，将在这里添加它们。
+// 注意，索引为 0 是非法的。
 uintptr_t objc_indexed_classes_count = 0;
 
 // SUPPORT_INDEXED_ISA
 #else
 // not SUPPORT_INDEXED_ISA
 
-// These variables exist but are all set to 0 so that they are ignored.
+// 这些变量存在，但都被设置为0，因此它们被忽略。
 const uintptr_t objc_debug_indexed_isa_magic_mask  = 0;
 const uintptr_t objc_debug_indexed_isa_magic_value = 0;
 const uintptr_t objc_debug_indexed_isa_index_mask  = 0;
@@ -151,12 +146,13 @@ const uintptr_t objc_debug_isa_class_mask  = ISA_MASK;
 const uintptr_t objc_debug_isa_magic_mask  = ISA_MAGIC_MASK;
 const uintptr_t objc_debug_isa_magic_value = ISA_MAGIC_VALUE;
 
-// die if masks overlap
+// 如果掩码重叠则终止程序
 STATIC_ASSERT((ISA_MASK & ISA_MAGIC_MASK) == 0);
 
-// die if magic is wrong
+// 如果 CPU 架构不支持则终止程序
 STATIC_ASSERT((~ISA_MAGIC_MASK & ISA_MAGIC_VALUE) == 0);
 
+// 如果虚拟地址空间 bound 上升，则终止程序
 // die if virtual address space bound goes up
 STATIC_ASSERT((~ISA_MASK & MACH_VM_MAX_ADDRESS) == 0  ||
               ISA_MASK + sizeof(void*) == MACH_VM_MAX_ADDRESS);
@@ -184,33 +180,30 @@ typedef locstamped_category_list_t category_list;
 
 
 /*
- Low two bits of mlist->entsize is used as the fixed-up marker.
+ mlist->entsize 的低两位作为固定标记。
  PREOPTIMIZED VERSION:
- Method lists from shared cache are 1 (uniqued) or 3 (uniqued and sorted).
- (Protocol method lists are not sorted because of their extra parallel data)
- Runtime fixed-up method lists get 3.
+ 共享缓存中的方法列表是 1 (唯一的)或 3 (唯一的和有序的)。
+ (由于额外的并行数据，协议方法列表没有排序)
+ Runtime 固定方法列表得到 3
  UN-PREOPTIMIZED VERSION:
- Method lists from shared cache are 1 (uniqued) or 3 (uniqued and sorted)
- Shared cache's sorting and uniquing are not trusted, but do affect the
- location of the selector name string.
- Runtime fixed-up method lists get 2.
+ 共享缓存中的方法列表是 1 (唯一的)或 3 (唯一的和有序的)。
+ 共享缓存的排序和唯一性不受信任，但会影响选择器名称的位置。
+ Runtime 固定方法列表得到 2。
  
- High two bits of protocol->flags is used as the fixed-up marker.
+ protocol->flags 的高两位用作固定标记
  PREOPTIMIZED VERSION:
- Protocols from shared cache are 1<<30.
- Runtime fixed-up protocols get 1<<30.
+ 共享缓存中的协议是 1<<30
+ Runtime 固定协议得到 1<<30
  UN-PREOPTIMIZED VERSION:
- Protocols from shared cache are 1<<30.
- Shared cache's fixups are not trusted.
- Runtime fixed-up protocols get 3<<30.
+ 共享缓存中的协议是 1<<30
+ 共享缓存的fixups 不受信任。
+ Runtime 固定协议得到3<<30
  */
 
 static uint32_t fixed_up_method_list = 3;
 static uint32_t fixed_up_protocol = PROTOCOL_FIXED_UP_1;
 
-void
-disableSharedCacheOptimizations(void)
-{
+void disableSharedCacheOptimizations(void){
     fixed_up_method_list = 2;
     fixed_up_protocol = PROTOCOL_FIXED_UP_1 | PROTOCOL_FIXED_UP_2;
 }
@@ -238,40 +231,31 @@ void protocol_t::setFixedUp() {
 }
 
 
-method_list_t **method_array_t::endCategoryMethodLists(Class cls)
-{
+method_list_t **method_array_t::endCategoryMethodLists(Class cls){
     method_list_t **mlists = beginLists();
     method_list_t **mlistsEnd = endLists();
     
-    if (mlists == mlistsEnd  ||  !cls->data()->ro->baseMethods())
-    {
-        // No methods, or no base methods.
-        // Everything here is a category method.
+    if (mlists == mlistsEnd  ||  !cls->data()->ro->baseMethods()){
+        // 没有 methods, 或者没有 base methods.
+        // 此处都是 category 方法
         return mlistsEnd;
     }
-    
-    // Have base methods. Category methods are
-    // everything except the last method list.
+    // 有基础的方法。Category 方法是除了最后一个方法列表之外的所有方法。
     return mlistsEnd - 1;
 }
 
 /* 获取指定选择器 sel 的名称
  * @param sel 指定的选择器
  */
-static const char *sel_cname(SEL sel)
-{
+static const char *sel_cname(SEL sel){
     return (const char *)(void *)sel;
 }
 
-
-static size_t protocol_list_size(const protocol_list_t *plist)
-{
+static size_t protocol_list_size(const protocol_list_t *plist){
     return sizeof(protocol_list_t) + plist->count * sizeof(protocol_t *);
 }
 
-
-static void try_free(const void *p)
-{
+static void try_free(const void *p){
     if (p && malloc_size(p)) free((void *)p);
 }
 
@@ -284,17 +268,14 @@ void _objc_setClassCopyFixupHandler(void (* _Nonnull newFixupHandler)
     classCopyFixupHandler = newFixupHandler;
 }
 
-static Class
-alloc_class_for_subclass(Class supercls, size_t extraBytes)
-{
+static Class alloc_class_for_subclass(Class supercls, size_t extraBytes){
     if (!supercls  ||  !supercls->isAnySwift()) {
         return _calloc_class(sizeof(objc_class) + extraBytes);
     }
     
-    // Superclass is a Swift class. New subclass must duplicate its extra bits.
+    // 父类是 Swift class：新子类必须复制它的额外位
     
-    // Allocate the new class, with space for super's prefix and suffix
-    // and self's extraBytes.
+    // 分配新类，并为 super 的前缀和后缀以及self的extraBytes留出空间。
     swift_class_t *swiftSupercls = (swift_class_t *)supercls;
     size_t superSize = swiftSupercls->classSize;
     void *superBits = swiftSupercls->baseAddress();

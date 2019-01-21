@@ -366,7 +366,6 @@ logReplacedMethod(const char *className, SEL s,
                  oldImp, oldImage, newImp, newImage);
 }
 
-
 /* 为这个线程获取objc的线程数据
 *  @param create 当 data 不存在时，是否需要创建一个；
 *         入参为 YES ，创建_objc_pthread_data；入参为 NO，直接返回 NULL
@@ -419,8 +418,6 @@ void tls_init(void){
     _objc_pthread_key = tls_create(&_objc_pthread_destroyspecific);
 #endif
 }
-
-
 
 /* 以前的库初始化器；该函数现在只是外部调用者的占位符。现在，所有运行时初始化都被移动到 map_images() 和_objc_init() 函数。
  */

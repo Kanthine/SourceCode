@@ -22,7 +22,7 @@
  */
 /********************************************************************
  * 
- *  objc-msg-arm64.s - ARM64 code to support objc messaging
+ *  objc-msg-arm64.s - 支持objc消息传递的 ARM64 代码
  *
  ********************************************************************/
 
@@ -34,10 +34,7 @@
 
 .data
 
-// _objc_entryPoints and _objc_exitPoints are used by method dispatch
-// caching code to figure out whether any threads are actively 
-// in the cache for dispatching.  The labels surround the asm code
-// that do cache lookups.  The tables are zero-terminated.
+//方法调度缓存代码使用 _objc_entryPoints 和 _objc_exitPoints 来确定缓存中是否有用于调度的活动线程。标签围绕执行缓存查找的asm代码。表是 zero-terminated
 
 .align 4
 .private_extern _objc_entryPoints
@@ -60,16 +57,15 @@ _objc_exitPoints:
 	PTR   LExit_objc_msgLookupSuper2
 	PTR   0
 
-
-/* objc_super parameter to sendSuper */
+/* sendSuper() 的参数 objc_super  */
 #define RECEIVER         0
 #define CLASS            __SIZEOF_POINTER__
 
-/* Selected field offsets in class structure */
+/* 类结构中选定的字段偏移量 */
 #define SUPERCLASS       __SIZEOF_POINTER__
 #define CACHE            (2 * __SIZEOF_POINTER__)
 
-/* Selected field offsets in method structure */
+/* 方法结构中选定的字段偏移量 */
 #define METHOD_NAME      0
 #define METHOD_TYPES     __SIZEOF_POINTER__
 #define METHOD_IMP       (2 * __SIZEOF_POINTER__)
@@ -79,9 +75,9 @@ _objc_exitPoints:
 
 /********************************************************************
  * GetClassFromIsa_p16 src
- * src is a raw isa field. Sets p16 to the corresponding class pointer.
- * The raw isa might be an indexed isa to be decoded, or a
- * packed isa that needs to be masked.
+ * src 是一个原始 isa 字段。将 p16 设置为相应的类指针。
+ * 原始 isa 可能是要解码的索引 isa，也可能是需要屏蔽的打包isa。
+ *
  *
  * On exit:
  *   $0 is unchanged
@@ -123,9 +119,16 @@ _objc_indexed_classes:
 
 
 /********************************************************************
+ * 定义了一个汇编宏
+ *
  * ENTRY functionName
  * STATIC_ENTRY functionName
  * END_ENTRY functionName
+ *
+ * .text  表示text段
+ * .globl 全局函数符号
+ * $ 是汇编中的预定义符号，等价于当前正汇编到的段的偏移量。
+ * .globl $0 全局函数符号在代码段中的偏移量
  ********************************************************************/
 
 .macro ENTRY /* name */
@@ -169,8 +172,8 @@ LExit$0:
 /********************************************************************
  *
  * CacheLookup NORMAL|GETIMP|LOOKUP
- * 
- * Locate the implementation for a selector in a class method cache.
+ *
+ * 在类的方法缓存中定位选择器的实现
  *
  * Takes:
  *	 x1 = selector
@@ -182,7 +185,6 @@ LExit$0:
  * On exit: (found) calls or returns IMP
  *                  with x16 = class, x17 = IMP
  *          (not found) jumps to LCacheMiss
- *
  ********************************************************************/
 
 #define NORMAL 0
@@ -192,13 +194,13 @@ LExit$0:
 // CacheHit: x17 = cached IMP, x12 = address of cached IMP
 .macro CacheHit
 .if $0 == NORMAL
-	TailCallCachedImp x17, x12	// authenticate and call imp
+	TailCallCachedImp x17, x12	// 验证 and call imp
 .elseif $0 == GETIMP
 	mov	p0, p17
-	AuthAndResignAsIMP x0, x12	// authenticate imp and re-sign as IMP
+	AuthAndResignAsIMP x0, x12	// 验证 imp and re-sign as IMP
 	ret				// return IMP
 .elseif $0 == LOOKUP
-	AuthAndResignAsIMP x17, x12	// authenticate imp and re-sign as IMP
+	AuthAndResignAsIMP x17, x12	// 验证 imp and re-sign as IMP
 	ret				// return imp via x17
 .else
 .abort oops
@@ -300,11 +302,12 @@ _objc_debug_taggedpointer_ext_classes:
 #endif
 
 	ENTRY _objc_msgSend
-	UNWIND _objc_msgSend, NoFrame
+	UNWIND _objc_msgSend, NoFrame // 定义了一些段存储数据对象
 
-	cmp	p0, #0			// nil check and tagged pointer check
+	cmp	p0, #0			//nil检查和tagged pointer检查
 #if SUPPORT_TAGGED_POINTERS
-	b.le	LNilOrTagged		//  (MSB tagged pointer looks negative)
+	b.le	LNilOrTagged //如果小于等于就跳转到标签 LNilOrTagged
+            //因为nil==0，tagged pointer 最高位是1(符号位)，所以肯定小于0
 #else
 	b.eq	LReturnZero
 #endif
@@ -315,7 +318,7 @@ LGetIsaDone:
 
 #if SUPPORT_TAGGED_POINTERS
 LNilOrTagged:
-	b.eq	LReturnZero		// nil check
+	b.eq	LReturnZero		// nil检查
 
 	// tagged
 	adrp	x10, _objc_debug_taggedpointer_classes@PAGE

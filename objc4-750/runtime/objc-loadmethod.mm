@@ -55,8 +55,7 @@ static int loadable_categories_allocated = 0;
  * @note loadable_classes_used 用于记录这个方法的调用次数，相当于数组 loadable_classes 的元素个数
  * @note 类cls刚刚连接起来：如果它实现了一个+load方法，那么为+load调用它。
  */
-void add_class_to_loadable_list(Class cls)
-{
+void add_class_to_loadable_list(Class cls){
     IMP method;
 
     loadMethodLock.assertLocked();

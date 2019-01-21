@@ -23,7 +23,7 @@
 
 /***********************************************************************
 * objc-lock.m
-* Error-checking locks for debugging.
+* 用于调试的错误检查锁。
 **********************************************************************/
 
 #include "objc-private.h"
@@ -33,35 +33,27 @@
 #include <unordered_map>
 
 
-/***********************************************************************
-* Thread-local bool set during _objc_atfork_prepare().
-* That function is allowed to break some lock ordering rules.
-**********************************************************************/
-
+/* 在_objc_atfork_prepare()期间设置线程存储的布尔值
+ * 该函数允许打破一些锁排序规则。
+ */
 static tls_key_t fork_prepare_tls;
 
-void
-lockdebug_setInForkPrepare(bool inForkPrepare)
-{
+void lockdebug_setInForkPrepare(bool inForkPrepare){
     INIT_ONCE_PTR(fork_prepare_tls, tls_create(nil), (void)0);
     tls_set(fork_prepare_tls, (void*)inForkPrepare);
 }
 
-static bool
-inForkPrepare()
-{
+static bool inForkPrepare(){
     INIT_ONCE_PTR(fork_prepare_tls, tls_create(nil), (void)0);
     return (bool)tls_get(fork_prepare_tls);
 }
 
 
 
-/***********************************************************************
-* Lock order graph.
-* "lock X precedes lock Y" means that X must be acquired first.
-* This property is transitive.
-**********************************************************************/
-
+/* 锁的顺序图
+ * 在给Y上锁之前 X 已经上锁 ：意味着必须先获取X。
+ * 这个性质是可传递的。
+ */
 struct lockorder {
     const void *l;
     std::vector<const lockorder *> predecessors;

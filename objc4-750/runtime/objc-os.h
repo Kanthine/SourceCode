@@ -23,7 +23,7 @@
 
 /***********************************************************************
  * objc-os.h
- * OS portability layer.
+ * 操作系统可移植性层
  **********************************************************************/
 
 #ifndef _OBJC_OS_H
@@ -49,7 +49,8 @@ static inline size_t word_align(size_t x) {
     return (x + WORD_MASK) & ~WORD_MASK;
 }
 
-
+// 混合用于不得复制的类
+// 用于不能复制的类的混合
 // Mix-in for classes that must not be copied.
 class nocopy_t {
 private:
@@ -107,8 +108,7 @@ protected:
 #   include <System/pthread_machdep.h>
 #   include "objc-probes.h"  // generated dtrace probe definitions.
 
-// Some libc functions call objc_msgSend()
-// so we can't use them without deadlocks.
+// 一些libc函数调用objc_msgSend()，因此在没有死锁的情况下无法使用它们。
 void syslog(int, const char *, ...) UNAVAILABLE_ATTRIBUTE;
 void vsyslog(int, const char *, va_list) UNAVAILABLE_ATTRIBUTE;
 
@@ -943,61 +943,60 @@ public:
     }
 };
 
-
+/* pthread_mutex_t 互斥量，就是一把锁
+ * 多个线程只有一把锁一个钥匙，谁上的锁就只有谁能开锁。当一个线程要访问一个共享变量时，先用锁把变量锁住，然后再操作，操作完了之后再释放掉锁，完成。
+ * 当另一个线程也要访问这个变量时，发现这个变量被锁住了，无法访问，它就会一直等待，直到锁没了，它再给这个变量上个锁，然后使用，使用完了释放锁，以此进行。
+ * 这个即使有多个线程同时访问这个变量，对这个变量的操作是顺序进行的；
+ *
+ *
+ *
+ *
+ *
+ *
+ */
 template <bool Debug>
 class monitor_tt {
-    pthread_mutex_t mutex;
+    pthread_mutex_t mutex;//互斥量
     pthread_cond_t cond;
     
 public:
-    constexpr monitor_tt()
-    : mutex(PTHREAD_MUTEX_INITIALIZER), cond(PTHREAD_COND_INITIALIZER)
-    {
+    constexpr monitor_tt():mutex(PTHREAD_MUTEX_INITIALIZER), cond(PTHREAD_COND_INITIALIZER){
         lockdebug_remember_monitor(this);
     }
     
-    monitor_tt(const fork_unsafe_lock_t unsafe)
-    : mutex(PTHREAD_MUTEX_INITIALIZER), cond(PTHREAD_COND_INITIALIZER)
-    { }
+    monitor_tt(const fork_unsafe_lock_t unsafe):mutex(PTHREAD_MUTEX_INITIALIZER), cond(PTHREAD_COND_INITIALIZER){}
     
-    void enter()
-    {
+    void enter(){
         lockdebug_monitor_enter(this);
-        
-        int err = pthread_mutex_lock(&mutex);
+        int err = pthread_mutex_lock(&mutex);//加锁（阻塞线程）: 加锁成功返回零。其他任何返回值都表示出现了错误
         if (err) _objc_fatal("pthread_mutex_lock failed (%d)", err);
     }
     
-    void leave()
-    {
+    void leave(){
         lockdebug_monitor_leave(this);
         
-        int err = pthread_mutex_unlock(&mutex);
+        int err = pthread_mutex_unlock(&mutex);//释放锁
         if (err) _objc_fatal("pthread_mutex_unlock failed (%d)", err);
     }
     
-    void wait()
-    {
+    void wait(){
         lockdebug_monitor_wait(this);
         
         int err = pthread_cond_wait(&cond, &mutex);
         if (err) _objc_fatal("pthread_cond_wait failed (%d)", err);
     }
     
-    void notify()
-    {
-        int err = pthread_cond_signal(&cond);
+    void notify(){
+        int err = pthread_cond_signal(&cond);//生产者通知等待在条件变量上的消费者
         if (err) _objc_fatal("pthread_cond_signal failed (%d)", err);
     }
     
-    void notifyAll()
-    {
+    void notifyAll(){
         int err = pthread_cond_broadcast(&cond);//会根据加入等待队列中的先后顺序依次唤醒他们
         if (err) _objc_fatal("pthread_cond_broadcast failed (%d)", err);
     }
     
-    void forceReset()
-    {
+    void forceReset(){
         lockdebug_monitor_leave(this);
         
         bzero(&mutex, sizeof(mutex));
@@ -1006,13 +1005,11 @@ public:
         cond = pthread_cond_t PTHREAD_COND_INITIALIZER;
     }
     
-    void assertLocked()
-    {
+    void assertLocked(){
         lockdebug_monitor_assert_locked(this);
     }
     
-    void assertUnlocked()
-    {
+    void assertUnlocked(){
         lockdebug_monitor_assert_unlocked(this);
     }
 };
@@ -1165,4 +1162,5 @@ typedef struct os_unfair_lock_s os_unfair_lock UNAVAILABLE_ATTRIBUTE;
 
 
 #endif
+
 

@@ -68,5 +68,28 @@
     // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
 }
 
+- (void)sum:(CGFloat)_total :(CGFloat)_fund :(CGFloat)_special
+{
+    CGFloat total = _total - _fund - _special - 5000;//税前工资
+    CGFloat totalTax = 0.0;
+    CGFloat currentTax = 0.0;
+    CGFloat total_sum = 0.0;
+    NSLog(@"月份 |    该月纳税     |    累计纳税   |   该月净收入     |    累计净收入   |");
+    for (int i = 1; i < 13; i ++) {
+        
+        CGFloat totalX = total * i;
+        if (totalX <= 36000) {
+            currentTax = totalX * 0.03 - totalTax;
+        }else if (totalX <= 144000 ){
+            currentTax = totalX * 0.1 - 2520 - totalTax;
+        }else if (totalX <= 300000 ){
+            currentTax = totalX * 0.2 - 16920 - totalTax;
+        }
+        totalTax = totalTax + currentTax;
+        CGFloat per = total - currentTax + 5000;
+        total_sum = total_sum + per;
+        NSLog(@" %2d |  %11.2f  | %11.2f  |  %11.2f   |  %11.2f  |",i ,currentTax ,totalTax,per,total_sum);
+    }
+}
 
 @end

@@ -82,10 +82,10 @@
 #   define SUPPORT_MSB_TAGGED_POINTERS 1
 #endif
 
-// Define SUPPORT_INDEXED_ISA=1 on platforms that store the class in the isa 
-// field as an index into a class table.
-// Note, keep this in sync with any .s files which also define it.
-// Be sure to edit objc-abi.h as well.
+/* 在将类作为索引存储在类表中的isa字段中的平台上 定义 SUPPORT_INDEXED_ISA=1
+ * 注意，将其与任何定义它的.s文件保持同步。
+ * 确保编辑 objc-abi.h
+ */
 #if __ARM_ARCH_7K__ >= 2  ||  (__arm64__ && !__LP64__)
 #   define SUPPORT_INDEXED_ISA 1
 #else

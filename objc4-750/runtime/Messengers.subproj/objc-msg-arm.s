@@ -22,7 +22,7 @@
  */
 /********************************************************************
  * 
- *  objc-msg-arm.s - ARM code to support objc messaging
+ *  objc-msg-arm.s - ARM 代码支持 objc 消息传递
  *
  ********************************************************************/
 
@@ -36,7 +36,7 @@
 #   error requires armv7
 #endif
 
-// Set FP=1 on architectures that pass parameters in floating-point registers
+// 在浮点寄存器中传递参数的架构上设置 FP=1
 #if __ARM_ARCH_7K__
 #   define FP 1
 #else
@@ -101,11 +101,7 @@ _objc_indexed_classes:
 #endif
 
 
-
-// _objc_entryPoints and _objc_exitPoints are used by method dispatch
-// caching code to figure out whether any threads are actively 
-// in the cache for dispatching.  The labels surround the asm code
-// that do cache lookups.  The tables are zero-terminated.
+// 方法调度缓存代码使用_objc_entryPoints和_objc_exitPoints来确定缓存中是否有用于调度的活动线程。标签围绕执行缓存查找的asm代码。表是 zero-terminated
 
 .align 2
 .private_extern _objc_entryPoints
@@ -140,20 +136,21 @@ _objc_exitPoints:
 
 	
 /********************************************************************
- * Names for relative labels
- * DO NOT USE THESE LABELS ELSEWHERE
- * Reserved labels: 6: 7: 8: 9:
- ********************************************************************/
-// 6: used by CacheLookup
-// 7: used by MI_GET_ADDRESS etc
-// 8: used by CacheLookup
+ * 相对标签名称：不要在其他地方使用这些标签
+ * 保留标签:
+ *       6: 使用 CacheLookup
+ *       7: 使用 MI_GET_ADDRESS 等
+ *       8: 使用 CacheLookup
+ *       9:
+ *
+ ****************************************************************/
 #define LNilReceiver 	9
 #define LNilReceiver_f 	9f
 #define LNilReceiver_b 	9b
 
 
 /********************************************************************
- * Macro parameters
+ * 宏参数
  ********************************************************************/
 
 #define NORMAL 0
@@ -162,43 +159,48 @@ _objc_exitPoints:
 
 /********************************************************************
  *
- * Structure definitions.
+ * 结构定义
  *
  ********************************************************************/
 
-/* objc_super parameter to sendSuper */
+/* sendSuper() 的参数 objc_super  */
 #define RECEIVER         0
 #define CLASS            4
 
-/* Selected field offsets in class structure */
+/* 类结构中选定的字段偏移量 */
 #define ISA              0
 #define SUPERCLASS       4
 #define CACHE            8
 #define CACHE_MASK      12
 
-/* Field offsets in method cache bucket */
+/* 方法缓存 bucket 中的字段偏移量 */
 #define CACHED_SEL       0
 #define CACHED_IMP       4
 
-/* Selected field offsets in method structure */
+/* 方法结构中选定的字段偏移量 */
 #define METHOD_NAME      0
 #define METHOD_TYPES     4
 #define METHOD_IMP       8
 
 
 //////////////////////////////////////////////////////////////////////
+// 定义了一个汇编宏
+// .text  表示text段
+// .globl 全局函数符号
+// $ 是汇编中的预定义符号，等价于当前正汇编到的段的偏移量。
+// .globl $0 全局函数符号在代码段中的偏移量
 //
-// ENTRY		functionName
+// ENTRY		函数名称
 //
-// Assembly directives to begin an exported function.
+// 开始导出函数的程序集指令
 //
-// Takes: functionName - name of the exported function
+// 接受:functionName -导出函数的名称
 //////////////////////////////////////////////////////////////////////
 
 .macro ENTRY /* name */
-	.text
+	.text   // 表示text段
 	.thumb
-	.align 5
+	.align 5 //2 的5次方对齐，也就是4字节对齐
 	.globl $0
 	.thumb_func
 $0:	
@@ -218,8 +220,7 @@ $0:
 //
 // END_ENTRY	functionName
 //
-// Assembly directives to end an exported function.  Just a placeholder,
-// a close-parenthesis for ENTRY, until it is needed for something.
+// 用于结束导出函数的程序集指令。只是一个占位符，一个输入的close-parenthesis，直到需要它的时候。
 //
 // Takes: functionName - name of the exported function
 //////////////////////////////////////////////////////////////////////
@@ -234,18 +235,17 @@ LExit$0:
 // CacheLookup	NORMAL|STRET
 // CacheLookup2	NORMAL|STRET
 //
-// Locate the implementation for a selector in a class's method cache.
+// 在类的方法缓存中定位选择器的实现
 //
 // Takes: 
 //	  $0 = NORMAL, STRET
 //	  r0 or r1 (STRET) = receiver
 //	  r1 or r2 (STRET) = selector
-//	  r9 = class to search in
+//	  r9 = 要搜索的类
 //
 // On exit: r9 clobbered
-//	    (found) continues after CacheLookup, IMP in r12, eq set
-//	    (not found) continues after CacheLookup2
-//
+//      (found) CacheLookup 后继续, IMP in r12, eq set
+//      (未找到) 在CacheLookup2之后继续
 /////////////////////////////////////////////////////////////////////
 	
 .macro CacheLookup
@@ -307,8 +307,7 @@ LExit$0:
 .macro GetClassFromIsa
 
 #if SUPPORT_INDEXED_ISA
-	// Note: We are doing a little wasted work here to load values we might not
-	// need.  Branching turns out to be even worse when performance was measured.
+//注意:我们在这里做了一些无用的工作来加载我们可能不需要的值。在测试性能时，分支甚至更糟糕。
 	MI_GET_ADDRESS(r12, _objc_indexed_classes)
 	tst.w	r9, #ISA_INDEX_IS_NPI_MASK
 	itt	ne
@@ -353,7 +352,7 @@ LExit$0:
  * objc_msgLookup ABI:
  * IMP returned in r12
  * Forwarding returned in Z flag
- * r9 reserved for our use but not used
+ * r9保留给我们使用，但未使用
  *
  ********************************************************************/
 
