@@ -30,7 +30,7 @@
 #include <mach/machine.h>
 
 // suport older versions of mach-o/loader.h
-#ifndef LC_UUID
+#ifndef LC_UUID //用于标识 Mach-O 文件的 ID，也用于崩溃堆栈和符号文件的对应解析
 #define LC_UUID		0x1b
 struct uuid_command {
     uint32_t	cmd;		/* LC_UUID */

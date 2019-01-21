@@ -1157,7 +1157,7 @@ void ImageLoaderMachO::parseLoadCmds()
 					fDylibID = (struct dylib_command*)cmd;
 				}
 				break;
-			case LC_RPATH:
+			case LC_RPATH :// Runpath Search Paths ,@rpath 搜索的路径
 			case LC_LOAD_WEAK_DYLIB:
 		    case LC_REEXPORT_DYLIB:
 				// do nothing, just prevent LC_REQ_DYLD exception from occuring

@@ -22,8 +22,7 @@
 #ifndef _MACHO_LOADER_H_
 #define _MACHO_LOADER_H_
 
-/*
- * This file describes the format of mach object files.
+/* 这个文件描述了 mach 对象文件的格式
  */
 
 /*
@@ -45,18 +44,18 @@
 #include <mach/machine/thread_status.h>
 #include <architecture/byte_order.h>
 
-/*
+/* Mach-O 文件的头部
  * The mach header appears at the very beginning of the object file; it
  * is the same for both 32-bit and 64-bit architectures.
  */
 struct mach_header {
-	uint32_t	magic;		/* mach magic number identifier */
-	cpu_type_t	cputype;	/* cpu specifier */
-	cpu_subtype_t	cpusubtype;	/* machine specifier */
-	uint32_t	filetype;	/* type of file */
-	uint32_t	ncmds;		/* number of load commands */
-	uint32_t	sizeofcmds;	/* the size of all the load commands */
-	uint32_t	flags;		/* flags */
+	uint32_t	magic;//Mach-O 文件的魔数		/* mach magic number identifier */
+	cpu_type_t	cputype;// CPU 架构
+	cpu_subtype_t	cpusubtype;	// CPU 子类型
+	uint32_t	filetype;	//文件类型
+	uint32_t	ncmds;		//加载命令的数量
+	uint32_t	sizeofcmds;	//所有加载命令的大小
+	uint32_t	flags;		//dyld 加载所需的标记：MH_PIE 表示启动地址空间布局随机化
 };
 
 /*
@@ -65,13 +64,13 @@ struct mach_header {
  */
 struct mach_header_64 {
 	uint32_t	magic;		/* mach magic number identifier */
-	cpu_type_t	cputype;	/* cpu specifier */
-	cpu_subtype_t	cpusubtype;	/* machine specifier */
-	uint32_t	filetype;	/* type of file */
-	uint32_t	ncmds;		/* number of load commands */
-	uint32_t	sizeofcmds;	/* the size of all the load commands */
-	uint32_t	flags;		/* flags */
-	uint32_t	reserved;	/* reserved */
+	cpu_type_t	cputype;	// CPU 架构
+	cpu_subtype_t	cpusubtype;// CPU 子类型
+	uint32_t	filetype;	//文件类型
+	uint32_t	ncmds;		//加载命令的数量
+	uint32_t	sizeofcmds;	//所有加载命令的大小
+	uint32_t	flags;		//dyld 加载所需的标记：MH_PIE 表示启动地址空间布局随机化
+	uint32_t	reserved;	//64 位的保留字段
 };
 
 /* Constant for the magic field of the mach_header (32-bit architectures) */
@@ -83,7 +82,7 @@ struct mach_header_64 {
 #define MH_CIGAM_64	NXSwapInt(MH_MAGIC_64)
 
 /* Constants for the cmd field of new load commands, the type */
-#define LC_SEGMENT_64	0x19	/* 64-bit segment of this file to be mapped */
+#define LC_SEGMENT_64	0x19 //定义一个段，加载后被映射到内存中，包括里面的节	/* 64-bit segment of this file to be mapped */
 #define LC_ROUTINES_64	0x1a	/* 64-bit image routines */
 
 
@@ -159,7 +158,7 @@ struct load_command {
 
 /* Constants for the cmd field of all load commands, the type */
 #define	LC_SEGMENT	0x1	/* segment of this file to be mapped */
-#define	LC_SYMTAB	0x2	/* link-edit stab symbol table info */
+#define	LC_SYMTAB	0x2	//为文件定义符号表和字符串表，在连接文件时被链接器使用，同时也用于调试器映射符号到源文件。符号表定义的本地符号仅用于本地测试，而已定义和未定义的 external 符号被链接器使用 /* link-edit stab symbol table info */
 #define	LC_SYMSEG	0x3	/* link-edit gdb symbol table info (obsolete) */
 #define	LC_THREAD	0x4	/* thread */
 #define	LC_UNIXTHREAD	0x5	/* unix thread (includes a stack) */
@@ -168,10 +167,10 @@ struct load_command {
 #define	LC_IDENT	0x8	/* object identification info (obsolete) */
 #define LC_FVMFILE	0x9	/* fixed VM file inclusion (internal use) */
 #define LC_PREPAGE      0xa     /* prepage command (internal use) */
-#define	LC_DYSYMTAB	0xb	/* dynamic link-edit symbol table info */
-#define	LC_LOAD_DYLIB	0xc	/* load a dynamicly linked shared library */
+#define	LC_DYSYMTAB	0xb	//将符号表中给出符号的额外符号信息提供给动态链接器  /* dynamic link-edit symbol table info */
+#define	LC_LOAD_DYLIB 	0xc	//依赖的动态库，包括动态库名称、当前版本号、兼容版本号，(可以使用 otool -L xxx 命令查看) /* load a dynamicly linked shared library */
 #define	LC_ID_DYLIB	0xd	/* dynamicly linked shared lib identification */
-#define LC_LOAD_DYLINKER 0xe	/* load a dynamic linker */
+#define LC_LOAD_DYLINKER 0xe //默认的加载器路径	/* load a dynamic linker */
 #define LC_ID_DYLINKER	0xf	/* dynamic linker identification */
 #define	LC_PREBOUND_DYLIB 0x10	/* modules prebound for a dynamicly */
 				/*  linked shared library */
@@ -220,19 +219,32 @@ struct segment_command {	/* for 32-bit architectures */
  * mapped into a 64-bit task's address space.  If the 64-bit segment has
  * sections then section_64 structures directly follow the 64-bit segment
  * command and their size is reflected in cmdsize.
+ *
+ *
+ *
+ *
+ * LC_SEGMENT_64 定义一个64位的段，当文件加载后映射到地址空间（包括段里面节的定义）
+ *
+ * 系统将 fileoff 偏移处 filesize 大小的内容加载到虚拟内存的 vmaddr 处，大小为 vmsize，段页面的权限由 initprot 进行初始化。它的权限可以动态改变，但不能超过 maxprot 的值，例如 _TEXT 初始化和最大权限都是可读/可执行/不可写
+ *
+ * 上面的文件包括以下 4 种段：
+ * __PAGEZERO  空指针陷阱段，映射到虚拟内存空间的第 1 页，用于捕捉对 NULL 指针的引用
+ * __TEXT      代码段/只读数据段
+ * __DATA      读取和写入数据的段
+ * __LINKEDIT  动态链接器需要使用的信息，包括重定位信息、绑定信息、懒加载信息等
  */
 struct segment_command_64 {	/* for 64-bit architectures */
-	uint32_t	cmd;		/* LC_SEGMENT_64 */
-	uint32_t	cmdsize;	/* includes sizeof section_64 structs */
-	char		segname[16];	/* segment name */
-	uint64_t	vmaddr;		/* memory address of this segment */
-	uint64_t	vmsize;		/* memory size of this segment */
-	uint64_t	fileoff;	/* file offset of this segment */
-	uint64_t	filesize;	/* amount to map from the file */
-	vm_prot_t	maxprot;	/* maximum VM protection */
-	vm_prot_t	initprot;	/* initial VM protection */
-	uint32_t	nsects;		/* number of sections in segment */
-	uint32_t	flags;		/* flags */
+	uint32_t	cmd;// Load Command	 类型	/* LC_SEGMENT_64 */
+	uint32_t	cmdsize;// Load Command 结构大小	/* includes sizeof section_64 structs */
+	char		segname[16];//段的名字
+	uint64_t	vmaddr;	//映射到虚拟地址的偏移
+	uint64_t	vmsize;	//映射到虚拟地址的大小
+	uint64_t	fileoff;//对应于当前架构文件的偏移（注意：是当前架构，不是整个 FAT 文件）
+	uint64_t	filesize;//文件大小	/* amount to map from the file */
+	vm_prot_t	maxprot;//段里面的最高内存保护	/* maximum VM protection */
+	vm_prot_t	initprot;//初始内存保护	/* initial VM protection */
+	uint32_t	nsects;//包含的节的个数		/* number of sections in segment */
+	uint32_t	flags;//段页面标志
 };
 
 
@@ -273,6 +285,10 @@ struct segment_command_64 {	/* for 64-bit architectures */
  * The format of the relocation entries referenced by the reloff and nreloc
  * fields of the section structure for mach object files is described in the
  * header file <reloc.h>.
+ *
+ *
+ *
+ *  段里面可以包含不同的节 Section
  */
 struct section {		/* for 32-bit architectures */
 	char		sectname[16];	/* name of this section */
@@ -288,19 +304,20 @@ struct section {		/* for 32-bit architectures */
 	unsigned long	reserved2;	/* reserved */
 };
 
+//段里面可以包含不同的节 Section
 struct section_64 { /* for 64-bit architectures */
-	char		sectname[16];	/* name of this section */
-	char		segname[16];	/* segment this section goes in */
-	uint64_t	addr;		/* memory address of this section */
-	uint64_t	size;		/* size in bytes of this section */
-	uint32_t	offset;		/* file offset of this section */
-	uint32_t	align;		/* section alignment (power of 2) */
-	uint32_t	reloff;		/* file offset of relocation entries */
-	uint32_t	nreloc;		/* number of relocation entries */
-	uint32_t	flags;		/* flags (section type and attributes)*/
+	char		sectname[16];//节的名字
+	char		segname[16];//段的名字
+	uint64_t	addr;//映射到虚拟地址的偏移
+	uint64_t	size;//节的大小
+	uint32_t	offset;//节在当前架构文件中的偏移
+	uint32_t	align;	//节的字节对齐大小 n ，计算结果为 2^n
+	uint32_t	reloff;//重定位入口的文件偏移		/* file offset of relocation entries */
+	uint32_t	nreloc;	//重定位入口的个数/* number of relocation entries */
+	uint32_t	flags;//节的类型和属性
 	uint32_t	reserved1;	/* reserved (for offset or index) */
 	uint32_t	reserved2;	/* reserved (for count or sizeof) */
-	uint32_t	reserved3;	/* reserved */
+	uint32_t	reserved3;//保留位	/* reserved */
 };
 
 
