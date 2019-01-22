@@ -1,3 +1,0 @@
-{one="field1"i"field2"c"field3"{?="x"f"y"f}}
-{one="field1"i"field2"c"field3"{?="x"f"y"f}}
-{?="x"f"y"f}

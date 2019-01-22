@@ -449,9 +449,7 @@ struct thread_command {
 };
 
 /*
- * The symtab_command contains the offsets and sizes of the link-edit 4.3BSD
- * "stab" style symbol table information as described in the header files
- * <nlist.h> and <stab.h>.
+ * The symtab_command contains the offsets and sizes of the link-edit 4.3BSD "stab" style symbol table information as described in the header files <nlist.h> and <stab.h>.
  */
 struct symtab_command {
 	unsigned long	cmd;		/* LC_SYMTAB */
@@ -463,42 +461,28 @@ struct symtab_command {
 };
 
 /*
- * This is the second set of the symbolic information which is used to support
- * the data structures for the dynamicly link editor.
+ * This is the second set of the symbolic information which is used to support the data structures for the dynamicly link editor.
  *
- * The original set of symbolic information in the symtab_command which contains
- * the symbol and string tables must also be present when this load command is
- * present.  When this load command is present the symbol table is organized
- * into three groups of symbols:
+ * The original set of symbolic information in the symtab_command which contains the symbol and string tables must also be present when this load command is present.  When this load command is present the symbol table is organized into three groups of symbols:
  *	local symbols (static and debugging symbols) - grouped by module
  *	defined external symbols - grouped by module (sorted by name if not lib)
  *	undefined external symbols (sorted by name)
- * In this load command there are offsets and counts to each of the three groups
- * of symbols.
+ * In this load command there are offsets and counts to each of the three groups of symbols.
  *
- * This load command contains a the offsets and sizes of the following new
- * symbolic information tables:
+ * This load command contains a the offsets and sizes of the following new symbolic information tables:
  *	table of contents
  *	module table
  *	reference symbol table
  *	indirect symbol table
- * The first three tables above (the table of contents, module table and
- * reference symbol table) are only present if the file is a dynamicly linked
- * shared library.  For executable and object modules, which are files
- * containing only one module, the information that would be in these three
- * tables is determined as follows:
- * 	table of contents - the defined external symbols are sorted by name
- *	module table - the file contains only one module so everything in the
- *		       file is part of the module.
+ * The first three tables above (the table of contents, module table and reference symbol table) are only present if the file is a dynamicly linked shared library.  For executable and object modules, which are files containing only one module, the information that would be in these three tables is determined as follows:
+ * 	table of contents - the defined external symbols are sorted by name	module table - the file contains only one module so everything in the file is part of the module.
  *	reference symbol table - is the defined and undefined external symbols
  *
- * For dynamicly linked shared library files this load command also contains
- * offsets and sizes to the pool of relocation entries for all sections
+ * For dynamicly linked shared library files this load command also contains offsets and sizes to the pool of relocation entries for all sections
  * separated into two groups:
  *	external relocation entries
  *	local relocation entries
- * For executable and object modules the relocation entries continue to hang
- * off the section structures.
+ * For executable and object modules the relocation entries continue to hang off the section structures.
  */
 struct dysymtab_command {
     unsigned long cmd;		/* LC_DYSYMTAB */
@@ -529,85 +513,45 @@ struct dysymtab_command {
     unsigned long nundefsym;	/* number of undefined symbols */
 
     /*
-     * For the for the dynamic binding process to find which module a symbol
-     * is defined in the table of contents is used (analogous to the ranlib
-     * structure in an archive) which maps defined external symbols to modules
-     * they are defined in.  This exists only in a dynamicly linked shared
-     * library file.  For executable and object modules the defined external
-     * symbols are sorted by name and is use as the table of contents.
+     * For the for the dynamic binding process to find which module a symbol is defined in the table of contents is used (analogous to the ranlib structure in an archive) which maps defined external symbols to modules  they are defined in.  This exists only in a dynamicly linked shared library file.  For executable and object modules the defined external symbols are sorted by name and is use as the table of contents.
      */
     unsigned long tocoff;	/* file offset to table of contents */
     unsigned long ntoc;		/* number of entries in table of contents */
 
     /*
-     * To support dynamic binding of "modules" (whole object files) the symbol
-     * table must reflect the modules that the file was created from.  This is
-     * done by having a module table that has indexes and counts into the merged
-     * tables for each module.  The module structure that these two entries
-     * refer to is described below.  This exists only in a dynamicly linked
-     * shared library file.  For executable and object modules the file only
-     * contains one module so everything in the file belongs to the module.
+     * To support dynamic binding of "modules" (whole object files) the symbol table must reflect the modules that the file was created from.  This is  done by having a module table that has indexes and counts into the merged tables for each module.  The module structure that these two entries refer to is described below.  This exists only in a dynamicly linked shared library file.  For executable and object modules the file only contains one module so everything in the file belongs to the module.
      */
     unsigned long modtaboff;	/* file offset to module table */
     unsigned long nmodtab;	/* number of module table entries */
 
     /*
-     * To support dynamic module binding the module structure for each module
-     * indicates the external references (defined and undefined) each module
-     * makes.  For each module there is an offset and a count into the
-     * reference symbol table for the symbols that the module references.
-     * This exists only in a dynamicly linked shared library file.  For
-     * executable and object modules the defined external symbols and the
-     * undefined external symbols indicates the external references.
+     * To support dynamic module binding the module structure for each module indicates the external references (defined and undefined) each module makes.  For each module there is an offset and a count into the reference symbol table for the symbols that the module references.
+     * This exists only in a dynamicly linked shared library file.  For executable and object modules the defined external symbols and the undefined external symbols indicates the external references.
      */
     unsigned long extrefsymoff;  /* offset to referenced symbol table */
     unsigned long nextrefsyms;	 /* number of referenced symbol table entries */
 
     /*
-     * The sections that contain "symbol pointers" and "routine stubs" have
-     * indexes and (implied counts based on the size of the section and fixed
-     * size of the entry) into the "indirect symbol" table for each pointer
-     * and stub.  For every section of these two types the index into the
-     * indirect symbol table is stored in the section header in the field
-     * reserved1.  An indirect symbol table entry is simply a 32bit index into
-     * the symbol table to the symbol that the pointer or stub is referring to.
+     * The sections that contain "symbol pointers" and "routine stubs" have indexes and (implied counts based on the size of the section and fixed size of the entry) into the "indirect symbol" table for each pointer and stub.  For every section of these two types the index into the indirect symbol table is stored in the section header in the field reserved1.  An indirect symbol table entry is simply a 32bit index into the symbol table to the symbol that the pointer or stub is referring to.
      * The indirect symbol table is ordered to match the entries in the section.
      */
     unsigned long indirectsymoff; /* file offset to the indirect symbol table */
     unsigned long nindirectsyms;  /* number of indirect symbol table entries */
 
     /*
-     * To support relocating an individual module in a library file quickly the
-     * external relocation entries for each module in the library need to be
-     * accessed efficiently.  Since the relocation entries can't be accessed
-     * through the section headers for a library file they are separated into
-     * groups of local and external entries further grouped by module.  In this
-     * case the presents of this load command who's extreloff, nextrel,
-     * locreloff and nlocrel fields are non-zero indicates that the relocation
-     * entries of non-merged sections are not referenced through the section
-     * structures (and the reloff and nreloc fields in the section headers are
-     * set to zero).
+     * To support relocating an individual module in a library file quickly the external relocation entries for each module in the library need to be accessed efficiently.  Since the relocation entries can't be accessed through the section headers for a library file they are separated into groups of local and external entries further grouped by module.  In this case the presents of this load command who's extreloff, nextrel, locreloff and nlocrel fields are non-zero indicates that the relocation entries of non-merged sections are not referenced through the section structures (and the reloff and nreloc fields in the section headers are set to zero).
      *
-     * Since the relocation entries are not accessed through the section headers
-     * this requires the r_address field to be something other than a section
-     * offset to identify the item to be relocated.  In this case r_address is
-     * set to the offset from the vmaddr of the first LC_SEGMENT command.
+     * Since the relocation entries are not accessed through the section headers this requires the r_address field to be something other than a section offset to identify the item to be relocated.  In this case r_address is set to the offset from the vmaddr of the first LC_SEGMENT command.
      *
-     * The relocation entries are grouped by module and the module table
-     * entries have indexes and counts into them for the group of external
-     * relocation entries for that the module.
+     * The relocation entries are grouped by module and the module table entries have indexes and counts into them for the group of external relocation entries for that the module.
      *
-     * For sections that are merged across modules there must not be any
-     * remaining external relocation entries for them (for merged sections
-     * remaining relocation entries must be local).
+     * For sections that are merged across modules there must not be any remaining external relocation entries for them (for merged sections remaining relocation entries must be local).
      */
     unsigned long extreloff;	/* offset to external relocation entries */
     unsigned long nextrel;	/* number of external relocation entries */
 
     /*
-     * All the local relocation entries are grouped together (they are not
-     * grouped by their module since they are only used if the object is moved
-     * from it staticly link edited address).
+     * All the local relocation entries are grouped together (they are not grouped by their module since they are only used if the object is moved from it staticly link edited address).
      */
     unsigned long locreloff;	/* offset to local relocation entries */
     unsigned long nlocrel;	/* number of local relocation entries */
@@ -615,11 +559,7 @@ struct dysymtab_command {
 };	
 
 /*
- * An indirect symbol table entry is simply a 32bit index into the symbol table 
- * to the symbol that the pointer or stub is refering to.  Unless it is for a
- * non-lazy symbol pointer section for a defined symbol which strip(1) as 
- * removed.  In which case it has the value INDIRECT_SYMBOL_LOCAL.  If the
- * symbol was also absolute INDIRECT_SYMBOL_ABS is or'ed with that.
+ * An indirect symbol table entry is simply a 32bit index into the symbol table  to the symbol that the pointer or stub is refering to.  Unless it is for a non-lazy symbol pointer section for a defined symbol which strip(1) as  removed.  In which case it has the value INDIRECT_SYMBOL_LOCAL.  If the symbol was also absolute INDIRECT_SYMBOL_ABS is or'ed with that.
  */
 #define INDIRECT_SYMBOL_LOCAL	0x80000000
 #define INDIRECT_SYMBOL_ABS	0x40000000
@@ -627,10 +567,8 @@ struct dysymtab_command {
 
 /* a table of contents entry */
 struct dylib_table_of_contents {
-    unsigned long symbol_index;	/* the defined external symbol
-				   (index into the symbol table) */
-    unsigned long module_index;	/* index into the module table this symbol
-				   is defined in */
+    unsigned long symbol_index;	/* the defined external symbol (index into the symbol table) */
+    unsigned long module_index;	/* index into the module table this symbol is defined in */
 };	
 
 /* a module table entry */
@@ -670,12 +608,8 @@ struct dylib_module_64 {
 	uint32_t iextrel;	/* index into external relocation entries */
 	uint32_t nextrel;	/* number of external relocation entries */
 
-	uint32_t iinit_iterm;	/* low 16 bits are the index into the init
-				   section, high 16 bits are the index into
-				   the term section */
-	uint32_t ninit_nterm;	/* low 16 bits are the number of init section
-				   entries, high 16 bits are the number of
-				   term section entries */
+	uint32_t iinit_iterm;	/* low 16 bits are the index into the init section, high 16 bits are the index into the term section */
+	uint32_t ninit_nterm;	/* low 16 bits are the number of init section entries, high 16 bits are the number of term section entries */
 
 	uint32_t		/* for this module size of the */
 		objc_module_info_size;	/* (__OBJC,__module_info) section */
@@ -685,12 +619,7 @@ struct dylib_module_64 {
 
 
 /* 
- * The entries in the reference symbol table are used when loading the module
- * (both by the static and dynamic link editors) and if the module is unloaded
- * or replaced.  Therefore all external symbols (defined and undefined) are
- * listed in the module's reference table.  The flags describe the type of
- * reference that is being made.  The constants for the flags are defined in
- * <mach-o/nlist.h> as they are also used for symbol table entries.
+ * The entries in the reference symbol table are used when loading the module (both by the static and dynamic link editors) and if the module is unloaded or replaced.  Therefore all external symbols (defined and undefined) are listed in the module's reference table.  The flags describe the type of reference that is being made.  The constants for the flags are defined in <mach-o/nlist.h> as they are also used for symbol table entries.
  */
 struct dylib_reference {
     unsigned long isym:24,	/* index into the symbol table */
@@ -698,13 +627,8 @@ struct dylib_reference {
 };
 
 /*
- * The symseg_command contains the offset and size of the GNU style
- * symbol table information as described in the header file <symseg.h>.
- * The symbol roots of the symbol segments must also be aligned properly
- * in the file.  So the requirement of keeping the offsets aligned to a
- * multiple of a sizeof(long) translates to the length field of the symbol
- * roots also being a multiple of a long.  Also the padding must again be
- * zeroed. (THIS IS OBSOLETE and no longer supported).
+ * The symseg_command contains the offset and size of the GNU style symbol table information as described in the header file <symseg.h>.
+ * The symbol roots of the symbol segments must also be aligned properly in the file.  So the requirement of keeping the offsets aligned to a multiple of a sizeof(long) translates to the length field of the symbol roots also being a multiple of a long.  Also the padding must again be zeroed. (THIS IS OBSOLETE and no longer supported).
  */
 struct symseg_command {
 	unsigned long	cmd;		/* LC_SYMSEG */
@@ -714,10 +638,7 @@ struct symseg_command {
 };
 
 /*
- * The ident_command contains a free format string table following the
- * ident_command structure.  The strings are null terminated and the size of
- * the command is padded out with zero bytes to a multiple of sizeof(long).
- * (THIS IS OBSOLETE and no longer supported).
+ * The ident_command contains a free format string table following the ident_command structure.  The strings are null terminated and the size of the command is padded out with zero bytes to a multiple of sizeof(long). (THIS IS OBSOLETE and no longer supported).
  */
 struct ident_command {
 	unsigned long cmd;		/* LC_IDENT */
@@ -725,10 +646,7 @@ struct ident_command {
 };
 
 /*
- * The fvmfile_command contains a reference to a file to be loaded at the
- * specified virtual address.  (Presently, this command is reserved for NeXT
- * internal use.  The kernel ignores this command when loading a program into
- * memory).
+ * The fvmfile_command contains a reference to a file to be loaded at the specified virtual address.  (Presently, this command is reserved for NeXT internal use.  The kernel ignores this command when loading a program into memory).
  */
 struct fvmfile_command {
 	unsigned long cmd;		/* LC_FVMFILE */
