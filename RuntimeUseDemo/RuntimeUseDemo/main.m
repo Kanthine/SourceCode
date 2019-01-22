@@ -12,6 +12,8 @@
 int main(int argc, char * argv[]) {
     @autoreleasepool {
         
+        NSLog(@"-------- %lx",0x000000010000B7A8 -  0x0000000100000000 + 0x00000000);
+        NSLog(@"-------- %lx",0x00000a28 -  0x0000000100000000 + 0x00000000);
 
         return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
     }
