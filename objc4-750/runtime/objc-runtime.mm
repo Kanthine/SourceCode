@@ -199,15 +199,15 @@ void appendHeader(header_info *hi)
     HeaderCount++;
     hi->setNext(NULL);
     if (!FirstHeader) {
-        // list is empty
+        // 如果列表为空
         FirstHeader = LastHeader = hi;
     } else {
         if (!LastHeader) {
-            // list is not empty, but LastHeader is invalid - recompute it
+            // 列表不是空的，但LastHeader 无效 , 重新设置它
             LastHeader = FirstHeader;
             while (LastHeader->getNext()) LastHeader = LastHeader->getNext();
         }
-        // LastHeader is now valid
+        //现在 LastHeader 是有效的
         LastHeader->setNext(hi);
         LastHeader = hi;
     }
