@@ -44,17 +44,18 @@
 #define FAT_MAGIC	0xcafebabe
 #define FAT_CIGAM	NXSwapLong(FAT_MAGIC)
 
+//胖二进制（Fat Binary）:将多个支持不同CPU架构的二进制文件打包成一个文件，系统在加载运行该程序时，会根据通用二进制文件中提供的多个架构来与当前系统平台做匹配，运行适合当前系统的那个版本。
 struct fat_header {
 	unsigned long	magic;		/* FAT_MAGIC */
-	unsigned long	nfat_arch;	/* number of structs that follow */
+	unsigned long	nfat_arch;	//指明了通用二进制中包含多少个 Mach-O 文件
 };
 
 struct fat_arch {
-	cpu_type_t	cputype;	/* cpu specifier (int) */
+	cpu_type_t	cputype;	//指定了具体的CPU类型
 	cpu_subtype_t	cpusubtype;	/* machine specifier (int) */
-	unsigned long	offset;		/* file offset to this object file */
-	unsigned long	size;		/* size of this object file */
-	unsigned long	align;		/* alignment as a power of 2 */
+	unsigned long	offset;// 当前CPU架构数据相对于当前文件开头的偏移值
+	unsigned long	size; //数据的大小
+	unsigned long	align;//数据的内存对齐边界，取值必须是2的次方，它确保了当前CPU架构的目标文件在加载到内存中时，数据是经过内存优化对齐的
 };
 
 #ifdef KERNEL

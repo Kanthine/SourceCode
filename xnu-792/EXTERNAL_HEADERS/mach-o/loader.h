@@ -22,206 +22,204 @@
 #ifndef _MACHO_LOADER_H_
 #define _MACHO_LOADER_H_
 
-/* 这个文件描述了 mach 对象文件的格式
+/* 编译器：把一种编程语言(原始语言)转换为另一种编程语言(目标语言)的程序叫做编译器
+ *
+ * 大多数编译器由两部分组成：前端和后端
+ *      前端负责词法分析，语法分析，生成中间代码 IR；
+ *      后端以中间代码 IR 作为输入，对与架构无关的代码优化，接着针对不同架构生成不同的机器码。
+ * 前后端依赖统一格式的中间代码(IR)，使得前后端可以独立的变化。新增一门语言只需要修改前端，而新增一个CPU架构只需要修改后端即可。
+ *
+ * 注：Objective-C/C/C++使用的编译器前端是 clang，swift是swift，后端都是 LLVM。
+ *
+ * 从前端到后端 .m文件 编译的大致流程：
+ * .m文件 -> 预处理器 -> 词法分析 -> 语法分析 -> CodeGen -> IR -> LLVM Optimizer -> 汇编器（.o）-> linker -> Mach-O 文件
+ * 1、预处理器：预处理会替进行头文件引入，宏替换，注释处理，条件编译(#ifdef)等操作。
+ * 2、词法分析：词法分析器读入源文件的字符流，将他们组织称有意义的词素(lexeme)序列，对于每个词素，此法分析器产生词法单元（token）作为输出。
+ * 3、语法分析：词法分析的Token流会被解析成一颗抽象语法树(abstract syntax tree - AST)。有了抽象语法树，clang就可以对这个树进行分析，找出代码中的错误。比如类型不匹配，亦或Objective-C中向target发送了一个未实现的消息。
+ * 4、CodeGen：CodeGen遍历语法树，生成LLVM IR代码。LLVM IR是前端的输出，后端的输入。
+ *            Objective-C代码在这一步会进行runtime的桥接：property合成，ARC处理等。
+ * 5、生成汇编代码：LLVM对IR进行优化后，会针对不同架构生成不同的目标代码，最后以汇编代码的格式输出：
+ * 6、汇编器：汇编器以汇编代码作为输入，将汇编代码转换为机器代码，最后输出目标文件(object file)。
+ * 7、链接：链接器会把编译器编译生成的多个文件（.o文件 .dylib文件 .a文件 .tbd文件等）链接成一个可执行文件 Mach-O。链接并不会产生新的代码，只是在现有代码的基础上做移动和补丁。
+ *       链接器的输入可能是以下几种文件：
+ *              object file(.o)，单个源文件的编辑结果，包含了由符号表示的代码和数据。
+ *              动态库(.dylib)，Mach-O 类型的可执行文件，链接的时候只会绑定符号，动态库会被拷贝到app里，运行时加载
+ *              静态库(.a)，由ar命令打包的一组.o文件，链接的时候会把具体的代码拷贝到最后的Mach-O
+ *              tbd，只包含符号 Symbols 的库文件
+ *
+ *
+ * XCode编译的详细的步骤如下：
+ * 创建Product.app的文件夹
+ * 把Entitlements.plist写入到DerivedData里，处理打包的时候需要的信息（比如application-identifier）。
+ * 创建一些辅助文件，比如各种.hmap，这是headermap文件，具体作用下文会讲解。
+ * 执行CocoaPods的编译前脚本：检查Manifest.lock文件。
+ * 编译.m文件，生成.o文件。
+ * 链接动态库，.o文件，生成一个Mach-O格式的可执行文件。
+ * 编译assets，编译storyboard，链接storyboard
+ * 拷贝动态库Logger.framework，并且对其签名
+ * 执行CocoaPods编译后脚本：拷贝CocoaPods Target生成的Framework
+ * 对Demo.App签名，并验证（validate）
+ * 生成Product.app
  */
 
-/*
- * <mach/machine.h> is needed here for the cpu_type_t and cpu_subtype_t types
- * and contains the constants for the possible values of these types.
+/* LC_SEGMENT / LC_SEGMENT_64 段的详解（Load command）
+ *  常见段：
+ *        _PAGEZERO: MH_EXECUTE 格式文件的空指针陷阱段
+ *        _TEXT: 程序代码段
+ *        __DATA: 程序数据段
+ *        __RODATA: read only程序只读数据段
+ *        __LINKEDIT: 链接器使用段
+ *   段中节详解：
+ *       __text: 主程序代码
+ *       __stubs, __stub_helper: 用于动态链接的桩
+ *       __cstring: 程序中c语言字符串
+ *       __const: 常量
+ *       __RODATA,__objc_methname: OC方法名称
+ *       __RODATA,__objc_methntype: OC方法类型
+ *       __RODATA,__objc_classname: OC类名
+ *       __DATA,__objc_classlist: OC类列表
+ *       __DATA,__objc_protollist: OC原型列表
+ *       __DATA,__objc_imageinfo: OC镜像信息
+ *       __DATA,__objc_const: OC常量
+ *       __DATA,__objc_selfrefs: OC类自引用(self)
+ *       __DATA,__objc_superrefs: OC类超类引用(super)
+ *       __DATA,__objc_protolrefs: OC原型引用
+ *       __DATA, __bss: 没有初始化和初始化为0 的全局变量
+ */
+
+
+/* <mach/machine.h> 用于 cpu_type_t 和 cpu_subtype_t 类型，包含这些类型可能值的常量。
  */
 #include <mach/machine.h>
 
-/*
- * <mach/vm_prot.h> is needed here for the vm_prot_t type and contains the 
- * constants that are or'ed together for the possible values of this type.
+/* <mach/vm_prot.h> 用于 vm_prot_t 类型，包含该类型可能值的常量。
  */
 #include <mach/vm_prot.h>
 
 /*
- * <machine/thread_status.h> is expected to define the flavors of the thread
- * states and the structures of those flavors for each machine.
+ * <machine/thread_status.h> is expected to define the flavors of the thread states and the structures of those flavors for each machine.
  */
 #include <mach/machine/thread_status.h>
 #include <architecture/byte_order.h>
 
-/* Mach-O 文件的头部
- * The mach header appears at the very beginning of the object file; it
- * is the same for both 32-bit and 64-bit architectures.
+/* Mach-O 文件的头部 ：mach_header 出现在目标文件的最开始;对于32位和64位架构都是一样的。
  */
 struct mach_header {
-	uint32_t	magic;//Mach-O 文件的魔数		/* mach magic number identifier */
-	cpu_type_t	cputype;// CPU 架构
+    uint32_t	magic;// Mach-O 文件支持设备的CPU位数, 32位 oxFEEDFACE ; 64位xFEEDFACF
+	cpu_type_t	cputype;// CPU类型
 	cpu_subtype_t	cpusubtype;	// CPU 子类型
-	uint32_t	filetype;	//文件类型
+    uint32_t	filetype;	//文件类型，比如可执行文件、库文件、Dsym文件;
 	uint32_t	ncmds;		//加载命令的数量
 	uint32_t	sizeofcmds;	//所有加载命令的大小
 	uint32_t	flags;		//dyld 加载所需的标记：MH_PIE 表示启动地址空间布局随机化
 };
 
-/*
- * The 64-bit mach header appears at the very beginning of object files for
- * 64-bit architectures.
- */
 struct mach_header_64 {
-	uint32_t	magic;		/* mach magic number identifier */
-	cpu_type_t	cputype;	// CPU 架构
+	uint32_t	magic;// Mach-O 文件支持设备的CPU位数
+	cpu_type_t	cputype;	// CPU类型
 	cpu_subtype_t	cpusubtype;// CPU 子类型
-	uint32_t	filetype;	//文件类型
+	uint32_t	filetype;	//文件类型，比如可执行文件、库文件、Dsym文件;
 	uint32_t	ncmds;		//加载命令的数量
 	uint32_t	sizeofcmds;	//所有加载命令的大小
 	uint32_t	flags;		//dyld 加载所需的标记：MH_PIE 表示启动地址空间布局随机化
 	uint32_t	reserved;	//64 位的保留字段
 };
 
-/* Constant for the magic field of the mach_header (32-bit architectures) */
-#define	MH_MAGIC	0xfeedface	/* the mach magic number */
+// mach_header(32位) 的 magic 字段的常量
+#define	MH_MAGIC	0xfeedface // 表示32位二进制
 #define MH_CIGAM	NXSwapInt(MH_MAGIC)
 
-/* Constant for the magic field of the mach_header_64 (64-bit architectures) */
-#define MH_MAGIC_64	0xfeedfacf	/* the 64-bit mach magic number */
+//mach_header_64(64位) 的 magic 字段的常量
+#define MH_MAGIC_64	0xfeedfacf //表示64位二进制
 #define MH_CIGAM_64	NXSwapInt(MH_MAGIC_64)
 
-/* Constants for the cmd field of new load commands, the type */
-#define LC_SEGMENT_64	0x19 //定义一个段，加载后被映射到内存中，包括里面的节	/* 64-bit segment of this file to be mapped */
-#define LC_ROUTINES_64	0x1a	/* 64-bit image routines */
+// 新加载命令的 cmd 字段的常量
+#define LC_SEGMENT_64	0x19 //定义一个段，加载后被映射到内存中，包括里面的节
+#define LC_ROUTINES_64	0x1a // 64 位程序
 
 
-/*
- * The layout of the file depends on the filetype.  For all but the MH_OBJECT
- * file type the segments are padded out and aligned on a segment alignment
- * boundary for efficient demand pageing.  The MH_EXECUTE, MH_FVMLIB, MH_DYLIB,
- * MH_DYLINKER and MH_BUNDLE file types also have the headers included as part
- * of their first segment.
- * 
- * The file type MH_OBJECT is a compact format intended as output of the
- * assembler and input (and possibly output) of the link editor (the .o
- * format).  All sections are in one unnamed segment with no segment padding. 
- * This format is used as an executable format when the file is so small the
- * segment padding greatly increases it's size.
+/* 文件的布局取决于文件类型。对于除 MH_OBJECT 文件类型之外的所有文件类型，段被填充并在段对齐边界上对齐，以实现高效的需求分页。
+ * MH_EXECUTE、MH_FVMLIB、MH_DYLIB、MH_DYLINKER和MH_BUNDLE文件类型的头文件也包含在它们的第一个段中。
  *
- * The file type MH_PRELOAD is an executable format intended for things that
- * not executed under the kernel (proms, stand alones, kernels, etc).  The
- * format can be executed under the kernel but may demand paged it and not
- * preload it before execution.
+ * 文件类型MH_OBJECT是一种紧凑格式，用作汇编器的输出和链接编辑器的输入(.o格式)。所有节都在一个未命名的段中，没有段填充。当文件很小时，这种格式被用作可执行格式，段填充很大程度上增加了文件的大小。
  *
- * A core file is in MH_CORE format and can be any in an arbritray legal
- * Mach-O file.
+ * 文件类型MH_PRELOAD是一种可执行格式，用于内核下未执行的内容(proms、stand alones、kernels等)。该格式可以在内核下执行，但可能需要对其进行分页，而不是在执行前预加载。
  *
- * Constants for the filetype field of the mach_header
+ * mach_header 的 filetype 字段的常量：
+ * MH_DSYM   存储二进制文件符号信息的文件：.dYSM/Contents/Resources/DWARF/MyApp
  */
-#define	MH_OBJECT	0x1		/* relocatable object file */
-#define	MH_EXECUTE	0x2		/* demand paged executable file */
-#define	MH_FVMLIB	0x3		/* fixed VM shared library file */
-#define	MH_CORE		0x4		/* core file */
-#define	MH_PRELOAD	0x5		/* preloaded executable file */
-#define	MH_DYLIB	0x6		/* dynamicly bound shared library file*/
-#define	MH_DYLINKER	0x7		/* dynamic link editor */
-#define	MH_BUNDLE	0x8		/* dynamicly bound bundle file */
+#define	MH_OBJECT	0x1 //可重定位目标文件：.o文件 .a/.framework静态库
+#define	MH_EXECUTE	0x2	//请求分页的可执行文件: app/MyApp ; .out
+#define	MH_FVMLIB	0x3 //固定VM共享库文件
+#define	MH_CORE		0x4 //核心文件
+#define	MH_PRELOAD	0x5 //预加载可执行文件
+#define	MH_DYLIB	0x6 //动态库 .framework  .dylib
+#define	MH_DYLINKER	0x7	//动态链接器 usr/lib/dyld
+#define	MH_BUNDLE	0x8	//动态绑定 Bundle 文件
 
-/* Constants for the flags field of the mach_header */
-#define	MH_NOUNDEFS	0x1		/* the object file has no undefined
-					   references, can be executed */
-#define	MH_INCRLINK	0x2		/* the object file is the output of an
-					   incremental link against a base file
-					   and can't be link edited again */
-#define MH_DYLDLINK	0x4		/* the object file is input for the
-					   dynamic linker and can't be staticly
-					   link edited again */
-#define MH_BINDATLOAD	0x8		/* the object file's undefined
-					   references are bound by the dynamic
-					   linker when loaded. */
-#define MH_PREBOUND	0x10		/* the file has it's dynamic undefined
-					   references prebound. */
+//mach_header 的 flags 字段的常量
+#define	MH_NOUNDEFS	0x1	//目标文件没有未定义的引用，可以执行
+#define	MH_INCRLINK	0x2  //目标文件是针对基本文件的增量链接的输出，不能再次链接编辑
+#define MH_DYLDLINK	0x4	//目标文件是动态链接器的输入，不能再次静态链接编辑
+#define MH_BINDATLOAD	0x8	//加载时，目标文件的未定义引用由动态链接器绑定。
+#define MH_PREBOUND	0x10 //该文件具有预先绑定的动态未定义引用。
 
-/*
- * The load commands directly follow the mach_header.  The total size of all
- * of the commands is given by the sizeofcmds field in the mach_header.  All
- * load commands must have as their first two fields cmd and cmdsize.  The cmd
- * field is filled in with a constant for that command type.  Each command type
- * has a structure specifically for it.  The cmdsize field is the size in bytes
- * of the particular load command structure plus anything that follows it that
- * is a part of the load command (i.e. section structures, strings, etc.).  To
- * advance to the next load command the cmdsize can be added to the offset or
- * pointer of the current load command.  The cmdsize for 32-bit architectures
- * MUST be a multiple of 4 bytes and for 64-bit architectures MUST be a multiple
- * of 8 bytes (these are forever the maximum alignment of any load commands).
- * sizeof(long) (this is forever the maximum alignment of any load commands).
- * The padded bytes must be zero.  All tables in the object file must also
- * follow these rules so the file can be memory mapped.  Otherwise the pointers
- * to these tables will not work well or at all on some machines.  With all
- * padding zeroed like objects will compare byte for byte.
- */
 struct load_command {
-	unsigned long cmd;		/* type of load command */
-	unsigned long cmdsize;		/* total size of command in bytes */
+	unsigned long cmd;	// load_command 的类型
+	unsigned long cmdsize;	 //load_command 的总大小（以字节为单位）
 };
 
-/* Constants for the cmd field of all load commands, the type */
-#define	LC_SEGMENT	0x1	/* segment of this file to be mapped */
-#define	LC_SYMTAB	0x2	//为文件定义符号表和字符串表，在连接文件时被链接器使用，同时也用于调试器映射符号到源文件。符号表定义的本地符号仅用于本地测试，而已定义和未定义的 external 符号被链接器使用 /* link-edit stab symbol table info */
-#define	LC_SYMSEG	0x3	/* link-edit gdb symbol table info (obsolete) */
-#define	LC_THREAD	0x4	/* thread */
-#define	LC_UNIXTHREAD	0x5	/* unix thread (includes a stack) */
-#define	LC_LOADFVMLIB	0x6	/* load a specified fixed VM shared library */
-#define	LC_IDFVMLIB	0x7	/* fixed VM shared library identification */
-#define	LC_IDENT	0x8	/* object identification info (obsolete) */
+// load_command 的类型常量(cmd 的值)
+#define	LC_SEGMENT	0x1	//该文件被映射的段
+#define	LC_SYMTAB	0x2	//为文件定义符号表和字符串表，在连接文件时被链接器使用，同时也用于调试器映射符号到源文件。符号表定义的本地符号仅用于本地测试，而已定义和未定义的 external 符号被链接器使用
+#define	LC_SYMSEG	0x3 //符号表信息，符号表中详细说明了代码中所用符号的信息等(过时)
+#define	LC_THREAD	0x4	//线程
+#define	LC_UNIXTHREAD	0x5	//unix线程(包括堆栈)
+#define	LC_LOADFVMLIB	0x6	//加载指定的固定VM共享库
+#define	LC_IDFVMLIB	0x7	//固定VM共享库的标识
+#define	LC_IDENT	0x8	//object 标识信息(已过时)
 #define LC_FVMFILE	0x9	/* fixed VM file inclusion (internal use) */
-#define LC_PREPAGE      0xa     /* prepage command (internal use) */
-#define	LC_DYSYMTAB	0xb	//将符号表中给出符号的额外符号信息提供给动态链接器  /* dynamic link-edit symbol table info */
-#define	LC_LOAD_DYLIB 	0xc	//依赖的动态库，包括动态库名称、当前版本号、兼容版本号，(可以使用 otool -L xxx 命令查看) /* load a dynamicly linked shared library */
-#define	LC_ID_DYLIB	0xd	/* dynamicly linked shared lib identification */
-#define LC_LOAD_DYLINKER 0xe //默认的加载器路径	/* load a dynamic linker */
-#define LC_ID_DYLINKER	0xf	/* dynamic linker identification */
+#define LC_PREPAGE      0xa     //prepage 命令(内部使用)
+#define	LC_DYSYMTAB	0xb	//将符号表中给出符号的额外符号信息提供给动态链接器
+#define	LC_LOAD_DYLIB 	0xc	//依赖的动态库，包括动态库名称、当前版本号、兼容版本号，(可以使用 otool -L xxx 命令查看)
+#define	LC_ID_DYLIB	0xd	//动态链接共享库的标识
+#define LC_LOAD_DYLINKER 0xe //默认的加载器路径
+#define LC_ID_DYLINKER	0xf	//动态链接器识别
 #define	LC_PREBOUND_DYLIB 0x10	/* modules prebound for a dynamicly */
-				/*  linked shared library */
+				/*  链接的共享库 */
 
-/*
- * A variable length string in a load command is represented by an lc_str
- * union.  The strings are stored just after the load command structure and
- * the offset is from the start of the load command structure.  The size
- * of the string is reflected in the cmdsize field of the load command.
- * Once again any padded bytes to bring the cmdsize field to a multiple
- * of sizeof(long) must be zero.
+/* load_command 中的可变长度字符串由 lc_str 联合类型表示。
+ * 字符串存储在load_command之后，偏移量是从load_command结构的开始。
+ * 字符串的大小反映在 load_command 的 cmdsize 字段中。
+ * 同样，将 cmdsize 字段填充为 sizeof(long) 的倍数的任何字节都必须为零。
  */
 union lc_str {
-	unsigned long	offset;	/* offset to the string */
-	char		*ptr;	/* pointer to the string */
+	unsigned long	offset;	//字符串偏移量
+	char		*ptr;	//指向字符串的指针
 };
 
-/*
- * The segment load command indicates that a part of this file is to be
- * mapped into the task's address space.  The size of this segment in memory,
- * vmsize, maybe equal to or larger than the amount to map from this file,
- * filesize.  The file is mapped starting at fileoff to the beginning of
- * the segment in memory, vmaddr.  The rest of the memory of the segment,
- * if any, is allocated zero fill on demand.  The segment's maximum virtual
- * memory protection and initial virtual memory protection are specified
- * by the maxprot and initprot fields.  If the segment has sections then the
- * section structures directly follow the segment command and their size is
- * reflected in cmdsize.
+/* 段的 load_command 指示将该文件的一部分映射到任务的地址空间。
+ * 该段在内存中的大小 vmsize，可能等于或大于这个文件映射的大小 filesize。
+ * 该文件从 fileoff 开始映射到内存中 segment 的开头vmaddr。
+ * 如果该段还有空余内存，置为 nil。
+ * 段的最大虚拟内存保护和初始虚拟内存保护由 maxprot 和 initprot 字段指定。
+ * 如果段具有节，则section结构直接遵循segment_command ，其大小反映在cmdsize中。
  */
-struct segment_command {	/* for 32-bit architectures */
-	unsigned long	cmd;		/* LC_SEGMENT */
-	unsigned long	cmdsize;	/* includes sizeof section structs */
-	char		segname[16];	/* segment name */
-	unsigned long	vmaddr;		/* memory address of this segment */
-	unsigned long	vmsize;		/* memory size of this segment */
-	unsigned long	fileoff;	/* file offset of this segment */
-	unsigned long	filesize;	/* amount to map from the file */
-	vm_prot_t	maxprot;	/* maximum VM protection */
-	vm_prot_t	initprot;	/* initial VM protection */
-	unsigned long	nsects;		/* number of sections in segment */
-	unsigned long	flags;		/* flags */
+struct segment_command {// 32 位
+	unsigned long	cmd;//load_command结构成员cmd的取值,取值 LC_SEGMENT 将文件中的段映射到进程地址空间
+	unsigned long	cmdsize;//load_command结构大小
+	char		segname[16];// 16字节的段名字
+	unsigned long	vmaddr;	//映射到虚拟地址的偏移
+	unsigned long	vmsize; //映射到虚拟地址的大小
+	unsigned long	fileoff;//对应于当前架构文件的偏移（注意：是当前架构，不是整个 FAT 文件）
+	unsigned long	filesize;//文件大小
+	vm_prot_t	maxprot;//段里面的最高内存保护
+	vm_prot_t	initprot;//初始内存保护
+	unsigned long	nsects;//该段包含的节个数
+	unsigned long	flags;//段页面标志
 };
 
-/*
- * The 64-bit segment load command indicates that a part of this file is to be
- * mapped into a 64-bit task's address space.  If the 64-bit segment has
- * sections then section_64 structures directly follow the 64-bit segment
- * command and their size is reflected in cmdsize.
- *
- *
- *
+/* 64位段的 load_command 指示将该文件的一部分映射到64位任务的地址空间。如果64位段有节，那么section_64结构直接遵循segment_command_64，它们的大小反映在cmdsize中。
  *
  * LC_SEGMENT_64 定义一个64位的段，当文件加载后映射到地址空间（包括段里面节的定义）
  *
@@ -234,304 +232,212 @@ struct segment_command {	/* for 32-bit architectures */
  * __LINKEDIT  动态链接器需要使用的信息，包括重定位信息、绑定信息、懒加载信息等
  */
 struct segment_command_64 {	/* for 64-bit architectures */
-	uint32_t	cmd;// Load Command	 类型	/* LC_SEGMENT_64 */
-	uint32_t	cmdsize;// Load Command 结构大小	/* includes sizeof section_64 structs */
-	char		segname[16];//段的名字
+	uint32_t	cmd;//load_command结构成员cmd的取值,取值 LC_SEGMENT 将文件中的段映射到进程地址空间
+	uint32_t	cmdsize;//load_command结构大小
+	char		segname[16];// 16字节的段名字
 	uint64_t	vmaddr;	//映射到虚拟地址的偏移
 	uint64_t	vmsize;	//映射到虚拟地址的大小
 	uint64_t	fileoff;//对应于当前架构文件的偏移（注意：是当前架构，不是整个 FAT 文件）
-	uint64_t	filesize;//文件大小	/* amount to map from the file */
-	vm_prot_t	maxprot;//段里面的最高内存保护	/* maximum VM protection */
-	vm_prot_t	initprot;//初始内存保护	/* initial VM protection */
-	uint32_t	nsects;//包含的节的个数		/* number of sections in segment */
-	uint32_t	flags;//段页面标志
+	uint64_t	filesize;//文件大小
+	vm_prot_t	maxprot;//段里面的最高内存保护
+	vm_prot_t	initprot;//初始内存保护
+	uint32_t	nsects;//该段包含的节个数
+    uint32_t	flags;//段页面标志 : 表示节的标志
 };
 
-
-/* Constants for the flags field of the segment_command */
-#define	SG_HIGHVM	0x1	/* the file contents for this segment is for
-				   the high part of the VM space, the low part
-				   is zero filled (for stacks in core files) */
-#define	SG_FVMLIB	0x2	/* this segment is the VM that is allocated by
-				   a fixed VM library, for overlap checking in
-				   the link editor */
-#define	SG_NORELOC	0x4	/* this segment has nothing that was relocated
-				   in it and nothing relocated to it, that is
-				   it maybe safely replaced without relocation*/
+// segment_command 的 flags 字段的常量
+#define	SG_HIGHVM	0x1	//该段的文件内容是VM空间的高内存部分，低内存部分是零填充(对于核心文件中的堆栈)
+#define	SG_FVMLIB	0x2	//该段是由固定VM库分配的VM，用于在链接编辑器中进行重叠检查
+#define	SG_NORELOC	0x4 // 该段可以在没有重新定位的情况下安全替换
 
 /*
- * A segment is made up of zero or more sections.  Non-MH_OBJECT files have
- * all of their segments with the proper sections in each, and padded to the
- * specified segment alignment when produced by the link editor.  The first
- * segment of a MH_EXECUTE and MH_FVMLIB format file contains the mach_header
- * and load commands of the object file before it's first section.  The zero
- * fill sections are always last in their segment (in all formats).  This
- * allows the zeroed segment padding to be mapped into memory where zero fill
- * sections might be. The gigabyte zero fill sections, those with the section
- * type S_GB_ZEROFILL, can only be in a segment with sections of this type.
- * These segments are then placed after all other segments.
+ * 段由零个或多个 section 组成。
+ * 非 MH_OBJECT 类型文件的所有段中都有相应的节，并在链接编辑器生成时填充到指定的段对齐。
+ * MH_EXECUTE 和 MH_FVMLIB 格式文件的第一个段包含对象填充部分的mach_header和 load_command ，在它们的段中(在所有格式中)总是最后一个。
+ * 这允许将零段填充映射到可能为零填充节的内存中；
+ * 具有S_GB_ZEROFILL类型的节，只能位于具有这种类型的节的段中。然后将这些段放在所有其他段之后。
  *
- * The MH_OBJECT format has all of it's sections in one segment for
- * compactness.  There is no padding to a specified segment boundary and the
- * mach_header and load commands are not part of the segment.
+ * MH_OBJECT 格式在一个段中具有紧凑性的所有节。指定的段边界没有填充，并且 mach_header 和 load_command 不是段的一部分。
  *
- * Sections with the same section name, sectname, going into the same segment,
- * segname, are combined by the link editor.  The resulting section is aligned
- * to the maximum alignment of the combined sections and is the new section's
- * alignment.  The combined sections are aligned to their original alignment in
- * the combined section.  Any padded bytes to get the specified alignment are
- * zeroed.
+ * 链接编辑器将具有相同节名 sectname 的节组合到相同的段名 segname 中；得到的节与组合节的最大对齐方式对齐，并且是新节的对齐方式。组合节与组合节中的原始对齐对齐。获得指定对齐的任何填充字节都归零。
  *
- * The format of the relocation entries referenced by the reloff and nreloc
- * fields of the section structure for mach object files is described in the
- * header file <reloc.h>.
- *
- *
+ * 头文件 <reloc.h> 中描述了mach对象文件的section结构的reloff和nreloc字段引用的重定位项的格式。
  *
  *  段里面可以包含不同的节 Section
  */
-struct section {		/* for 32-bit architectures */
-	char		sectname[16];	/* name of this section */
-	char		segname[16];	/* segment this section goes in */
-	unsigned long	addr;		/* memory address of this section */
-	unsigned long	size;		/* size in bytes of this section */
-	unsigned long	offset;		/* file offset of this section */
-	unsigned long	align;		/* section alignment (power of 2) */
-	unsigned long	reloff;		/* file offset of relocation entries */
-	unsigned long	nreloc;		/* number of relocation entries */
-	unsigned long	flags;		/* flags (section type and attributes)*/
-	unsigned long	reserved1;	/* reserved */
-	unsigned long	reserved2;	/* reserved */
+struct section {// 32 位
+	char		sectname[16];//节的名字
+	char		segname[16];//节所在段的名字
+	unsigned long	addr;//映射到虚拟地址的偏移
+	unsigned long	size;//节的大小
+	unsigned long	offset;//节在当前架构文件中的偏移
+	unsigned long	align;//节的字节对齐大小 n ，计算结果为 2^n
+	unsigned long	reloff;//重定位入口的文件偏移
+	unsigned long	nreloc;	//重定位入口的个数
+	unsigned long	flags;//节的类型和属性
+	unsigned long	reserved1;	//保留位
+	unsigned long	reserved2;	//保留位
 };
 
 //段里面可以包含不同的节 Section
-struct section_64 { /* for 64-bit architectures */
+struct section_64 { // 64 位
 	char		sectname[16];//节的名字
-	char		segname[16];//段的名字
+	char		segname[16];//节所在段的名字
 	uint64_t	addr;//映射到虚拟地址的偏移
 	uint64_t	size;//节的大小
 	uint32_t	offset;//节在当前架构文件中的偏移
 	uint32_t	align;	//节的字节对齐大小 n ，计算结果为 2^n
-	uint32_t	reloff;//重定位入口的文件偏移		/* file offset of relocation entries */
-	uint32_t	nreloc;	//重定位入口的个数/* number of relocation entries */
+	uint32_t	reloff;//重定位入口的文件偏移
+	uint32_t	nreloc;	//重定位入口的个数
 	uint32_t	flags;//节的类型和属性
-	uint32_t	reserved1;	/* reserved (for offset or index) */
-	uint32_t	reserved2;	/* reserved (for count or sizeof) */
-	uint32_t	reserved3;//保留位	/* reserved */
+	uint32_t	reserved1;	//用于偏移量或索引
+	uint32_t	reserved2;	//数量或大小
+	uint32_t	reserved3;//保留位
 };
 
 
-/*
- * The flags field of a section structure is separated into two parts a section
- * type and section attributes.  The section types are mutually exclusive (it
- * can only have one type) but the section attributes are not (it may have more
- * than one attribute).
+/* section_64 结构的flags字段分为两个部分:
+ * section_64 类型: 类型是互斥的,它只能有一种类型
+ * section_64 属性: 可能有多个属性
  */
-#define SECTION_TYPE		 0x000000ff	/* 256 section types */
-#define SECTION_ATTRIBUTES	 0xffffff00	/*  24 section attributes */
+#define SECTION_TYPE		 0x000000ff	//256 section_64 类型
+#define SECTION_ATTRIBUTES	 0xffffff00	//24 section_64 属性
 
-/* Constants for the type of a section */
-#define	S_REGULAR		0x0	/* regular section */
-#define	S_ZEROFILL		0x1	/* zero fill on demand section */
-#define	S_CSTRING_LITERALS	0x2	/* section with only literal C strings*/
-#define	S_4BYTE_LITERALS	0x3	/* section with only 4 byte literals */
-#define	S_8BYTE_LITERALS	0x4	/* section with only 8 byte literals */
-#define	S_LITERAL_POINTERS	0x5	/* section with only pointers to */
-					/*  literals */
-/*
- * For the two types of symbol pointers sections and the symbol stubs section
- * they have indirect symbol table entries.  For each of the entries in the
- * section the indirect symbol table entries, in corresponding order in the
- * indirect symbol table, start at the index stored in the reserved1 field
- * of the section structure.  Since the indirect symbol table entries
- * correspond to the entries in the section the number of indirect symbol table
- * entries is inferred from the size of the section divided by the size of the
- * entries in the section.  For symbol pointers sections the size of the entries
- * in the section is 4 bytes and for symbol stubs sections the byte size of the
- * stubs is stored in the reserved2 field of the section structure.
+//section_64 类型的常量
+#define	S_REGULAR		0x0	//一般的节section_64
+#define	S_ZEROFILL		0x1	//使用 0 填充的 section_64
+#define	S_CSTRING_LITERALS	0x2	//只有C字符串的节
+#define	S_4BYTE_LITERALS	0x3	//只有4字节文字的节
+#define	S_8BYTE_LITERALS	0x4	//只有8字节文字的节
+#define	S_LITERAL_POINTERS	0x5	//只有指向文字的指针的节
+
+/* 符号指针节和符号stubs节这两种类型，它们有间接符号表项。
+ * 间接符号表中节的每个项，按照间接符号表中相应的顺序，从section结构的reserved1字段中存储的索引开始。
+ * 由于间接符号表项对应于节中的项，所以间接符号表项的数量是由节的大小除以节中的项得出。
+ * 对于符号指针节，节中的项大小为4字节，对于符号stubs节，stubs的大小存储在section结构的reserved2字段中。
  */
-#define	S_NON_LAZY_SYMBOL_POINTERS	0x6	/* section with only non-lazy
-						   symbol pointers */
-#define	S_LAZY_SYMBOL_POINTERS		0x7	/* section with only lazy symbol
-						   pointers */
-#define	S_SYMBOL_STUBS			0x8	/* section with only symbol
-						   stubs, byte size of stub in
-						   the reserved2 field */
-#define	S_MOD_INIT_FUNC_POINTERS	0x9	/* section with only function
-						   pointers for initialization*/
-/*
- * Constants for the section attributes part of the flags field of a section
- * structure.
+#define	S_NON_LAZY_SYMBOL_POINTERS	0x6	// 只有非懒加载符号指针的节
+#define	S_LAZY_SYMBOL_POINTERS		0x7	// 只有懒加载符号指针的节
+#define	S_SYMBOL_STUBS			0x8 //只有符号stubs的节，reserved2字段中 stub的大小
+#define	S_MOD_INIT_FUNC_POINTERS	0x9 //仅用于初始化函数指针的节
+
+/* section_64 结构的flags字段表示属性部分的常量
  */
 #define SECTION_ATTRIBUTES_USR	 0xff000000	/* User setable attributes */
-#define S_ATTR_PURE_INSTRUCTIONS 0x80000000	/* section contains only true
-						   machine instructions */
+#define S_ATTR_PURE_INSTRUCTIONS 0x80000000	/* section contains only true machine instructions */
 #define SECTION_ATTRIBUTES_SYS	 0x00ffff00	/* system setable attributes */
-#define S_ATTR_SOME_INSTRUCTIONS 0x00000400	/* section contains some
-						   machine instructions */
-#define S_ATTR_EXT_RELOC	 0x00000200	/* section has external
-						   relocation entries */
-#define S_ATTR_LOC_RELOC	 0x00000100	/* section has local
-						   relocation entries */
+#define S_ATTR_SOME_INSTRUCTIONS 0x00000400	/* section contains some machine instructions */
+#define S_ATTR_EXT_RELOC	 0x00000200	/* section has external relocation entries */
+#define S_ATTR_LOC_RELOC	 0x00000100	/* section has local relocation entries */
 
 
-/*
- * The names of segments and sections in them are mostly meaningless to the
- * link-editor.  But there are few things to support traditional UNIX
- * executables that require the link-editor and assembler to use some names
- * agreed upon by convention.
+/* 段和节的名称对链接编辑器来说几乎没有意义。但是支持传统 UNIX 可执行文件的东西很少，传统 UNIX 可执行文件要求链接编辑器和汇编器使用约定的一些名称。
  *
- * The initial protection of the "__TEXT" segment has write protection turned
- * off (not writeable).
- *
- * The link-editor will allocate common symbols at the end of the "__common"
- * section in the "__DATA" segment.  It will create the section and segment
- * if needed.
+ * __TEXT 段 不可写
+ * 链接编辑器将在 __DATA 段的 __common 节的末尾分配公共符号。如果需要，它将创建节和段。
  */
 
-/* The currently known segment names and the section names in those segments */
+// 目前已知的段名和这些段中的节名
+#define	SEG_PAGEZERO "__PAGEZERO" //pagezero 段没有保护，它捕获 MH_EXECUTE 文件的空引用
 
-#define	SEG_PAGEZERO	"__PAGEZERO"	/* the pagezero segment which has no */
-					/* protections and catches NULL */
-					/* references for MH_EXECUTE files */
+#define	SEG_TEXT	"__TEXT" //传统UNIX文本段
+#define	SECT_TEXT	"__text" // 文本节的真实文本部分没有headers，也没有填充
+#define SECT_FVMLIB_INIT0 "__fvmlib_init0"	//fvmlib初始化节
+#define SECT_FVMLIB_INIT1 "__fvmlib_init1"	//fvmlib初始化节之后的节
 
+#define	SEG_DATA	"__DATA"	//传统UNIX数据段
+#define	SECT_DATA	"__data" // 真正初始化的数据节没有填充，没有bss重叠
+#define	SECT_BSS	"__bss"	 // 真正的未初始化数据节没有填充
+#define SECT_COMMON	"__common"	//链接编辑器在节中分配公共符号
 
-#define	SEG_TEXT	"__TEXT"	/* the tradition UNIX text segment */
-#define	SECT_TEXT	"__text"	/* the real text part of the text */
-					/* section no headers, and no padding */
-#define SECT_FVMLIB_INIT0 "__fvmlib_init0"	/* the fvmlib initialization */
-						/*  section */
-#define SECT_FVMLIB_INIT1 "__fvmlib_init1"	/* the section following the */
-					        /*  fvmlib initialization */
-						/*  section */
-
-#define	SEG_DATA	"__DATA"	/* the tradition UNIX data segment */
-#define	SECT_DATA	"__data"	/* the real initialized data section */
-					/* no padding, no bss overlap */
-#define	SECT_BSS	"__bss"		/* the real uninitialized data section*/
-					/* no padding */
-#define SECT_COMMON	"__common"	/* the section common symbols are */
-					/* allocated in by the link editor */
-
-#define	SEG_OBJC	"__OBJC"	/* objective-C runtime segment */
-#define SECT_OBJC_SYMBOLS "__symbol_table"	/* symbol table */
-#define SECT_OBJC_MODULES "__module_info"	/* module information */
+#define	SEG_OBJC	"__OBJC"	//objective-C runtime segment
+#define SECT_OBJC_SYMBOLS "__symbol_table"	//符号表
+#define SECT_OBJC_MODULES "__module_info"	//module 信息
 #define SECT_OBJC_STRINGS "__selector_strs"	/* string table */
 #define SECT_OBJC_REFS "__selector_refs"	/* string table */
 
-#define	SEG_ICON	 "__ICON"	/* the NeXT icon segment */
-#define	SECT_ICON_HEADER "__header"	/* the icon headers */
-#define	SECT_ICON_TIFF   "__tiff"	/* the icons in tiff format */
+#define	SEG_ICON	 "__ICON"	//icon segment
+#define	SECT_ICON_HEADER "__header"	//the icon headers
+#define	SECT_ICON_TIFF   "__tiff"	//tiff格式的 icon
 
-#define	SEG_LINKEDIT	"__LINKEDIT"	/* the segment containing all structs */
-					/* created and maintained by the link */
-					/* editor.  Created with -seglinkedit */
-					/* option to ld(1) for MH_EXECUTE and */
-					/* FVMLIB file types only */
+#define	SEG_LINKEDIT	"__LINKEDIT" //由链接编辑器创建和维护的所有结构的段，仅为 MH_EXECUTE 和 FVMLIB 类型的文件使用 ld(1) 的- seglinkedit 选项创建
 
-#define SEG_UNIXSTACK	"__UNIXSTACK"	/* the unix stack segment */
+#define SEG_UNIXSTACK	"__UNIXSTACK" //unix堆段
 
-/*
- * Fixed virtual memory shared libraries are identified by two things.  The
- * target pathname (the name of the library as found for execution), and the
- * minor version number.  The address of where the headers are loaded is in
- * header_addr.
+/* 固定虚拟内存共享库有两个标识： 目标路径名(找到要执行的库的名称)和次要版本号。头文件加载的地址在 header_addr 中。
  */
 struct fvmlib {
-	union lc_str	name;		/* library's target pathname */
-	unsigned long	minor_version;	/* library's minor version number */
-	unsigned long	header_addr;	/* library's header address */
+	union lc_str	name; //库的目标路径名
+	unsigned long	minor_version;	//库的次要版本号
+	unsigned long	header_addr;	//库的头地址
 };
 
-/*
- * A fixed virtual shared library (filetype == MH_FVMLIB in the mach header)
- * contains a fvmlib_command (cmd == LC_IDFVMLIB) to identify the library.
- * An object that uses a fixed virtual shared library also contains a
- * fvmlib_command (cmd == LC_LOADFVMLIB) for each library it uses.
+/* 一个固定的虚拟共享库(mach_header_64 结构成员 filetype == MH_FVMLIB)包含一个 fvmlib_command (cmd == LC_IDFVMLIB)来标识库。
+ * 使用固定虚拟共享库的对象还为其使用的每个库包含 fvmlib_command (cmd == LC_LOADFVMLIB)。
  */
 struct fvmlib_command {
-	unsigned long	cmd;		/* LC_IDFVMLIB or LC_LOADFVMLIB */
-	unsigned long	cmdsize;	/* includes pathname string */
-	struct fvmlib	fvmlib;		/* the library identification */
+	unsigned long	cmd;		//LC_IDFVMLIB 或者 LC_LOADFVMLIB
+	unsigned long	cmdsize;	//包括路径名
+	struct fvmlib	fvmlib;		//库的标识
 };
 
 /*
- * Dynamicly linked shared libraries are identified by two things.  The
- * pathname (the name of the library as found for execution), and the
- * compatibility version number.  The pathname must match and the compatibility
- * number in the user of the library must be greater than or equal to the
- * library being used.  The time stamp is used to record the time a library was
- * built and copied into user so it can be use to determined if the library used
- * at runtime is exactly the same as used to built the program.
+ *
+ * 动态链接的共享库有两个标识。路径名(找到要执行的库的名称)和兼容性版本号。路径名必须匹配，库必须兼容。
+ * timestamp 用于记录构建库并将其复制的时间，因此可以使用它来确定运行时使用的库是否与构建程序所用的库完全相同。
  */
 struct dylib {
-    union lc_str  name;			/* library's path name */
-    unsigned long timestamp;		/* library's build time stamp */
-    unsigned long current_version;	/* library's current version number */
-    unsigned long compatibility_version;/* library's compatibility vers number*/
+    union lc_str  name;			//路径名
+    unsigned long timestamp;    //构建时间
+    unsigned long current_version;	//当前版本号
+    unsigned long compatibility_version;//兼容的版本号
 };
 
-/*
- * A dynamicly linked shared library (filetype == MH_DYLIB in the mach header)
- * contains a dylib_command (cmd == LC_ID_DYLIB) to identify the library.
- * An object that uses a dynamicly linked shared library also contains a
- * dylib_command (cmd == LC_LOAD_DYLIB) for each library it uses.
+/* 动态链接的共享库(mach_header_64 结构成员 filetype == MH_DYLIB)包含一个 dylib_command (cmd == LC_ID_DYLIB)来标识库。
+ * 使用动态链接共享库的对象还为其使用的每个库包含一个 dylib_command (cmd == LC_LOAD_DYLIB)。
  */
 struct dylib_command {
-	unsigned long	cmd;		/* LC_ID_DYLIB or LC_LOAD_DYLIB */
-	unsigned long	cmdsize;	/* includes pathname string */
-	struct dylib	dylib;		/* the library identification */
+	unsigned long	cmd;    //LC_ID_DYLIB or LC_LOAD_DYLIB
+	unsigned long	cmdsize;//包括路径名
+	struct dylib	dylib;	//库的标识
 };
 
 /*
- * A program (filetype == MH_EXECUTE) or bundle (filetype == MH_BUNDLE) that is
- * prebound to it's dynamic libraries has one of these for each library that
- * the static linker used in prebinding.  It contains a bit vector for the
- * modules in the library.  The bits indicate which modules are bound (1) and
- * which are not (0) from the library.  The bit for module 0 is the low bit
- * of the first byte.  So the bit for the Nth module is:
- * (linked_modules[N/8] >> N%8) & 1
+ *
+ * 预先绑定到其动态库的程序（filetype == MH_EXECUTE）或bundle（filetype == MH_BUNDLE）具有静态链接器在预绑定中使用的每个库中的一个。
+ * 它包含库中modules的位向量。这些位表示哪些modules被绑定（1），哪些不是（0）来自库。
+ * modules 0的位是第一个字节的低位。 因此第N个modules块的位是：（linked_modules [N / 8] >> N％8）＆1
  */
 struct prebound_dylib_command {
-	unsigned long	cmd;		/* LC_PREBOUND_DYLIB */
-	unsigned long	cmdsize;	/* includes strings */
-	union lc_str	name;		/* library's path name */
-	unsigned long	nmodules;	/* number of modules in library */
-	union lc_str	linked_modules;	/* bit vector of linked modules */
+	unsigned long	cmd;		//LC_PREBOUND_DYLIB
+	unsigned long	cmdsize;	//includes strings
+	union lc_str	name;		//路径名
+	unsigned long	nmodules;	//库中的nmodules数
+	union lc_str	linked_modules;	//链接nmodules的位向量
 };
 
-/*
- * A program that uses a dynamic linker contains a dylinker_command to identify
- * the name of the dynamic linker (LC_LOAD_DYLINKER).  And a dynamic linker
- * contains a dylinker_command to identify the dynamic linker (LC_ID_DYLINKER).
- * A file can have at most one of these.
+/* 使用动态链接器的程序包含一个 dylinker_command 来标识动态链接器的名称(LC_LOAD_DYLINKER)。
+ * 动态链接器包含一个 dylinker_command 来标识动态链接器(LC_ID_DYLINKER)。
+ * 一个文件最多可以包含其中一个。
  */
 struct dylinker_command {
-	unsigned long	cmd;		/* LC_ID_DYLINKER or LC_LOAD_DYLINKER */
-	unsigned long	cmdsize;	/* includes pathname string */
-	union lc_str    name;		/* dynamic linker's path name */
+	unsigned long	cmd;	//LC_ID_DYLINKER or LC_LOAD_DYLINKER
+	unsigned long	cmdsize;//包含路径名
+	union lc_str    name;	//路径名
 };
 
 /*
- * Thread commands contain machine-specific data structures suitable for
- * use in the thread state primitives.  The machine specific data structures
- * follow the struct thread_command as follows.
- * Each flavor of machine specific data structure is preceded by an unsigned
- * long constant for the flavor of that data structure, an unsigned long
- * that is the count of longs of the size of the state data structure and then
- * the state data structure follows.  This triple may be repeated for many
- * flavors.  The constants for the flavors, counts and state data structure
- * definitions are expected to be in the header file <machine/thread_status.h>.
- * These machine specific data structures sizes must be multiples of
- * sizeof(long).  The cmdsize reflects the total size of the thread_command
- * and all of the sizes of the constants for the flavors, counts and state
- * data structures.
+ * thread_command 包含适用于线程状态原语的机器特定数据结构。机器特定的数据结构遵循 thread_command 。
+ * 机器特定数据结构的每种风格前面都有一个用于该数据结构风格的无符号长常量，一个无符号长整数，它是状态数据结构大小的长整数，然后是状态数据结构。
+ * triple 可以重复很多次。
  *
- * For executable objects that are unix processes there will be one
- * thread_command (cmd == LC_UNIXTHREAD) created for it by the link-editor.
- * This is the same as a LC_THREAD, except that a stack is automatically
- * created (based on the shell's limit for the stack size).  Command arguments
- * and environment variables are copied onto that stack.
+ *
+ * The constants for the flavors, counts and state data structure definitions are expected to be in the header file <machine/thread_status.h>.
+ * These machine specific data structures sizes must be multiples of sizeof(long).
+ * The cmdsize reflects the total size of the thread_command and all of the sizes of the constants for the flavors, counts and state data structures.
+ *
+ * For executable objects that are unix processes there will be one thread_command (cmd == LC_UNIXTHREAD) created for it by the link-editor.
+ * This is the same as a LC_THREAD, except that a stack is automatically created (based on the shell's limit for the stack size).  Command arguments and environment variables are copied onto that stack.
  */
 struct thread_command {
 	unsigned long	cmd;		/* LC_THREAD or  LC_UNIXTHREAD */

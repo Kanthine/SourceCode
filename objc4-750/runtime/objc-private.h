@@ -285,7 +285,7 @@ private:
     intptr_t mhdr_offset;// 这个位置的指针的偏移量
     intptr_t info_offset;// 这个位置的指针的偏移量
 
-    // Do not add fields without editing ObjCModernAbstraction.hpp
+    // 不编辑 ObjCModernAbstraction.hpp 就不要添加字段
 public:
 
     header_info_rw *getHeaderInfoRW() {
@@ -335,16 +335,7 @@ public:
     }
 
     bool isBundle() {
-        /* 文件类型，比如可执行文件、库文件、Dsym文件;
-         * MH_OBJECT  目标文件：.o文件 ；.a/.framework静态库
-         * MH_EXECUTE 可执行文件： app/MyApp ；.out
-         * MH_CORE    核心文件
-         * MH_DYLIB    动态库 .framework/xxx ； /dylib
-         * MH_DYLINKER 动态链接器 usr/lib/dyld
-         * MH_BUNDLE    动态绑定 Bundle 文件
-         * MH_DSYM   存储二进制文件符号信息的文件：.dYSM/Contents/Resources/DWARF/MyApp
-         */
-        return mhdr()->filetype == MH_BUNDLE;
+        return mhdr()->filetype == MH_BUNDLE;//Bundle 文件
     }
 
     const char *fname() const {
@@ -373,8 +364,7 @@ public:
 #endif
 
 private:
-    // Images in the shared cache will have an empty array here while those
-    // allocated at run time will allocate a single entry.
+    // 共享缓存中的镜像在这里将有一个空数组，而在运行时分配的镜像将分配单个 entry。
     header_info_rw rw_data[];
 } header_info;//文件类型, 目标架构
 
@@ -388,8 +378,7 @@ extern void removeHeader(header_info *hi);
 extern objc_image_info *_getObjcImageInfo(const headerType *head, size_t *size);
 extern bool _hasObjcContents(const header_info *hi);
 
-
-// Mach-O segment and section names are 16 bytes and may be un-terminated.
+// Mach-O segment name 和 section name 是16字节，可以不终止。
 
 static inline bool segnameEquals(const char *lhs, const char *rhs) {
     return 0 == strncmp(lhs, rhs, 16);
