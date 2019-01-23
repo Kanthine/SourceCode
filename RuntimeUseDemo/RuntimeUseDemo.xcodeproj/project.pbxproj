@@ -15,6 +15,7 @@
 		1A47DC6521E5C45F0084F964 /* FatherModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 1A47DC6421E5C45F0084F964 /* FatherModel.m */; };
 		1A47DC6821E5C4720084F964 /* SonModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 1A47DC6721E5C4720084F964 /* SonModel.m */; };
 		1AD52E9D21EC721600723777 /* UIButton+DoubleHit.m in Sources */ = {isa = PBXBuildFile; fileRef = 1AD52E9C21EC721600723777 /* UIButton+DoubleHit.m */; };
+		1AE6E5E621F8844A00DE730B /* FileInfoTool.m in Sources */ = {isa = PBXBuildFile; fileRef = 1AE6E5E521F8844A00DE730B /* FileInfoTool.m */; };
 		2247D26F21E6501700D5519C /* Model.m in Sources */ = {isa = PBXBuildFile; fileRef = 2247D26E21E6501700D5519C /* Model.m */; };
 /* End PBXBuildFile section */
 
@@ -34,6 +35,8 @@
 		1A47DC6721E5C4720084F964 /* SonModel.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SonModel.m; sourceTree = "<group>"; };
 		1AD52E9B21EC721600723777 /* UIButton+DoubleHit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "UIButton+DoubleHit.h"; sourceTree = "<group>"; };
 		1AD52E9C21EC721600723777 /* UIButton+DoubleHit.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "UIButton+DoubleHit.m"; sourceTree = "<group>"; };
+		1AE6E5E421F8844A00DE730B /* FileInfoTool.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FileInfoTool.h; sourceTree = "<group>"; };
+		1AE6E5E521F8844A00DE730B /* FileInfoTool.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FileInfoTool.m; sourceTree = "<group>"; };
 		2247D26D21E6501700D5519C /* Model.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Model.h; sourceTree = "<group>"; };
 		2247D26E21E6501700D5519C /* Model.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Model.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -91,6 +94,8 @@
 				1A47DC6721E5C4720084F964 /* SonModel.m */,
 				2247D26D21E6501700D5519C /* Model.h */,
 				2247D26E21E6501700D5519C /* Model.m */,
+				1AE6E5E421F8844A00DE730B /* FileInfoTool.h */,
+				1AE6E5E521F8844A00DE730B /* FileInfoTool.m */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -176,6 +181,7 @@
 				1A47DC5921E5A6650084F964 /* main.m in Sources */,
 				1A47DC4B21E5A6630084F964 /* AppDelegate.m in Sources */,
 				1A47DC6121E5A7440084F964 /* MainTableViewController.m in Sources */,
+				1AE6E5E621F8844A00DE730B /* FileInfoTool.m in Sources */,
 				2247D26F21E6501700D5519C /* Model.m in Sources */,
 				1A47DC6521E5C45F0084F964 /* FatherModel.m in Sources */,
 				1A47DC6821E5C4720084F964 /* SonModel.m in Sources */,

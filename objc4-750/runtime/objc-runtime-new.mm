@@ -70,8 +70,7 @@ mutex_t selLock;
 mutex_t cacheUpdateLock;
 recursive_mutex_t loadMethodLock;
 
-void lock_init(void)
-{
+void lock_init(void){
 }
 
 
@@ -451,23 +450,19 @@ static bool isKnownClass(Class cls) {
 }
 
 
-/***********************************************************************
- * addClassTableEntry
- * Add a class to the table of all classes. If addMeta is true,
- * automatically adds the metaclass of the class as well.
+/* 向哈希表allocatedClasses中添加一个类；如果addMeta为真，也会自动添加类的元类。
  * Locking: runtimeLock must be held by the caller.
- **********************************************************************/
+ */
 static void addClassTableEntry(Class cls, bool addMeta = true) {
     runtimeLock.assertLocked();
     
-    // This class is allowed to be a known class via the shared cache or via
-    // data segments, but it is not allowed to be in the dynamic table already.
+    // 允许 cls 通过共享缓存或数据段成为已知类，但它不允许已经在allocatedClasses中。
     assert(!NXHashMember(allocatedClasses, cls));
     
     if (!isKnownClass(cls))
-        NXHashInsert(allocatedClasses, cls);
+        NXHashInsert(allocatedClasses, cls);//未知类
     if (addMeta)
-        addClassTableEntry(cls->ISA(), false);
+        addClassTableEntry(cls->ISA(), false);//addMeta = true，再次添加其元类
 }
 
 
@@ -919,8 +914,7 @@ static NXMapTable *nonMetaClasses(void)
  * Adds metacls => cls to the secondary metaclass map
  * Locking: runtimeLock must be held by the caller
  **********************************************************************/
-static void addNonMetaClass(Class cls)
-{
+static void addNonMetaClass(Class cls){
     runtimeLock.assertLocked();
     void *old;
     old = NXMapInsert(nonMetaClasses(), cls->ISA(), cls);
@@ -1119,10 +1113,8 @@ static void addNamedClass(Class cls, const char *name, Class replacing = nil){
     runtimeLock.assertLocked();
     Class old;
     if ((old = getClass(name))  &&  old != replacing) {
-        inform_duplicate(name, old, cls);
-        
-        // getNonMetaClass uses name lookups. Classes not found by name
-        // lookup must be in the secondary meta->nonmeta table.
+        inform_duplicate(name, old, cls);//警告重复的类实现
+        // getNonMetaClass() 使用名称查找;没有通过名称查找找到的类插入哈希表 nonmeta_class_map
         addNonMetaClass(cls);
     } else {
         NXMapInsert(gdb_objc_realized_classes, name, cls);
@@ -1169,38 +1161,29 @@ unsigned unreasonableClassCount()
 }
 
 
-/***********************************************************************
- * futureNamedClasses
- * Returns the classname => future class map for unrealized future classes.
+/*
+ * 返回未实现的未来类的 classname => future class 映射
  * Locking: runtimeLock must be held by the caller
- **********************************************************************/
+ */
 static NXMapTable *future_named_class_map = nil;
-static NXMapTable *futureNamedClasses()
-{
+static NXMapTable *futureNamedClasses(){
     runtimeLock.assertLocked();
-    
     if (future_named_class_map) return future_named_class_map;
-    
-    // future_named_class_map is big enough for CF's classes and a few others
-    future_named_class_map =
-    NXCreateMapTable(NXStrValueMapPrototype, 32);
-    
+    // future_named_class_map 对于CF的类和其他一些类来说已经足够大了
+    future_named_class_map = NXCreateMapTable(NXStrValueMapPrototype, 32);
     return future_named_class_map;
 }
-
-
+//判断是否有未实现的 future class
 static bool haveFutureNamedClasses() {
     return future_named_class_map  &&  NXCountMapTable(future_named_class_map);
 }
 
 
-/***********************************************************************
- * addFutureNamedClass
- * Installs cls as the class structure to use for the named class if it appears.
+/* 向哈希表 future_named_class_map 插入一个未实现的 future class
+ * 存储 cls ，在命名类出现时使用它；
  * Locking: runtimeLock must be held by the caller
- **********************************************************************/
-static void addFutureNamedClass(const char *name, Class cls)
-{
+ */
+static void addFutureNamedClass(const char *name, Class cls){
     void *old;
     
     runtimeLock.assertLocked();
@@ -1214,26 +1197,20 @@ static void addFutureNamedClass(const char *name, Class cls)
     ro->name = strdupIfMutable(name);
     rw->ro = ro;
     cls->setData(rw);
-    cls->data()->flags = RO_FUTURE;
-    
+    cls->data()->flags = RO_FUTURE;//flags = RO_FUTURE 未实现的future class
     old = NXMapKeyCopyingInsert(futureNamedClasses(), name, cls);
     assert(!old);
 }
 
 
-/***********************************************************************
- * popFutureNamedClass
- * Removes the named class from the unrealized future class list,
- * because it has been realized.
- * Returns nil if the name is not used by a future class.
- * Locking: runtimeLock must be held by the caller
- **********************************************************************/
-static Class popFutureNamedClass(const char *name)
-{
+
+/* 从哈希表 future_named_class_map 中移除指定的类
+ * @param name 类名，该类已实现，需要从表中移除
+ * @return 只有在哈希表 future_named_class_map 中存在 name 对应的 class，才会返回它；否则返回 NULL；
+ */
+static Class popFutureNamedClass(const char *name){
     runtimeLock.assertLocked();
-    
     Class cls = nil;
-    
     if (future_named_class_map) {
         cls = (Class)NXMapKeyFreeingRemove(future_named_class_map, name);
         if (cls && NXCountMapTable(future_named_class_map) == 0) {
@@ -1241,28 +1218,21 @@ static Class popFutureNamedClass(const char *name)
             future_named_class_map = nil;
         }
     }
-    
     return cls;
 }
 
-/* 重新映射类
+/* 获取一个重新映射类的哈希表
  * 返回已实现的未来类的 oldClass =>newClass 映射。
  * 返回被忽略的弱链接类的 oldClass => nil 映射。
  * 锁定：runtimeLock必须由调用者读取或写入锁定
  */
 static NXMapTable *remappedClasses(bool create){
     static NXMapTable *remapped_class_map = nil;
-    
     runtimeLock.assertLocked();
-    
     if (remapped_class_map) return remapped_class_map;
     if (!create) return nil;
-    
     // remapped_class_map 足够大，可以容纳CF的类和其他一些类
-    INIT_ONCE_PTR(remapped_class_map,
-                  NXCreateMapTable(NXPtrValueMapPrototype, 32),
-                  NXFreeMapTable(v));
-    
+    INIT_ONCE_PTR(remapped_class_map,NXCreateMapTable(NXPtrValueMapPrototype, 32),NXFreeMapTable(v));
     return remapped_class_map;
 }
 
@@ -1286,21 +1256,16 @@ static bool noClassesRemapped(void)
 }
 
 
-/***********************************************************************
- * addRemappedClass
- * newcls is a realized future class, replacing oldcls.
- * OR newcls is nil, replacing ignored weak-linked class oldcls.
+/* 向重新映射类的哈希表中插入一组映射关系
+ * newcls 是一个已实现的 future class ，它将取代旧的 cls。
+ * 或者 newcls 为 nil ，替换被忽略的弱链接类 oldcls。
  * Locking: runtimeLock must be write-locked by the caller
- **********************************************************************/
-static void addRemappedClass(Class oldcls, Class newcls)
-{
+ */
+static void addRemappedClass(Class oldcls, Class newcls){
     runtimeLock.assertLocked();
-    
     if (PrintFuture) {
-        _objc_inform("FUTURE: using %p instead of %p for %s",
-                     (void*)newcls, (void*)oldcls, oldcls->nameForLogging());
+        _objc_inform("FUTURE: using %p instead of %p for %s",(void*)newcls, (void*)oldcls, oldcls->nameForLogging());
     }
-    
     void *old;
     old = NXMapInsert(remappedClasses(YES), oldcls, newcls);
     assert(!old);
@@ -1934,20 +1899,16 @@ static Class realizeClass(Class cls){
 }
 
 
-/***********************************************************************
- * missingWeakSuperclass
- * Return YES if some superclass of cls was weak-linked and is missing.
- **********************************************************************/
-static bool
-missingWeakSuperclass(Class cls)
-{
+/* 如果某些 cls 的超类是弱链接的并且丢失了，则返回YES。
+ */
+static bool missingWeakSuperclass(Class cls){
     assert(!cls->isRealized());
     
     if (!cls->superclass) {
-        // superclass nil. This is normal for root classes only.
+        // superclass nil. 这只适用于根类
         return (!(cls->data()->flags & RO_ROOT));
     } else {
-        // superclass not nil. Check if a higher superclass is missing.
+        // superclass 非 nil ，检查是否缺少更高的 superclass
         Class supercls = remapClass(cls->superclass);
         assert(cls != cls->superclass);
         assert(cls != supercls);
@@ -2208,25 +2169,21 @@ readthem:
 }
 
 
-/***********************************************************************
- * readClass
- * Read a class and metaclass as written by a compiler.
- * Returns the new class pointer. This could be:
- * - cls
- * - nil  (cls has a missing weak-linked superclass)
- * - something else (space for this class was reserved by a future class)
- *
- * Note that all work performed by this function is preflighted by
- * mustReadClasses(). Do not change this function without updating that one.
- *
- * Locking: runtimeLock acquired by map_images or objc_readClassPair
- **********************************************************************/
+/*
+ * @param cls 读取编译器编写的类和元类：此时类的结构为 objc_class->ro
+ * @param headerIsBundle 类所在的文件是否是 Bundle 文件
+ * @param headerIsPreoptimized 类所在的文件是否在共享缓存中；
+ * @return 返回新类，此时类的结构是 objc_class->rw->ro
+ *        cls缺少一个弱链接超类，返回 nil，
+ *         something else (space for this class was reserved by a future class)
+ * @note 除了改变类的结构，还将新类加入哈希表 gdb_objc_realized_classes 、allocatedClasses
+ * @note 注意，该函数执行的所有工作都由 mustReadClasses() 预先设置，在调用该函数之前需要调用 mustReadClasses() 。
+ */
 Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
     const char *mangledName = cls->mangledName();
     
     if (missingWeakSuperclass(cls)) {
-        // No superclass (probably weak-linked).
-        // Disavow any knowledge of this subclass.
+        // 没有超类(可能是弱链接):否认任何关于这个子类的知识。
         if (PrintConnecting) {
             _objc_inform("CLASS: IGNORING class '%s' with missing weak-linked superclass",cls->nameForLogging());
         }
@@ -2235,15 +2192,9 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
         return nil;
     }
     
-    // Note: Class __ARCLite__'s hack does not go through here.
-    // Class structure fixups that apply to it also need to be
-    // performed in non-lazy realization below.
-    
-    // These fields should be set to zero because of the
-    // binding of _objc_empty_vtable, but OS X 10.8's dyld
-    // does not bind shared cache absolute symbols as expected.
-    // This (and the __ARCLite__ hack below) can be removed
-    // once the simulator drops 10.8 support.
+    // 注意: 类 __ARCLite__ 的hack不能通过这里;适用于它的类结构修正也需要在下面的非延迟实现中执行。
+    // 由于_objc_empty_vtable的绑定，这些字段应设置为0，但OS X 10.8的dyld不会按预期绑定共享缓存 absolute symbols。
+    // This (and the __ARCLite__ hack below) can be removed once the simulator drops 10.8 support.
 #if TARGET_OS_SIMULATOR
     if (cls->cache._mask) cls->cache._mask = 0;
     if (cls->cache._occupied) cls->cache._occupied = 0;
@@ -2251,20 +2202,32 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
     if (cls->ISA()->cache._occupied) cls->ISA()->cache._occupied = 0;
 #endif
     
+    /* 1、从哈希表 future_named_class_map 中获取 mangledName 对应的类，则并表中移除该键值对
+     * 2、将旧类的 class_ro_t 信息赋值到新类上；
+     * 3、旧类与新类映射到哈希表 remapped_class_map 中
+     */
     Class replacing = nil;
     if (Class newCls = popFutureNamedClass(mangledName)) {
-        // This name was previously allocated as a future class.
-        // Copy objc_class to future class's struct.
-        // Preserve future's rw data block.
+        // 这个名称以前被分配为 future class
+        // 将 objc_class 复制到 future class 的结构中
+        // 保存 future 的 rw 数据块
         
         if (newCls->isAnySwift()) {
-            _objc_fatal("Can't complete future class request for '%s' "
-                        "because the real class is too big.",
+            _objc_fatal("Can't complete future class request for '%s' because the real class is too big.",
                         cls->nameForLogging());
         }
+
         
+        /* 从文件读取的类的结构与运行时类的结构是不同的
+         * 类的结构 objc_class->ro
+         * 运行时类的结构 objc_class->rw->ro
+         * cls 是原始结构 ro 上存储着类的很多信息
+         * newCls 是运行时创建的类，rw 与 rw->ro 仅仅在 addFutureNamedClass() 函数分配内存，但是并没有对应的信息
+         * 下述代码：将cls上信息 ro 赋值到 newCls->rw->ro，然后还需要将 old_ro 释放
+         */
         class_rw_t *rw = newCls->data();
         const class_ro_t *old_ro = rw->ro;
+        //从 cls 所指的内存地址的起始位置开始拷贝 sizeof(objc_class)个字节到newCls所指的内存地址的起始位置中
         memcpy(newCls, cls, sizeof(objc_class));
         rw->ro = (class_ro_t *)newCls->data();
         newCls->setData(rw);
@@ -2278,22 +2241,18 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
     }
     
     if (headerIsPreoptimized  &&  !replacing) {
-        // class list built in shared cache
-        // fixme strict assert doesn't work because of duplicates
-        // assert(cls == getClass(name));
+        // class list built in shared cache fixme strict assert doesn't work because of duplicates assert(cls == getClass(name));
         assert(getClass(mangledName));
     } else {
-        addNamedClass(cls, mangledName, replacing);
-        addClassTableEntry(cls);
+        addNamedClass(cls, mangledName, replacing);//加入哈希表 gdb_objc_realized_classes ：mangledName=>cls
+        addClassTableEntry(cls);//将 cls 和它的元类加入哈希表 allocatedClasses
     }
     
-    // 供以后参考:共享缓存从不包含mh_bundle
-    // for future reference: shared cache never contains MH_BUNDLEs
-    if (headerIsBundle) {
+    //共享缓存中不包含 Bundle
+    if (headerIsBundle) { 
         cls->data()->flags |= RO_FROM_BUNDLE;
         cls->ISA()->data()->flags |= RO_FROM_BUNDLE;
     }
-    
     return cls;
 }
 
@@ -2389,6 +2348,7 @@ readProtocol(protocol_t *newproto, Class protocol_class,
 }
 
 /* 该函数中完成了大量的初始化操作：
+ * 1、首次执行时：初始化 TaggedPointer混淆器、哈希表 gdb_objc_realized_classes 与 allocatedClasses
  * 1、加载所有类到类的 gdb_objc_realized_classes 表中；
  * 2、对所有类做重映射；
  * 3、将所有SEL都注册到namedSelectors表中；
@@ -2421,6 +2381,7 @@ hIndex = 0;         \
 hIndex < hCount && (hi = hList[hIndex]); \
 hIndex++
     
+    /* 1、初始化 TaggedPointer混淆器、哈希表 gdb_objc_realized_classes 与 allocatedClasses */
     if (!doneOnce) {//保证只加载一次
         doneOnce = YES;
         
@@ -2446,14 +2407,10 @@ hIndex++
         if (dyld_get_program_sdk_version() < DYLD_MACOSX_VERSION_10_11) {
             DisableNonpointerIsa = true;
             if (PrintRawIsa) {
-                _objc_inform("RAW ISA: disabling non-pointer isa because "
-                             "the app is too old (SDK version " SDK_FORMAT ")",
-                             FORMAT_SDK(dyld_get_program_sdk_version()));
+                _objc_inform("RAW ISA: disabling non-pointer isa because the app is too old (SDK version " SDK_FORMAT ")",FORMAT_SDK(dyld_get_program_sdk_version()));
             }
         }
-        
         // 如果应用程序有__DATA，__objc_rawisa段，则禁用非指针isa
-        // 加载旧扩展的新应用程序可能需要这个。
         for (EACH_HEADER) {
             if (hi->mhdr()->filetype != MH_EXECUTE) continue;
             unsigned long size;
@@ -2474,28 +2431,27 @@ hIndex++
             //禁用 Tagged Pointer 指针优化
             disableTaggedPointers();
         }
-        initializeTaggedPointerObfuscator();//初始化 TaggedPointer 混淆器：混淆 Tagged Pointer 上存储的数据
+        initializeTaggedPointerObfuscator();//初始化TaggedPointer混淆器
         
         if (PrintConnecting) {
             _objc_inform("CLASS: found %d classes during launch", totalClasses);
         }
         
-        // 实例化存储类的哈希表，并且根据当前类数量做动态扩容：预优化的类不在这个表中
-        int namedClassesSize = (isPreoptimized() ? unoptimizedTotalClasses : totalClasses) * 4 / 3;//哈希表的内存大小
-        gdb_objc_realized_classes = NXCreateMapTable(NXStrValueMapPrototype, namedClassesSize);
+        //根据当前类数量创建哈希表
+        int namedClassesSize = (isPreoptimized() ? unoptimizedTotalClasses : totalClasses) * 4 / 3;
+        gdb_objc_realized_classes = NXCreateMapTable(NXStrValueMapPrototype, namedClassesSize);//预优化的类不在该表
         allocatedClasses = NXCreateHashTable(NXPtrPrototype, 0, nil);
         ts.log("IMAGE TIMES: first time tasks");
     }
     
-    
-    // Discover classes. Fix up unresolved future classes. Mark bundle classes.
+    // 发现类 ; 修复未解决的future classes ; 标记 bundle 类
     // 由编译器读取类列表，并将所有类添加到类的哈希表中，并且标记懒加载的类并初始化内存空间
+    //遍历hList数组，
     for (EACH_HEADER) {
         
         /** 将新类添加到哈希表中 */
         
-        //根据 hi 取出指定镜像中的所有类
-        classref_t *classlist = _getObjc2ClassList(hi, &count);
+        classref_t *classlist = _getObjc2ClassList(hi, &count);//获取镜像hi中的类
         
         if (! mustReadClasses(hi)) {
             //指定的镜像不需要读取类
@@ -2506,14 +2462,16 @@ hIndex++
         bool headerIsPreoptimized = hi->isPreoptimized();
         
         for (i = 0; i < count; i++) {
-            Class cls = (Class)classlist[i];// 数组中会取出OS_dispatch_queue_concurrent、OS_xpc_object、NSRunloop等系统类，例如CF、Fundation、libdispatch中的类。以及自己创建的类
+            //有 OS_dispatch_queue_concurrent、OS_xpc_object、NSRunloop等系统类，
+            //例如CF、Fundation、libdispatch中的类；以及自己创建的类
+            Class cls = (Class)classlist[i];
             
-            // 通过readClass函数获取处理后的新类，内部主要操作ro和rw结构体
+            // 该函数获将编译的类结构改为运行时的类结构，并将该类加入哈希表
             Class newCls = readClass(cls, headerIsBundle, headerIsPreoptimized);
             
             // 初始化所有懒加载的类需要的内存空间
             if (newCls != cls  &&  newCls) {
-                // 将懒加载的类添加到数组中
+                //将懒加载的类添加到数组中
                 //类被移动但未删除。 目前，仅当新类解析了 future class 时才会发生这种情况。
                 //非懒加载地实现下面的类。
                 resolvedFutureClasses = (Class *)realloc(resolvedFutureClasses,(resolvedFutureClassCount+1) * sizeof(Class));
@@ -2758,12 +2716,10 @@ hIndex++
         
         for (EACH_HEADER) {
             if (hi->isPreoptimized()) {
-                _objc_inform("PREOPTIMIZATION: honoring preoptimized selectors "
-                             "in %s", hi->fname());
+                _objc_inform("PREOPTIMIZATION: honoring preoptimized selectors in %s", hi->fname());
             }
             else if (hi->info()->optimizedByDyld()) {
-                _objc_inform("PREOPTIMIZATION: IGNORING preoptimized selectors "
-                             "in %s", hi->fname());
+                _objc_inform("PREOPTIMIZATION: IGNORING preoptimized selectors in %s", hi->fname());
             }
             
             classref_t *classlist = _getObjc2ClassList(hi, &count);
@@ -2792,8 +2748,7 @@ hIndex++
             }
         }
         
-        _objc_inform("PREOPTIMIZATION: %zu selector references not "
-                     "pre-optimized", UnfixedSelectors);
+        _objc_inform("PREOPTIMIZATION: %zu selector references not pre-optimized", UnfixedSelectors);
         _objc_inform("PREOPTIMIZATION: %u/%u (%.3g%%) method lists pre-sorted",
                      PreoptOptimizedMethodLists, PreoptTotalMethodLists,
                      PreoptTotalMethodLists
@@ -2804,8 +2759,7 @@ hIndex++
                      PreoptTotalClasses
                      ? 100.0*PreoptOptimizedClasses/PreoptTotalClasses
                      : 0.0);
-        _objc_inform("PREOPTIMIZATION: %zu protocol references not "
-                     "pre-optimized", UnfixedProtocolReferences);
+        _objc_inform("PREOPTIMIZATION: %zu protocol references not pre-optimized", UnfixedProtocolReferences);
     }
     
 #undef EACH_HEADER

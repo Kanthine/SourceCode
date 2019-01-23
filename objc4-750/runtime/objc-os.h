@@ -1062,9 +1062,7 @@ memdup(const void *mem, size_t len)
 }
 
 // strdup that doesn't copy read-only memory
-static inline char *
-strdupIfMutable(const char *str)
-{
+static inline char * strdupIfMutable(const char *str){
     size_t size = strlen(str) + 1;
     if (_dyld_is_memory_immutable(str, size)) {
         return (char *)str;
@@ -1074,9 +1072,7 @@ strdupIfMutable(const char *str)
 }
 
 // free strdupIfMutable() result
-static inline void
-freeIfMutable(char *str)
-{
+static inline void freeIfMutable(char *str){
     size_t size = strlen(str) + 1;
     if (_dyld_is_memory_immutable(str, size)) {
         // nothing

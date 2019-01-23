@@ -176,7 +176,7 @@ ImageLoaderMachO::ImageLoaderMachO(const struct mach_header* mh, uintptr_t slide
 
     // 临时使用此缓冲区，直到 TEXT 被映射进来
 	fMachOData = (const uint8_t*)mh;
-
+    
     // 创建 segment_command_64
 	this->instantiateSegments((const uint8_t*)mh);
 		

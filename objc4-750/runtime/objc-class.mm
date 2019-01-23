@@ -938,7 +938,7 @@ _class_createInstancesFromZone(Class cls, size_t extraBytes, void *zone,
 }
 
 
-/* 警告重复的类实现。
+/* 警告重复的类实现
  */
 void inform_duplicate(const char *name, Class oldCls, Class newCls){
 #if TARGET_OS_WIN32

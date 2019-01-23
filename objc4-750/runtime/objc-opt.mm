@@ -125,7 +125,7 @@ bool noMissingWeakSuperclasses(void) {
     return opt->flags & objc_opt::NoMissingWeakSuperclasses;
 }
 
-/* 如果该镜像的 dyld 共享缓存优化有效，则返回YES。
+/* 如果该镜像的 dyld 共享缓存优化有效，则返回YES
  */
 bool header_info::isPreoptimized() const{
     if (!preoptimized) return NO;// 由于某些原因禁用了预优化
