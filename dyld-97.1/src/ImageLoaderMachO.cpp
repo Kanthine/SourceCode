@@ -174,10 +174,10 @@ ImageLoaderMachO::ImageLoaderMachO(const struct mach_header* mh, uintptr_t slide
 	// clean slate
 	this->init();
 
-	// temporary use this buffer until TEXT is mapped in
+    // 临时使用此缓冲区，直到 TEXT 被映射进来
 	fMachOData = (const uint8_t*)mh;
 
-	// create segments
+    // 创建 segment_command_64
 	this->instantiateSegments((const uint8_t*)mh);
 		
 	// set slide for PIE programs
@@ -186,11 +186,11 @@ ImageLoaderMachO::ImageLoaderMachO(const struct mach_header* mh, uintptr_t slide
 	// get pointers to interesting things 
 	this->parseLoadCmds();
 
-	// update segments to reference load commands in mapped in __TEXT segment
+    // 更新segment_command_64以引用__TEXT段中映射的load_command
 	this->adjustSegments();
 
 #if __i386__
-	// kernel may have mapped in __IMPORT segment read-only, we need it read/write to do binding
+    // 内核可能已经映射到 __IMPORT 段只读，我们需要它读/写来做绑定
 	if ( fReadOnlyImportSegment != NULL )
 		fReadOnlyImportSegment->tempWritable(context, this);
 #endif
@@ -199,7 +199,7 @@ ImageLoaderMachO::ImageLoaderMachO(const struct mach_header* mh, uintptr_t slide
 	if ( mh->flags & MH_PIE )
 		Segment::fgNextPIEDylibAddress = (uintptr_t)this->getEnd();
 	
-	// notify state change
+    // 通知状态改变
 	this->setMapped(context);
 	
 	if ( context.verboseMapping ) {
@@ -215,20 +215,20 @@ ImageLoaderMachO::ImageLoaderMachO(const struct mach_header* mh, uintptr_t slide
 }
 
 
-// create image by copying an in-memory mach-o file
+//通过复制内存中的Mach-O文件创建镜像
 ImageLoaderMachO::ImageLoaderMachO(const char* moduleName, const struct mach_header* mh, uint64_t len, const LinkContext& context)
  : ImageLoader(moduleName)
 {
 	// clean slate
 	this->init();
 
-	// temporary use this buffer until TEXT is mapped in
+    // 临时使用此缓冲区，直到 TEXT 被映射进来
 	fMachOData = (const uint8_t*)mh;
 
-	// create segments
+	// 创建 segment_command_64
 	this->instantiateSegments((const uint8_t*)mh);
 	
-	// map segments 
+	// 映射 segments
 	if ( mh->filetype == MH_EXECUTE ) {
 		throw "can't load another MH_EXECUTE";
 	}
@@ -236,45 +236,45 @@ ImageLoaderMachO::ImageLoaderMachO(const char* moduleName, const struct mach_hea
 		ImageLoader::mapSegments((const void*)mh, len, context);
 	}
 	
-	// for compatibility, never unload dylibs loaded from memory
+    // 为了兼容性，永远不要卸载从内存中加载的 dylibs
 	this->setNeverUnload();
 
 	// get pointers to interesting things 
 	this->parseLoadCmds();
 
-	// update segments to reference load commands in mapped in __TEXT segment
+    // 更新 segment_command_64 以引用 __TEXT 段中映射的 load_command
 	this->adjustSegments();
 
-	// bundle loads need path copied
-	if ( moduleName != NULL ) 
+    // bundle 加载需要复制路径
+	if ( moduleName != NULL )
 		this->setPath(moduleName);
 	
-	// notify state change
+	// 通知状态改变
 	this->setMapped(context);
 		
 }
 
-// create image by using cached mach-o file
+//使用缓存的Mach-O文件创建镜像
 ImageLoaderMachO::ImageLoaderMachO(const struct mach_header* mh, const char* path, const struct stat& info, const LinkContext& context)
  : ImageLoader(path, 0, info)
 {
 	// clean slate
 	this->init();
 
-	// already mapped to mh address
+    // 已经映射到 mh 地址
 	fMachOData = (const uint8_t*)mh;
 
 	// usually a split seg
 	fIsSplitSeg = ((mh->flags & MH_SPLIT_SEGS) != 0);	
 	
-	// remember this is from shared cache and cannot be unloaded
+    //注意：这是来自共享缓存，无法卸载
 	fInSharedCache = true;
 	this->setNeverUnload();
 
-	// create segments
+	// 创建 segment_command_64
 	this->instantiateSegments((const uint8_t*)mh);
 		
-	// segments already mapped in cache
+	// segment_command_64 已经映射到缓存中
 	if ( context.verboseMapping ) {
 		dyld::log("dyld: Using shared cached for %s\n", path);
 		for (ImageLoader::SegmentIterator it = this->beginSegments(); it != this->endSegments(); ++it ) {
@@ -286,52 +286,51 @@ ImageLoaderMachO::ImageLoaderMachO(const struct mach_header* mh, const char* pat
 	// get pointers to interesting things 
 	this->parseLoadCmds();
 
-	// note: path is mapped into cache so no need for ImageLoader to make a copy
-
-	// notify state change
+    //注意:路径被映射到缓存中，因此不需要 ImageLoader 进行复制
+    
+    // 通知状态改变
 	this->setMapped(context);
 }
 
-
-// create image by mapping in a mach-o file
-ImageLoaderMachO::ImageLoaderMachO(const char* path, int fd, const uint8_t firstPage[4096], uint64_t offsetInFat, 
+// 在Mach-O文件中通过映射创建镜像
+ImageLoaderMachO::ImageLoaderMachO(const char* path, int fd, const uint8_t firstPage[4096], uint64_t offsetInFat,
 									uint64_t lenInFat, const struct stat& info, const LinkContext& context)
  : ImageLoader(path, offsetInFat, info)
 {	
 	// clean slate
 	this->init();
 
-	// read load commands
+	// 读取 load_command
 	const unsigned int dataSize = sizeof(macho_header) + ((macho_header*)firstPage)->sizeofcmds;
 	uint8_t buffer[dataSize];
 	const uint8_t* fileData = firstPage;
 	if ( dataSize > 4096 ) {
-		// only read more if cmds take up more space than first page
+        // 只有当 cmd 比第一页占用更多空间时，才读取更多内容
 		fileData = buffer;
 		memcpy(buffer, firstPage, 4096);
 		pread(fd, &buffer[4096], dataSize-4096, offsetInFat+4096);
 	}
 	
-	// temporary use this buffer until TEXT is mapped in
+    //临时使用此缓冲区，直到 TEXT 被映射进来
 	fMachOData = fileData;
 	
 	// the meaning of many fields changes in split seg mach-o files
 	fIsSplitSeg = ((((macho_header*)fileData)->flags & MH_SPLIT_SEGS) != 0) && (((macho_header*)fileData)->filetype == MH_DYLIB);	
 	
-	// create segments
+	// 创建 segment_command_64
 	this->instantiateSegments(fileData);
 	
-	// map segments, except for main executable which is already mapped in by kernel
+    // 映射 segment_command_64 ，除了已经被内核映射的主程序
 	if ( ((macho_header*)fileData)->filetype != MH_EXECUTE )
 		this->mapSegments(fd, offsetInFat, lenInFat, info.st_size, context);
 	
 	// get pointers to interesting things 
 	this->parseLoadCmds();
 	
-	// update segments to reference load commands in mapped in __TEXT segment
+    // 更新 segment_command_64 以引用 __TEXT 段中映射的 load_command
 	this->adjustSegments();
 	
-	// notify state change
+    // 通知状态改变
 	this->setMapped(context);
 	
 	// if path happens to be same as in LC_DYLIB_ID load command use that, otherwise malloc a copy of the path

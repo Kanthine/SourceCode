@@ -1902,6 +1902,7 @@ id objc_unretainedObject(objc_objectptr_t pointer) { return (id)pointer; }
 objc_objectptr_t objc_unretainedPointer(id object) { return object; }
 
 
+// 初始化自动释放池与哈希表
 void arr_init(void) {
     AutoreleasePoolPage::init();
     SideTableInit();

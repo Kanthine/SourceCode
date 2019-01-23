@@ -38,24 +38,7 @@
  * 生成Product.app
  */
 
-/* Mach-O 类型的文件：是一种用于可执行文件、目标代码、动态库、内核转储的文件格式；
- *
- * Mach-O 文件包含三个主要区域：
- * 1、mach_header : 文件类型, 目标架构
- * 2、Load command: 描述文件在虚拟内存中的逻辑与布局
- * 3、Raw segment date: Load command中定义的原始数据
- *
- *
- * struct mach_header {
- *      uint32_t    magic; //支持设备的CPU位数 :oxFEEDFACE : 表示32位二进制 ;xFEEDFACF : 表示64位二进制
- *      cpu_type_t    cputype; // CPU类型
- *      cpu_subtype_t    cpusubtype; // CPU 子类型
- *      uint32_t    filetype; //Mach-O文件类型
- *      uint32_t    ncmds;  //用于加载器的加载命令的条数
- *      uint32_t    sizeofcmds;//用于加载器的加载命令的大小
- *      uint32_t    flags; // 动态链接器dyld的标志
- * };
- *
+/*
  *
  * LC_SEGMENT / LC_SEGMENT_64段的详解（Load command）
  *  常见段：

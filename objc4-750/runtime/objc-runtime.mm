@@ -115,9 +115,9 @@ SEL SEL_retainWeakReference = NULL;
 SEL SEL_allowsWeakReference = NULL;
 
 
-header_info *FirstHeader = 0;  // NULL表示空列表
-header_info *LastHeader  = 0;  // NULL意味着无效;再计算它
-int HeaderCount = 0;
+header_info *FirstHeader = 0;  // NULL表示空链表
+header_info *LastHeader  = 0;  // NULL意味着无效；需要计算它
+int HeaderCount = 0;//链表中节点的数量
 
 
 // 如果在调用 fork() 创建子进程时，父进程是多线程的，则在新建的子进程设置 MultithreadedForkChild 为 true
@@ -171,12 +171,9 @@ Class objc_lookUpClass(const char *aClassName){
  * 如果指定名称的类不存在，则返回 nil 并且打印日志 objc[3966]: class `aClassName' not linked into application
  * Warning: 如果aClassName是为类的 isa 设置的名称，则无法执行!
  */
-Class objc_getMetaClass(const char *aClassName)
-{
+Class objc_getMetaClass(const char *aClassName){
     Class cls;
-
     if (!aClassName) return Nil;
-
     cls = objc_getClass (aClassName);
     if (!cls)
     {
@@ -184,19 +181,17 @@ Class objc_getMetaClass(const char *aClassName)
         _objc_inform ("class `%s' not linked into application", aClassName);
         return Nil;
     }
-
     return cls->ISA();
 }
 
+#pragma mark - 链表 header_info 的增删
 
-/***********************************************************************
-* appendHeader.  Add a newly-constructed header_info to the list. 
-**********************************************************************/
-void appendHeader(header_info *hi)
-{
-    // Add the header to the header list. 
-    // The header is appended to the list, to preserve the bottom-up order.
-    HeaderCount++;
+/* 向链表中添加一个新构造的 header_info
+ * @note 为保持自下而上的顺序，需要将新的 header_info 添加到链表的最后位置
+ * @note 添加之前，需要确定 LastHeader 是有效的！若无效，则重新设置它
+ */
+void appendHeader(header_info *hi){
+    HeaderCount++;//链表中节点数量加 1
     hi->setNext(NULL);
     if (!FirstHeader) {
         // 如果列表为空
@@ -213,16 +208,9 @@ void appendHeader(header_info *hi)
     }
 }
 
-
-/***********************************************************************
-* removeHeader
-* Remove the given header from the header list.
-* FirstHeader is updated. 
-* LastHeader is set to NULL. Any code that uses LastHeader must 
-* detect this NULL and recompute LastHeader by traversing the list.
-**********************************************************************/
-void removeHeader(header_info *hi)
-{
+/* 从链表中移除指定的 header_info
+ */
+void removeHeader(header_info *hi){
     header_info *prev = NULL;
     header_info *current = NULL;
 
@@ -230,21 +218,20 @@ void removeHeader(header_info *hi)
         if (current == hi) {
             header_info *deadHead = current;
 
-            // Remove from the linked list.
+            // 从链表中移除节点 current
             if (prev)
-                prev->setNext(current->getNext());
+                prev->setNext(current->getNext());//将上一个节点的 next 指向下一个节点
             else
-                FirstHeader = current->getNext(); // no prev so removing head
+                FirstHeader = current->getNext(); // 将 FirstHeader 指向下一个节点
             
-            // Update LastHeader if necessary.
+            // 如果 current 是最后一个节点，那么 prev->next 将不知道指向何处，此时最好将它置为 NULL；
             if (LastHeader == deadHead) {
-                LastHeader = NULL;  // will be recomputed next time it's used
+                LastHeader = NULL;
             }
-
-            HeaderCount--;
+            HeaderCount--;//数量减 1
             break;
         }
-        prev = current;
+        prev = current;//用于记录上一个节点
     }
 }
 
@@ -252,8 +239,7 @@ void removeHeader(header_info *hi)
  * 读取影响运行时的环境变量。
  * 如果需要，还可以打印环境变量帮助。
  */
-void environ_init(void) 
-{
+void environ_init(void) {
     if (issetugid()) {//受限模式
         //当 setuid 或 setgid 时，将以静默方式忽略所有环境变量: 这包括 OBJC_HELP 和 OBJC_PRINT_OPTIONS 本身。
         return;
@@ -266,8 +252,7 @@ void environ_init(void)
     //直接扫描 environ[]，而不是调用 getenv() ;这优化了没有设置环境的情况。
     for (char **p = *_NSGetEnviron(); *p != nil; p++) {
         if (0 == strncmp(*p, "Malloc", 6)  ||  0 == strncmp(*p, "DYLD", 4)  ||  
-            0 == strncmp(*p, "NSZombiesEnabled", 16))
-        {
+            0 == strncmp(*p, "NSZombiesEnabled", 16)){
             maybeMallocDebugging = true;
         }
 
@@ -313,7 +298,7 @@ void environ_init(void)
         }
     }
 
-    // Print OBJC_HELP and OBJC_PRINT_OPTIONS output.
+    // 输出 OBJC_HELP 与 OBJC_PRINT_OPTIONS
     if (PrintHelp  ||  PrintOptions) {
         if (PrintHelp) {
             _objc_inform("Objective-C runtime debugging. Set variable=YES to enable.");
@@ -336,19 +321,14 @@ void environ_init(void)
 }
 
 
-/***********************************************************************
-* logReplacedMethod
-* OBJC_PRINT_REPLACED_METHODS implementation
-**********************************************************************/
-void 
-logReplacedMethod(const char *className, SEL s, 
-                  bool isMeta, const char *catName, 
-                  IMP oldImp, IMP newImp)
+/* OBJC_PRINT_REPLACED_METHODS implementation
+ */
+void logReplacedMethod(const char *className, SEL s,bool isMeta, const char *catName,IMP oldImp, IMP newImp)
 {
     const char *oldImage = "??";
     const char *newImage = "??";
 
-    // Silently ignore +load replacement because category +load is special
+    // 默认忽略 +load 替换，因为 category +load 是特殊的
     if (s == SEL_load) return;
 
 #if TARGET_OS_WIN32
@@ -366,29 +346,32 @@ logReplacedMethod(const char *className, SEL s,
                  oldImp, oldImage, newImp, newImage);
 }
 
-/* 为这个线程获取objc的线程数据
-*  @param create 当 data 不存在时，是否需要创建一个；
-*         入参为 YES ，创建_objc_pthread_data；入参为 NO，直接返回 NULL
-*/
+#pragma mark - 线程存储：查、删
+
+/* 查：根据键 _objc_pthread_key 获取线程存储数据 _objc_pthread_data
+ * @param create 当 data 不存在时，是否需要创建一个；
+ *         入参为 YES ，创建_objc_pthread_data；入参为 NO，直接返回 NULL
+ */
 _objc_pthread_data *_objc_fetch_pthread_data(bool create){
     _objc_pthread_data *data;
 
-    data = (_objc_pthread_data *)tls_get(_objc_pthread_key);//根据键获取线程上存储的数据
-    if (!data  &&  create) {//如果没有存储数据且 create=YES 时，
-        data = (_objc_pthread_data *) calloc(1, sizeof(_objc_pthread_data));//为该块数据分配内存
-        tls_set(_objc_pthread_key, data);//根据键将数据存储到线程
+    data = (_objc_pthread_data *)tls_get(_objc_pthread_key);
+    if (!data  &&  create) {
+        //创建 _objc_pthread_data 并根据键 _objc_pthread_key 存储到线程
+        data = (_objc_pthread_data *) calloc(1, sizeof(_objc_pthread_data));
+        tls_set(_objc_pthread_key, data);
     }
     return data;
 }
 
 
-/***********************************************************************
-* _objc_pthread_destroyspecific
-* Destructor for objc's per-thread data.
-* arg shouldn't be NULL, but we check anyway.
-**********************************************************************/
+/* _objc_initializing_classes 记录初始化类 +initialize 的列表
+ * _objc_initializing_classes 存储在 _objc_pthread_data 上
+ * 释放 _objc_pthread_data 时，需要将 _objc_initializing_classes 释放
+ */
 extern void _destroyInitializingClassList(struct _objc_initializing_classes *list);
-//一个清理函数，用来在线程释放该线程存储的时候被调用
+
+//删：一个清理函数，用来在线程释放该线程存储的时候被调用
 void _objc_pthread_destroyspecific(void *arg){
     _objc_pthread_data *data = (_objc_pthread_data *)arg;
     if (data != NULL) {
@@ -419,10 +402,10 @@ void tls_init(void){
 #endif
 }
 
-/* 以前的库初始化器；该函数现在只是外部调用者的占位符。现在，所有运行时初始化都被移动到 map_images() 和_objc_init() 函数。
+/* 以前的库初始化器；该函数现在只是外部调用者的占位符。
+ * 现在，所有运行时初始化都被移动到 map_images() 和 _objc_init() 函数
  */
-void _objcInit(void)
-{
+void _objcInit(void){
     // do nothing
 }
 

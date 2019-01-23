@@ -1060,6 +1060,7 @@ static char *copySwiftV1MangledName(const char *string, bool isProtocol = false)
  */
 
 // 这是一个misnomer: gdb_objc_implemzed_classes 实际上是一个不在dyld共享缓存中的命名类列表，不管是否实现。
+// 预优化的类不在这个表中
 //哈希表：将类名映射到类，仅存储已实现的类
 NXMapTable *gdb_objc_realized_classes;
 
@@ -2116,27 +2117,27 @@ void map_images(unsigned count, const char * const paths[],const struct mach_hea
 
 
 /* load_images() 函数会多次调用（每个类都会调用一次）
+ *
+ * 进程 +load 被dyld映射到的指定镜像。
  * Process +load in the given images which are being mapped in by dyld.
  * Locking: write-locks runtimeLock and loadMethodLock
  **********************************************************************/
 extern bool hasLoadMethods(const headerType *mhdr);
 extern void prepare_load_methods(const headerType *mhdr);
 
-void
-load_images(const char *path __unused, const struct mach_header *mh)
-{
-    // Return without taking locks if there are no +load methods here.
+void load_images(const char *path __unused, const struct mach_header *mh){
+    // 如果没有 +load 方法，直接返回
     if (!hasLoadMethods((const headerType *)mh)) return;
     
     recursive_mutex_locker_t lock(loadMethodLock);
     
-    // Discover load methods
+    // 寻找 +load 方法
     {
         mutex_locker_t lock2(runtimeLock);
         prepare_load_methods((const headerType *)mh);
     }
     
-    // Call +load methods (without runtimeLock - re-entrant)
+    // 调用 +load 方法
     call_load_methods();
 }
 
@@ -2158,47 +2159,50 @@ unmap_image(const char *path __unused, const struct mach_header *mh)
 
 
 
-/***********************************************************************
- * mustReadClasses
- * Preflight check in advance of readClass() from an image.
- **********************************************************************/
-bool mustReadClasses(header_info *hi)
-{
+/* 判断指定的镜像是否需要读取类
+ * @param hi 存储着 Mach-O 文件的头信息
+ * @note 需要读取该镜像中类的情况：
+ *       1、如果镜像没有预先优化，那么我们必须读取类；
+ *       2、如果是 iOS 模拟器，那么我们必须读取类；
+ *       3、如果镜像可能缺少弱超类，那么我们必须读取类；
+ *       4、如果有未解决的 future classe ，那么我们必须读类；
+ *
+ * @note 在镜像的 readClass() 之前进行预运行检查。
+ */
+bool mustReadClasses(header_info *hi){
     const char *reason;
     
-    // If the image is not preoptimized then we must read classes.
+    // 如果镜像没有预先优化，那么我们必须读取类。
     if (!hi->isPreoptimized()) {
-        reason = nil; // Don't log this one because it is noisy.
+        reason = nil;
         goto readthem;
     }
     
-    // If iOS simulator then we must read classes.
+    //如果是 iOS 模拟器，那么我们必须读取类。
 #if TARGET_OS_SIMULATOR
     reason = "the image is for iOS simulator";
     goto readthem;
 #endif
+    assert(!hi->isBundle()); //MH_BUNDLE 文件不能在共享缓存中
     
-    assert(!hi->isBundle());  // no MH_BUNDLE in shared cache
-    
-    // If the image may have missing weak superclasses then we must read classes
+    // 如果镜像可能缺少弱超类，那么我们必须读取类
     if (!noMissingWeakSuperclasses()) {
         reason = "the image may contain classes with missing weak superclasses";
         goto readthem;
     }
     
-    // If there are unresolved future classes then we must read classes.
+    // 如果有未解决的 future classe ，那么我们必须读类。
     if (haveFutureNamedClasses()) {
         reason = "there are unresolved future classes pending";
         goto readthem;
     }
     
-    // readClass() does not need to do anything.
+    // readClass() 不需要做任何事情
     return NO;
     
 readthem:
     if (PrintPreopt  &&  reason) {
-        _objc_inform("PREOPTIMIZATION: reading classes manually from %s "
-                     "because %s", hi->fname(), reason);
+        _objc_inform("PREOPTIMIZATION: reading classes manually from %s because %s", hi->fname(), reason);
     }
     return YES;
 }
@@ -2217,17 +2221,14 @@ readthem:
  *
  * Locking: runtimeLock acquired by map_images or objc_readClassPair
  **********************************************************************/
-Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized)
-{
+Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
     const char *mangledName = cls->mangledName();
     
     if (missingWeakSuperclass(cls)) {
         // No superclass (probably weak-linked).
         // Disavow any knowledge of this subclass.
         if (PrintConnecting) {
-            _objc_inform("CLASS: IGNORING class '%s' with "
-                         "missing weak-linked superclass",
-                         cls->nameForLogging());
+            _objc_inform("CLASS: IGNORING class '%s' with missing weak-linked superclass",cls->nameForLogging());
         }
         addRemappedClass(cls, nil);
         cls->superclass = nil;
@@ -2286,6 +2287,7 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized)
         addClassTableEntry(cls);
     }
     
+    // 供以后参考:共享缓存从不包含mh_bundle
     // for future reference: shared cache never contains MH_BUNDLEs
     if (headerIsBundle) {
         cls->data()->flags |= RO_FROM_BUNDLE;
@@ -2387,7 +2389,7 @@ readProtocol(protocol_t *newproto, Class protocol_class,
 }
 
 /* 该函数中完成了大量的初始化操作：
- * 1、加载所有类到类的gdb_objc_realized_classes表中；
+ * 1、加载所有类到类的 gdb_objc_realized_classes 表中；
  * 2、对所有类做重映射；
  * 3、将所有SEL都注册到namedSelectors表中；
  * 4、修复函数指针遗留；
@@ -2467,22 +2469,18 @@ hIndex++
 # endif
         
 #endif
-        //禁用NSNumber等的 Tagged Pointer 指针优化
+        
         if (DisableTaggedPointers) {
+            //禁用 Tagged Pointer 指针优化
             disableTaggedPointers();
         }
-        
-        //初始化 TaggedPointer 混淆器：用于保护 Tagged Pointer 上的数据
-        initializeTaggedPointerObfuscator();
+        initializeTaggedPointerObfuscator();//初始化 TaggedPointer 混淆器：混淆 Tagged Pointer 上存储的数据
         
         if (PrintConnecting) {
             _objc_inform("CLASS: found %d classes during launch", totalClasses);
         }
         
-        // 实例化存储类的哈希表，并且根据当前类数量做动态扩容
-        // namedClasses
-        // Preoptimized classes don't go in this table.
-        // 4/3 is NXMapTable's load factor
+        // 实例化存储类的哈希表，并且根据当前类数量做动态扩容：预优化的类不在这个表中
         int namedClassesSize = (isPreoptimized() ? unoptimizedTotalClasses : totalClasses) * 4 / 3;//哈希表的内存大小
         gdb_objc_realized_classes = NXCreateMapTable(NXStrValueMapPrototype, namedClassesSize);
         allocatedClasses = NXCreateHashTable(NXPtrPrototype, 0, nil);
@@ -2496,11 +2494,11 @@ hIndex++
         
         /** 将新类添加到哈希表中 */
         
-        classref_t *classlist = _getObjc2ClassList(hi, &count);//从编译后的类列表中取出所有类，获取到的是一个 classref_t 类型的指针
-        
+        //根据 hi 取出指定镜像中的所有类
+        classref_t *classlist = _getObjc2ClassList(hi, &count);
         
         if (! mustReadClasses(hi)) {
-            // Image is sufficiently optimized that we need not call readClass()
+            //指定的镜像不需要读取类
             continue;
         }
         
@@ -2518,9 +2516,7 @@ hIndex++
                 // 将懒加载的类添加到数组中
                 //类被移动但未删除。 目前，仅当新类解析了 future class 时才会发生这种情况。
                 //非懒加载地实现下面的类。
-                resolvedFutureClasses = (Class *)
-                realloc(resolvedFutureClasses,
-                        (resolvedFutureClassCount+1) * sizeof(Class));
+                resolvedFutureClasses = (Class *)realloc(resolvedFutureClasses,(resolvedFutureClassCount+1) * sizeof(Class));
                 resolvedFutureClasses[resolvedFutureClassCount++] = newCls;
             }
         }
@@ -2840,9 +2836,8 @@ static void schedule_class_load(Class cls)
     cls->setInfo(RW_LOADED);
 }
 
-//是否加载了 +load方法
-bool hasLoadMethods(const headerType *mhdr)
-{
+//是否加载了 +load 方法
+bool hasLoadMethods(const headerType *mhdr){
     size_t count;
     if (_getObjc2NonlazyClassList(mhdr, &count)  &&  count > 0) return true;
     if (_getObjc2NonlazyCategoryList(mhdr, &count)  &&  count > 0) return true;
@@ -2852,14 +2847,12 @@ bool hasLoadMethods(const headerType *mhdr)
 /* 准备加载方法
  * @param mhdr 对于 64 位体系结构，64 位 mach 头出现在目标文件的最开头。
  */
-void prepare_load_methods(const headerType *mhdr)
-{
+void prepare_load_methods(const headerType *mhdr){
     size_t count, i;
     
     runtimeLock.assertLocked();
     //获取到非懒加载的类的列表
-    classref_t *classlist =
-    _getObjc2NonlazyClassList(mhdr, &count);
+    classref_t *classlist = _getObjc2NonlazyClassList(mhdr, &count);
     for (i = 0; i < count; i++) {
         schedule_class_load(remapClass(classlist[i]));
     }

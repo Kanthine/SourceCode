@@ -7,7 +7,7 @@
 		<key>all.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>4</integer>
+			<integer>1</integer>
 		</dict>
 		<key>dyld.xcscheme_^#shared#^_</key>
 		<dict>

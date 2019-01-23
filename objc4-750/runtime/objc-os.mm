@@ -215,10 +215,13 @@ bool bad_magic(const headerType *mhdr){
             mhdr->magic != MH_CIGAM  &&  mhdr->magic != MH_CIGAM_64);
 }
 
-/* 构建 header_info , 并返回
- *
- *
- *
+/* 根据指定的 Mach-O 头信息 mach_header_64 获取 header_info
+ * @param mhdr 指定的 mach_header_64 的地址
+ * @param path 该 Mach-O 文件的路径
+ * @param totalClasses 计算 Mach-O 文件中有多少类
+ * @param unoptimizedTotalClasses 计算不在共享缓存的类数量
+ * @note 如果在共享缓存，则从缓存中取出；如果不在共享缓存，则创建一个；
+ * @note 如果当前 header_info 链表已经存在 指定的header_info ，则返回 NULL ，表明该Mach-O文件已经处理过
  */
 static header_info * addHeader(const headerType *mhdr, const char *path, int &totalClasses, int &unoptimizedTotalClasses){
     header_info *hi;
@@ -230,17 +233,14 @@ static header_info * addHeader(const headerType *mhdr, const char *path, int &to
     // 从 dyld 共享缓存中查找 hinfo
     hi = preoptimizedHinfoForHeader(mhdr);
     if (hi) {
-        // 在 dyld 共享缓存中发现 hinfo
+        //在 dyld 共享缓存中找到 hinfo
         
-        //剔除重复
         if (hi->isLoaded()) {
-            return NULL;
+            return NULL;//剔除重复
         }
-        
         inSharedCache = true;
         
         // 初始化未由共享缓存设置的字段
-        // hi->next is set by appendHeader
         hi->setLoaded(true);
         
         if (PrintPreopt) {
@@ -259,9 +259,8 @@ static header_info * addHeader(const headerType *mhdr, const char *path, int &to
     }else{
         // 在 dyld 共享缓存中没有发现 hinfo
         
-        // 剔除重复
         for (hi = FirstHeader; hi; hi = hi->getNext()) {
-            if (mhdr == hi->mhdr()) return NULL;
+            if (mhdr == hi->mhdr()) return NULL;// 剔除重复
         }
         
         // 定位 __OBJC 段
@@ -272,8 +271,7 @@ static header_info * addHeader(const headerType *mhdr, const char *path, int &to
         if (!objc_segment  &&  !image_info) return NULL;
         
         // Allocate a header_info entry.
-        // Note we also allocate space for a single header_info_rw in the
-        // rw_data[] inside header_info.
+        // Note we also allocate space for a single header_info_rw in the rw_data[] inside header_info.
         hi = (header_info *)calloc(sizeof(header_info) + sizeof(header_info_rw), 1);
         
         // Set up the new header_info entry.
@@ -301,14 +299,14 @@ static header_info * addHeader(const headerType *mhdr, const char *path, int &to
     }
 #endif
     
-    appendHeader(hi);
+    appendHeader(hi); //向链表中添加一个新构造的 header_info
     
     return hi;
 }
 
 
 /* 链接库
- * @return 如果镜直接链接到 install name与 given name 完全相同的dylib，则返回true。
+ * @return 如果直接链接到 install name与 given name 完全相同的dylib，则返回true。
  */
 bool linksToLibrary(const header_info *hi, const char *name){
     const struct dylib_command *cmd;
@@ -324,7 +322,6 @@ bool linksToLibrary(const header_info *hi, const char *name){
         }
         cmd = (const struct dylib_command *)((char *)cmd + cmd->cmdsize);
     }
-    
     return false;
 }
 
@@ -419,17 +416,11 @@ static bool shouldRejectGCImage(const headerType *mhdr)
 #include "objc-file-old.h"
 #endif
 
-/* 处理被映射到 dyld 的指定镜像
- * 执行所有的类注册和修正（或延迟等待发现丢失的父类等），并调用 +load 方法。
- * 完成所有 class 的注册、fixup等工作,还有初始化自动释放池、初始化 side table 等工作并在函数后端调用了 _read_images
- * 初始化环境.
- * 注册所有的类.
- * 指定 _read_images来处理信息.
- * info[] 是自下而上的顺序，即在数组中与其它库相比 libobjc 将最早链接到 libobjc。
- *
- * @param mhCount 数组 mhdrs[] 的元素数量
- * @param mhPaths[] 存储路径的字符串数组
- * @param mhdrs[] 存储 .o 文件头信息的结构数组
+/* 处理被映射到 dyld 的一些镜像，主要功能：
+ * 1、首次调用，初始化共享缓存
+ * 2、统计所有的 header_info ，统计所有的 class 数量，未优化的 class 数量；
+ * 3、首次调用，注册内部使用的选择器，初始化自动释放池与哈希表
+ * 4、第 2 步获取的信息，调用 _read_images() 函数来处理
  */
 void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const struct mach_header * const mhdrs[]){
     static bool firstTime = YES;
@@ -437,33 +428,33 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
     uint32_t hCount;
     size_t selrefCount = 0;
     
-    if (firstTime) {// 如果需要，执行首次初始化
-        preopt_init();//在普通库初始化之前优化共享缓存
+    /* 1、首次调用，初始化共享缓存   */
+    if (firstTime) {
+        preopt_init();
     }
     
     if (PrintImages) {
         _objc_inform("IMAGES: processing %u newly-mapped images...\n", mhCount);
     }
     
-    hCount = 0;// 查找带有 Objective-C 元数据的所有镜像
-    //统计类的数量，调整各种哈希表的大小。
+    /* 2、统计所有的 header_info ，统计所有的 class 数量，未优化的 class 数量  */
+    hCount = 0;
     int totalClasses = 0;
-    int unoptimizedTotalClasses = 0;//未优化的类总数
+    int unoptimizedTotalClasses = 0;
     {
         uint32_t i = mhCount;
         //倒序遍历
         while (i--) {
             const headerType *mhdr = (const headerType *)mhdrs[i];
             
-            //调用 addHeader() 尝试读取每一个image文件的是否包含Objc的segment header信息，如果有统计Objc Class的数量。
+            //addHeader() 读取每个Mach-O文件的 header_info 信息，并统计Class的数量
             auto hi = addHeader(mhdr, mhPaths[i], totalClasses, unoptimizedTotalClasses);
             if (!hi) {
-                // 此条目中没有objc数据
-                continue;
+                continue;//返回 NULL 表示已经统计过
             }
             
             if (mhdr->filetype == MH_EXECUTE) {//文件类型为可执行文件
-                // 根据主可执行文件的大小调整一些数据结构的大小
+                //根据主程序的大小调整一些数据结构的大小
 #if __OBJC2__
                 size_t count;
                 _getObjc2SelectorRefs(hi, &count);//获取所有被引用的选择器
@@ -482,7 +473,7 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
                 }
 #endif
             }
-            hList[hCount++] = hi;// 加载所有的类
+            hList[hCount++] = hi;//加载所有的类
             
             if (PrintImages) {
                 _objc_inform("IMAGES: loading image for %s%s%s%s%s\n",hi->fname(),
@@ -494,10 +485,10 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
         }
     }
     
-    //执行一次性的运行时初始化，必须延迟到找到可执行文件本身。这需要在进一步初始化之前完成。(如果可执行文件不包含Objective-C代码，但Objective-C稍后会动态加载，则可执行文件可能不在此 infoList 中。
+    /* 3、首次调用，注册内部使用的选择器，初始化自动释放池与哈希表 */
     if (firstTime) {
-        sel_init(selrefCount);//初始化方法列表并注册内部使用的方法
-        arr_init();// 初始化自动释放池与哈希表
+        sel_init(selrefCount);
+        arr_init();
         
 #if SUPPORT_GC_COMPAT //注：iOS 不兼容 Garbage Collection
         for (uint32_t i = 0; i < hCount; i++) {
@@ -582,8 +573,7 @@ void unmap_image_nolock(const struct mach_header *mh){
  * 运行 C++ 静态构造函数。
  * 在 dyld 调用静态构造函数之前，libc 调用_objc_init()，所以我们必须自己执行。
  */
-static void static_init()
-{
+static void static_init(){
     size_t count;
     auto inits = getLibobjcInitializers(&_mh_dylib_header, &count);
     for (size_t i = 0; i < count; i++) {
@@ -822,30 +812,31 @@ void _objc_atfork_child()
 }
 
 
-/* 对于OC运行时，入口方法为 _objc_init
- * 引导程序初始化：使用 dyld 注册我们的 Image 通知程序。
- * 在库初始化之前由 libSystem 调用
+/* Runtime 的入口函数，主要功能：
+ * 1、环境初始化,读取影响运行时的环境变量; 如果需要，还可以打印环境变量帮助；
+ * 2、初始化线程存储的键；
+ * 3、运行 C++ 静态构造函数；
+ * 4、锁的初始化
+ * 5、初始化 libobjc 的异常处理系统；
+ * 6、通过 dyld 调用 () 函数，load_images() 函数，unmap_image() 函数
  */
 void _objc_init(void){
     static bool initialized = false;//是否初始化的静态变量
     if (initialized) return;//如果已初始化，则返回
     initialized = true;
     
-    // fixme 延迟初始化，直到找到一个使用对象的 Image ?
     environ_init();//环境初始化,读取影响运行时的环境变量; 如果需要，还可以打印环境变量帮助。
     tls_init();//初始化线程存储的键
     static_init();//运行 C++ 静态构造函数
     lock_init();// 锁的初始化
     exception_init();//初始化 libobjc 的异常处理系统
     
-    /* 注册dyld事件的监听：
+    /* 注册 dyld 事件的监听：
      * 注册 unmap_image，以防某些 +load 取消映射
      * map_images 函数是初始化的关键，内部完成了大量 Runtime 环境的初始化操作。
      */
     _dyld_objc_notify_register(&map_images, load_images, unmap_image);
 }
-
-
 
 /* 获取指定类或者分类的 header_info 信息
  * @param addr 可以是类或分类

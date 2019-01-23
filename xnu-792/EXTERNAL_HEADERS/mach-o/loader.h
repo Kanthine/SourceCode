@@ -62,31 +62,6 @@
  * 生成Product.app
  */
 
-/* LC_SEGMENT / LC_SEGMENT_64 段的详解（Load command）
- *  常见段：
- *        _PAGEZERO: MH_EXECUTE 格式文件的空指针陷阱段
- *        _TEXT: 程序代码段
- *        __DATA: 程序数据段
- *        __RODATA: read only程序只读数据段
- *        __LINKEDIT: 链接器使用段
- *   段中节详解：
- *       __text: 主程序代码
- *       __stubs, __stub_helper: 用于动态链接的桩
- *       __cstring: 程序中c语言字符串
- *       __const: 常量
- *       __RODATA,__objc_methname: OC方法名称
- *       __RODATA,__objc_methntype: OC方法类型
- *       __RODATA,__objc_classname: OC类名
- *       __DATA,__objc_classlist: OC类列表
- *       __DATA,__objc_protollist: OC原型列表
- *       __DATA,__objc_imageinfo: OC镜像信息
- *       __DATA,__objc_const: OC常量
- *       __DATA,__objc_selfrefs: OC类自引用(self)
- *       __DATA,__objc_superrefs: OC类超类引用(super)
- *       __DATA,__objc_protolrefs: OC原型引用
- *       __DATA, __bss: 没有初始化和初始化为0 的全局变量
- */
-
 
 /* <mach/machine.h> 用于 cpu_type_t 和 cpu_subtype_t 类型，包含这些类型可能值的常量。
  */
@@ -226,9 +201,7 @@ struct segment_command {// 32 位
  * 系统将 fileoff 偏移处 filesize 大小的内容加载到虚拟内存的 vmaddr 处，大小为 vmsize，段页面的权限由 initprot 进行初始化。它的权限可以动态改变，但不能超过 maxprot 的值，例如 _TEXT 初始化和最大权限都是可读/可执行/不可写
  *
  * 上面的文件包括以下 4 种段：
- * __PAGEZERO  空指针陷阱段，映射到虚拟内存空间的第 1 页，用于捕捉对 NULL 指针的引用
  * __TEXT      代码段/只读数据段
- * __DATA      读取和写入数据的段
  * __LINKEDIT  动态链接器需要使用的信息，包括重定位信息、绑定信息、懒加载信息等
  */
 struct segment_command_64 {	/* for 64-bit architectures */
@@ -333,19 +306,18 @@ struct section_64 { // 64 位
 
 /* 段和节的名称对链接编辑器来说几乎没有意义。但是支持传统 UNIX 可执行文件的东西很少，传统 UNIX 可执行文件要求链接编辑器和汇编器使用约定的一些名称。
  *
- * __TEXT 段 不可写
  * 链接编辑器将在 __DATA 段的 __common 节的末尾分配公共符号。如果需要，它将创建节和段。
  */
 
 // 目前已知的段名和这些段中的节名
-#define	SEG_PAGEZERO "__PAGEZERO" //pagezero 段没有保护，它捕获 MH_EXECUTE 文件的空引用
+#define	SEG_PAGEZERO "__PAGEZERO" //空指针陷阱段，映射到虚拟内存空间的第 1 页，用于捕捉 MH_EXECUTE 文件对 NULL 指针的引用
 
 #define	SEG_TEXT	"__TEXT" //传统UNIX文本段
 #define	SECT_TEXT	"__text" // 文本节的真实文本部分没有headers，也没有填充
 #define SECT_FVMLIB_INIT0 "__fvmlib_init0"	//fvmlib初始化节
 #define SECT_FVMLIB_INIT1 "__fvmlib_init1"	//fvmlib初始化节之后的节
 
-#define	SEG_DATA	"__DATA"	//传统UNIX数据段
+#define	SEG_DATA	"__DATA" //读取和写入数据的程序数据段
 #define	SECT_DATA	"__data" // 真正初始化的数据节没有填充，没有bss重叠
 #define	SECT_BSS	"__bss"	 // 真正的未初始化数据节没有填充
 #define SECT_COMMON	"__common"	//链接编辑器在节中分配公共符号
