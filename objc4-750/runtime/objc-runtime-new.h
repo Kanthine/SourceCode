@@ -404,7 +404,7 @@ struct locstamped_category_list_t {
 // 不是ARC编译的类，但具有ARC样式的弱ivar布局
 #define RO_HAS_WEAK_WITHOUT_ARC (1<<9)
 
-// 类位于不可加载的包中——编译器永远不能设置它
+// 类位于不可加载的 Bundle 中——编译器永远不能设置它
 #define RO_FROM_BUNDLE        (1<<29)
 // 未实现的future class——永远不能由编译器设置
 #define RO_FUTURE             (1<<30)
@@ -1434,7 +1434,7 @@ static inline void foreach_realized_class_and_subclass_2(Class top, unsigned& co
 extern Class firstRealizedClass();
 extern unsigned int unreasonableClassCount();
 
-// 枚举一个类及其所有已实现的子类。
+// 枚举一个类及其所有已实现的子类
 static inline void foreach_realized_class_and_subclass(Class top, std::function<void (Class)> code){
     unsigned int count = unreasonableClassCount();
     
@@ -1465,4 +1465,5 @@ static inline void foreach_realized_class_and_metaclass(std::function<void (Clas
 }
 
 #endif
+
 

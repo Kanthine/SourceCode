@@ -458,7 +458,6 @@ static void addClassTableEntry(Class cls, bool addMeta = true) {
     
     // 允许 cls 通过共享缓存或数据段成为已知类，但它不允许已经在allocatedClasses中。
     assert(!NXHashMember(allocatedClasses, cls));
-    
     if (!isKnownClass(cls))
         NXHashInsert(allocatedClasses, cls);//未知类
     if (addMeta)
@@ -1142,24 +1141,17 @@ static void removeNamedClass(Class cls, const char *name){
 }
 
 
-/***********************************************************************
- * unreasonableClassCount
- * Provides an upper bound for any iteration of classes,
- * to prevent spins when runtime metadata is corrupted.
- **********************************************************************/
-unsigned unreasonableClassCount()
-{
+/* 不合理的类数量
+ * 为任何类的迭代提供上限，防止 Runtime 元数据损坏时自旋。
+ */
+unsigned unreasonableClassCount(){
     runtimeLock.assertLocked();
     
-    int base = NXCountMapTable(gdb_objc_realized_classes) +
-    getPreoptimizedClassUnreasonableCount();
-    
-    // Provide lots of slack here. Some iterations touch metaclasses too.
-    // Some iterations backtrack (like realized class iteration).
-    // We don't need an efficient bound, merely one that prevents spins.
+    int base = NXCountMapTable(gdb_objc_realized_classes) + getPreoptimizedClassUnreasonableCount();
+    // 在这里提供大量的松弛;有些迭代也涉及元类、 有些迭代会回溯(比如已实现的类迭代)。
+    // 不需要一个有效的边界，只需要一个防止自旋的边界。
     return (base + 1) * 16;
 }
-
 
 /*
  * 返回未实现的未来类的 classname => future class 映射
@@ -1284,8 +1276,7 @@ static Class remapClass(Class cls){
 }
 
 // 重新映射类
-static Class remapClass(classref_t cls)
-{
+static Class remapClass(classref_t cls){
     return remapClass((Class)cls);
 }
 
@@ -1572,31 +1563,18 @@ static Protocol *getProtocol(const char *name){
     return nil;
 }
 
-
-/***********************************************************************
- * remapProtocol
- * Returns the live protocol pointer for proto, which may be pointing to
- * a protocol struct that has been reallocated.
- * Locking: runtimeLock must be read- or write-locked by the caller
- **********************************************************************/
-static protocol_t *remapProtocol(protocol_ref_t proto)
-{
+/* 从哈希表 protocol_map 中获取 proto 的运行时协议指针，它可能指向已重新分配的 protocol_t 结构。
+ */
+static protocol_t *remapProtocol(protocol_ref_t proto){
     runtimeLock.assertLocked();
-    
-    protocol_t *newproto = (protocol_t *)
-    getProtocol(((protocol_t *)proto)->mangledName);
+    protocol_t *newproto = (protocol_t *)getProtocol(((protocol_t *)proto)->mangledName);//从哈希表 protocol_map 中获取指定的协议
     return newproto ? newproto : (protocol_t *)proto;
 }
 
-
-/***********************************************************************
- * remapProtocolRef
- * Fix up a protocol ref, in case the protocol referenced has been reallocated.
- * Locking: runtimeLock must be read- or write-locked by the caller
- **********************************************************************/
+/* 修复一个协议引用，以防引用的协议被重新分配。
+ */
 static size_t UnfixedProtocolReferences;
-static void remapProtocolRef(protocol_t **protoref)
-{
+static void remapProtocolRef(protocol_t **protoref){
     runtimeLock.assertLocked();
     
     protocol_t *newproto = remapProtocol((protocol_ref_t)*protoref);
@@ -1758,7 +1736,7 @@ static void reconcileInstanceVariables(Class cls, Class supercls, const class_ro
 }
 
 /* 实现一个类：对类 cls 执行首次初始化，分配可读写数据空间；返回真正的类结构
- * Locking: runtimeLock must be write-locked by the caller
+ *
  */
 static Class realizeClass(Class cls){
     runtimeLock.assertLocked();
@@ -1791,16 +1769,13 @@ static Class realizeClass(Class cls){
     
     isMeta = ro->flags & RO_META;
     
-    rw->version = isMeta ? 7 : 0;  // old runtime went up to 6
+    rw->version = isMeta ? 7 : 0;
     
-    
-    // Choose an index for this class.
-    // Sets cls->instancesRequireRawIsa if indexes no more indexes are available
+    // 为这个类选择一个索引;如果索引不可用，则设置cls->instancesRequireRawIsa
     cls->chooseClassArrayIndex();
     
     if (PrintConnecting) {
-        _objc_inform("CLASS: realizing class '%s'%s %p %p #%u",
-                     cls->nameForLogging(), isMeta ? " (meta)" : "",
+        _objc_inform("CLASS: realizing class '%s'%s %p %p #%u",cls->nameForLogging(), isMeta ? " (meta)" : "",
                      (void*)cls, ro, cls->classArrayIndex());
     }
     
@@ -1925,8 +1900,7 @@ static void realizeAllClassesInImage(header_info *hi)
  * Non-lazily realizes all unrealized classes in all known images.
  * Locking: runtimeLock must be held by the caller.
  **********************************************************************/
-static void realizeAllClasses(void)
-{
+static void realizeAllClasses(void){
     runtimeLock.assertLocked();
     
     header_info *hi;
@@ -2045,7 +2019,8 @@ void _objc_flush_caches(Class cls)
 }
 
 
-/* 处理被映射到 dyld 的指定镜像；在获取ABI特定的锁之后调用ABI不可知的代码。
+/* 处理被映射到 dyld 的指定镜像；
+ * 在加锁后,将任务交给 map_images_nolock() 函数
  */
 void map_images(unsigned count, const char * const paths[],const struct mach_header * const mhdrs[]){
     mutex_locker_t lock(runtimeLock);
@@ -2236,7 +2211,7 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
 }
 
 
-/* 读取编译器编译的协议
+/* 为协议设置 isa，将协议插入哈希表 protocol_map
  * @param newproto 从Mach-O 文件取出的由编译器编译的 protocol_t
  * @param protocol_class
  * @param protocol_map 哈希表，映射关系为 name => protocol_t
@@ -2245,7 +2220,8 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
  *
  * @note 1、如果 newproto 已经存在于哈希表 protocol_map 中，则什么也不做；
  *       2、如果预优化，则从预优化中取出新的 protocol_t，并将取出的协议插入哈希表 protocol_map ；
- *       3、
+ *       3、如果 newproto 已分配内存，则为其设置 isa ，并将 newproto 插入哈希表 protocol_map ；
+ *       4、如果 newproto 内存不够，重新分配内存，为其设置 isa ，并将 newproto 插入哈希表 protocol_map ；
  */
 static void readProtocol(protocol_t *newproto, Class protocol_class, NXMapTable *protocol_map,bool headerIsPreoptimized, bool headerIsBundle){
     
@@ -2265,11 +2241,9 @@ static void readProtocol(protocol_t *newproto, Class protocol_class, NXMapTable 
         protocol_t *cacheproto = (protocol_t *)getPreoptimizedProtocol(newproto->mangledName);
         protocol_t *installedproto;
         if (cacheproto  &&  cacheproto != newproto) {
-            // Another definition in the shared cache wins (because everything in the cache was fixed up to point to it).
             installedproto = cacheproto;
         }
         else {
-            // This definition wins.
             installedproto = newproto;
         }
         
@@ -2286,19 +2260,15 @@ static void readProtocol(protocol_t *newproto, Class protocol_class, NXMapTable 
         }
     }
     else if (newproto->size >= sizeof(protocol_t)) {
-        // New protocol from an un-preoptimized image
-        // with sufficient storage. Fix it up in place.
-        // fixme duplicate protocols from unloadable bundle
-        newproto->initIsa(protocol_class);  // fixme pinned
+        // 足够存储空间的未优化镜像中的一个新协议；修复无法加载bundle中的重复 protocols
+        newproto->initIsa(protocol_class);
         insertFn(protocol_map, newproto->mangledName, newproto);
         if (PrintProtocols) {
             _objc_inform("PROTOCOLS: protocol at %p is %s",newproto, newproto->nameForLogging());
         }
     }
     else {
-        // New protocol from an un-preoptimized image
-        // with insufficient storage. Reallocate it.
-        // fixme duplicate protocols from unloadable bundle
+        // 新协议来自未优化且存储不足的镜像,重新分配内存。修复无法加载bundle中的重复 protocols
         size_t size = max(sizeof(protocol_t), (size_t)newproto->size);
         protocol_t *installedproto = (protocol_t *)calloc(size, 1);
         memcpy(installedproto, newproto, newproto->size);
@@ -2316,6 +2286,14 @@ static void readProtocol(protocol_t *newproto, Class protocol_class, NXMapTable 
 
 /* 该函数中完成了大量的初始化操作：
  * 1、首次执行时：初始化 TaggedPointer混淆器、哈希表 gdb_objc_realized_classes 与 allocatedClasses
+ * 2、遍历hList数组，取出header_info对应的类列表，将取出的编译类改为运行时的类结构，
+ *    并将该类加入哈希表 gdb_objc_realized_classes 、allocatedClasses，若有必要则标记为 Bundle 类；
+ *    最后将该类加入数组 resolvedFutureClasses
+ * 3、遍历hList数组，将所有的 SEL 插入哈希表 namedSelectors，映射关系为 ： name=> SEL
+ * 4、遍历hList数组，设置 protocol_ t 的 isa ，将其插入哈希表 protocol_map，映射关系为name => protocol_t
+ *
+ *
+ *
  * 1、加载所有类到类的 gdb_objc_realized_classes 表中；
  * 2、对所有类做重映射；
  * 3、将所有SEL都注册到namedSelectors表中；
@@ -2447,7 +2425,6 @@ hIndex++
     }
     
     ts.log("IMAGE TIMES: discover classes");
-    
     // 重新将非懒加载的类插入哈希表 remapped_class_map ，映射关系  : oldClass =>newClass
     if (!noClassesRemapped()) {
         for (EACH_HEADER) {
@@ -2470,7 +2447,6 @@ hIndex++
         mutex_locker_t lock(selLock);
         for (EACH_HEADER) {
             if (hi->isPreoptimized()) continue;
-            
             bool isBundle = hi->isBundle();
             SEL *sels = _getObjc2SelectorRefs(hi, &count);
             UnfixedSelectors += count;
@@ -2480,7 +2456,6 @@ hIndex++
             }
         }
     }
-    
     ts.log("IMAGE TIMES: fix up selector references");
     
 #if SUPPORT_FIXUP
@@ -2488,25 +2463,21 @@ hIndex++
     for (EACH_HEADER) {
         message_ref_t *refs = _getObjc2MessageRefs(hi, &count);
         if (count == 0) continue;
-        
         if (PrintVtables) {
-            _objc_inform("VTABLES: repairing %zu unsupported vtable dispatch "
-                         "call sites in %s", count, hi->fname());
+            _objc_inform("VTABLES: repairing %zu unsupported vtable dispatch call sites in %s", count, hi->fname());
         }
         for (i = 0; i < count; i++) {
             // 内部将常用的alloc、objc_msgSend等函数指针进行注册，并fix为新的函数指针
             fixupMessageRef(refs+i);
         }
     }
-    
     ts.log("IMAGE TIMES: fix up objc_msgSend_fixup");
 #endif
     
-    //4、遍历hList数组，将所有的 protocol_t 插入哈希表 namedSelectors，映射关系为 ： name=> SEL
+    //4、遍历hList数组，设置 protocol_ t 的 isa ，将其插入哈希表 protocol_map，映射关系为name => protocol_t
     for (EACH_HEADER) {
         extern objc_class OBJC_CLASS_$_Protocol;
-        Class cls = (Class)&OBJC_CLASS_$_Protocol;// cls = Protocol类，所有协议和对象的结构体都类似，isa都对应Protocol类
-        
+        Class cls = (Class)&OBJC_CLASS_$_Protocol;// cls = Protocol 类，所有协议和对象的结构体都类似，isa都对应Protocol类
         assert(cls);
         NXMapTable *protocol_map = protocols();//获取哈希表 protocol_map
         bool isPreoptimized = hi->isPreoptimized();
@@ -2514,16 +2485,13 @@ hIndex++
         
         protocol_t **protolist = _getObjc2ProtocolList(hi, &count);
         for (i = 0; i < count; i++) {
+            //为协议设置 isa = OBJC_CLASS_$_Protocol ，将协议插入哈希表 protocol_map
             readProtocol(protolist[i], cls, protocol_map,isPreoptimized, isBundle);
         }
     }
-    
     ts.log("IMAGE TIMES: discover protocols");
     
     // 修复协议列表引用，优化后的images可能是正确的，但是并不确定
-    // Fix up @protocol references
-    // Preoptimized images may have the right
-    // answer already but we don't know for sure.
     for (EACH_HEADER) {
         // 需要注意到是，下面的函数是_getObjc2ProtocolRefs，和上面的_getObjc2ProtocolList不一样
         protocol_t **protolist = _getObjc2ProtocolRefs(hi, &count);
@@ -2531,35 +2499,32 @@ hIndex++
             remapProtocolRef(&protolist[i]);
         }
     }
-    
     ts.log("IMAGE TIMES: fix up @protocol references");
     
     // 实现非懒加载的类，对于load方法和静态实例变量
+    //5、遍历hList数组，从哈希表remapped_class_map中获取非懒加载的运行时结构的类，将该类加入哈希表 allocatedClasses
     for (EACH_HEADER) {
         classref_t *classlist = _getObjc2NonlazyClassList(hi, &count);
         for (i = 0; i < count; i++) {
-            Class cls = remapClass(classlist[i]);
+            Class cls = remapClass(classlist[i]);//从哈希表remapped_class_map中获取非懒加载的运行时结构的类
             if (!cls) continue;
             
             // hack for class __ARCLite__, which didn't get this above
 #if TARGET_OS_SIMULATOR
             if (cls->cache._buckets == (void*)&_objc_empty_cache  &&
-                (cls->cache._mask  ||  cls->cache._occupied))
-            {
+                (cls->cache._mask  ||  cls->cache._occupied)){
                 cls->cache._mask = 0;
                 cls->cache._occupied = 0;
             }
             if (cls->ISA()->cache._buckets == (void*)&_objc_empty_cache  &&
-                (cls->ISA()->cache._mask  ||  cls->ISA()->cache._occupied))
-            {
+                (cls->ISA()->cache._mask  ||  cls->ISA()->cache._occupied)){
                 cls->ISA()->cache._mask = 0;
                 cls->ISA()->cache._occupied = 0;
             }
 #endif
             
-            addClassTableEntry(cls);
-            realizeClass(cls);// 实现所有非懒加载的类(实例化类对象的一些信息，例如rw)
-            
+            addClassTableEntry(cls);//加入哈希表 allocatedClasses
+            realizeClass(cls);//实现所有非懒加载的类(实例化类对象的一些信息，例如rw)
         }
     }
     
@@ -2606,17 +2571,9 @@ hIndex++
             }
             
             // 首先，通过其所属的类注册Category。如果这个类已经被实现，则重新构造类的方法列表。
-            // 这个类别的过程。
-            // 首先，向其目标类注册类别。
             // 然后，如果实现了类，则重建类的方法列表(etc)。
-            // Process this category.
-            // First, register the category with its target class.
-            // Then, rebuild the class's method lists (etc) if
-            // the class is realized.
             bool classExists = NO;
-            if (cat->instanceMethods ||  cat->protocols
-                ||  cat->instanceProperties)
-            {
+            if (cat->instanceMethods ||  cat->protocols ||  cat->instanceProperties){
                 // 将Category添加到对应Class的value中，value是Class对应的所有category数组
                 addUnattachedCategoryForClass(cat, cls, hi);
                 if (cls->isRealized()) {
@@ -2625,15 +2582,12 @@ hIndex++
                     classExists = YES;
                 }
                 if (PrintConnecting) {
-                    _objc_inform("CLASS: found category -%s(%s) %s",
-                                 cls->nameForLogging(), cat->name,
+                    _objc_inform("CLASS: found category -%s(%s) %s",cls->nameForLogging(), cat->name,
                                  classExists ? "on existing class" : "");
                 }
             }
             
-            if (cat->classMethods  ||  cat->protocols
-                ||  (hasClassProperties && cat->_classProperties))
-            {
+            if (cat->classMethods  ||  cat->protocols ||  (hasClassProperties && cat->_classProperties)){
                 /* addUnattachedCategoryForClass() 为类添加独立的类别
                  * 该函数会对 Class 和 Category 做一个映射关联
                  */
@@ -5212,15 +5166,13 @@ void objc_class::setHasCustomAWZ(bool inherited)
 }
 
 
-/***********************************************************************
- * Mark this class and all of its subclasses as requiring raw isa pointers
- **********************************************************************/
-void objc_class::setInstancesRequireRawIsa(bool inherited)
-{
+/* 将这个类及其所有子类标记为 class_rw_t->flags=RW_REQUIRES_RAW_ISA
+ */
+void objc_class::setInstancesRequireRawIsa(bool inherited){
     Class cls = (Class)this;
     runtimeLock.assertLocked();
     
-    if (instancesRequireRawIsa()) return;
+    if (instancesRequireRawIsa()) return;// RW_REQUIRES_RAW_ISA
     
     foreach_realized_class_and_subclass(cls, ^(Class c){
         if (c->instancesRequireRawIsa()) {
@@ -5228,32 +5180,29 @@ void objc_class::setInstancesRequireRawIsa(bool inherited)
             return;
         }
         
-        c->bits.setInstancesRequireRawIsa();
+        c->bits.setInstancesRequireRawIsa(); //RW_REQUIRES_RAW_ISA
         
         if (PrintRawIsa) c->printInstancesRequireRawIsa(inherited || c != cls);
     });
 }
 
 
-/***********************************************************************
- * Choose a class index.
- * Set instancesRequireRawIsa if no more class indexes are available.
- **********************************************************************/
-void objc_class::chooseClassArrayIndex()
-{
+/* 为类设置一个索引。如果没有更多的类索引可用，则设置 RW_REQUIRES_RAW_ISA
+ */
+void objc_class::chooseClassArrayIndex(){
 #if SUPPORT_INDEXED_ISA
     Class cls = (Class)this;
     runtimeLock.assertLocked();
     
     if (objc_indexed_classes_count >= ISA_INDEX_COUNT) {
-        // No more indexes available.
+        // 没有更多的类索引可用
         assert(cls->classArrayIndex() == 0);
         cls->setInstancesRequireRawIsa(false/*not inherited*/);
         return;
     }
     
     unsigned index = objc_indexed_classes_count++;
-    if (index == 0) index = objc_indexed_classes_count++;  // index 0 is unused
+    if (index == 0) index = objc_indexed_classes_count++;  // 索引0未使用
     classForIndex(index) = cls;
     cls->setClassArrayIndex(index);
 #endif

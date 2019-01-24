@@ -416,7 +416,7 @@ static bool shouldRejectGCImage(const headerType *mhdr)
 #include "objc-file-old.h"
 #endif
 
-/* 处理被映射到 dyld 的一些镜像，主要功能：
+/* 处理被映射到 dyld 的一些镜像 mhdrs[]，主要功能：
  * 1、首次调用，初始化共享缓存
  * 2、统计所有的 header_info ，统计所有的 class 数量，未优化的 class 数量；
  * 3、首次调用，注册内部使用的选择器，初始化自动释放池与哈希表
@@ -814,15 +814,15 @@ void _objc_atfork_child()
 
 /* Runtime 的入口函数，主要功能：
  * 1、环境初始化,读取影响运行时的环境变量; 如果需要，还可以打印环境变量帮助；
- * 2、初始化线程存储的键；
+ * 2、初始化线程存储的键 _objc_pthread_key ；
  * 3、运行 C++ 静态构造函数；
  * 4、锁的初始化
  * 5、初始化 libobjc 的异常处理系统；
- * 6、通过 dyld 调用 () 函数，load_images() 函数，unmap_image() 函数
+ * 6、通过 dyld 调用 map_images() 函数，load_images() 函数，unmap_image() 函数
  */
 void _objc_init(void){
-    static bool initialized = false;//是否初始化的静态变量
-    if (initialized) return;//如果已初始化，则返回
+    static bool initialized = false;
+    if (initialized) return;
     initialized = true;
     
     environ_init();//环境初始化,读取影响运行时的环境变量; 如果需要，还可以打印环境变量帮助。

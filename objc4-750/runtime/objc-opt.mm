@@ -151,8 +151,7 @@ unsigned int getPreoptimizedClassUnreasonableCount(){
     objc_clsopt_t *classes = opt ? opt->clsopt() : nil;
     if (!classes) return 0;
     
-    // This is an overestimate: each set of duplicates
-    // gets double-counted in `capacity` as well.
+    // This is an overestimate: each set of duplicates gets double-counted in `capacity` as well.
     return classes->capacity + classes->duplicateCount();
 }
 

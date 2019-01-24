@@ -82,7 +82,7 @@
 #   define SUPPORT_MSB_TAGGED_POINTERS 1
 #endif
 
-/* 在将类作为索引存储在类表中的isa字段中的平台上 定义 SUPPORT_INDEXED_ISA=1
+/* 在将类作为索引存储在类表中的 isa 字段中的平台上 定义 SUPPORT_INDEXED_ISA=1
  * 注意，将其与任何定义它的.s文件保持同步。
  * 确保编辑 objc-abi.h
  */
@@ -92,8 +92,8 @@
 #   define SUPPORT_INDEXED_ISA 0
 #endif
 
-// Define SUPPORT_PACKED_ISA=1 on platforms that store the class in the isa 
-// field as a maskable pointer with other data around it.
+/* 在平台上定义 SUPPORT_PACKED_ISA=1 ，该平台将类存储在isa字段中，作为一个带有其他数据的可屏蔽指针。
+ */
 #if (!__LP64__  ||  TARGET_OS_WIN32  ||  \
      (TARGET_OS_SIMULATOR && !TARGET_OS_IOSMAC))
 #   define SUPPORT_PACKED_ISA 0
@@ -101,8 +101,8 @@
 #   define SUPPORT_PACKED_ISA 1
 #endif
 
-// Define SUPPORT_NONPOINTER_ISA=1 on any platform that may store something
-// in the isa field that is not a raw pointer.
+/* SUPPORT_NONPOINTER_ISA 是来标识当前平台是否支持优化的 isa, isa 的内容不再是类的指针了，而是包含了更多信息，比如引用计数，析构状态，被其他 weak 变量引用情况。
+ */
 #if !SUPPORT_INDEXED_ISA  &&  !SUPPORT_PACKED_ISA
 #   define SUPPORT_NONPOINTER_ISA 0
 #else

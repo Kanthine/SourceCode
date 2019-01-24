@@ -172,9 +172,7 @@ enum ReturnDisposition : bool {
     }
     
     
-    inline void
-    objc_object::initIsa(Class cls)
-    {
+    inline void objc_object::initIsa(Class cls){
         initIsa(cls, false, false);
     }
     
@@ -203,10 +201,9 @@ enum ReturnDisposition : bool {
         initIsa(cls, true, hasCxxDtor);
     }
     
-    inline void
-    objc_object::initIsa(Class cls, bool nonpointer, bool hasCxxDtor)
-    {
-        assert(!isTaggedPointer());
+    //设置一个对象的 isa
+    inline void objc_object::initIsa(Class cls, bool nonpointer, bool hasCxxDtor){
+        assert(!isTaggedPointer());//该对象不能是 TaggedPointer 指针
         
         if (!nonpointer) {
             isa.cls = cls;
@@ -230,13 +227,10 @@ enum ReturnDisposition : bool {
             newisa.has_cxx_dtor = hasCxxDtor;
             newisa.shiftcls = (uintptr_t)cls >> 3;
 #endif
-            
-            // This write must be performed in a single store in some cases
-            // (for example when realizing a class because other threads
-            // may simultaneously try to use the class).
-            // fixme use atomics here to guarantee single-store and to
-            // guarantee memory order w.r.t. the class index table
-            // ...but not too atomic because we don't want to hurt instantiation
+            //在某些情况下，必须在单线程存储中执行此写入
+            //(例如，当实现一个类时，因为其他线程可能同时尝试使用该类)。
+            // fixme 在这里使用 atomic 来保证单线程存储，并保证类索引表的内存顺序为w.r.t.
+            // 但不要太原子化，因为不想伤害实例化
             isa = newisa;
         }
     }
