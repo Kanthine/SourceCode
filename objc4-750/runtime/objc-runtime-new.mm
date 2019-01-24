@@ -1237,13 +1237,9 @@ static NXMapTable *remappedClasses(bool create){
 }
 
 
-/***********************************************************************
- * noClassesRemapped
- * Returns YES if no classes have been remapped
- * Locking: runtimeLock must be read- or write-locked by the caller
- **********************************************************************/
-static bool noClassesRemapped(void)
-{
+/* 如果没有重新映射类，则返回YES
+ */
+static bool noClassesRemapped(void){
     runtimeLock.assertLocked();
     
     bool result = (remappedClasses(NO) == nil);
@@ -1272,18 +1268,13 @@ static void addRemappedClass(Class oldcls, Class newcls){
 }
 
 /* 重新映射类
- * 返回 cls 的实时类指针，它可能指向已重新分配的类结构。
+ * 返回 cls 的运行时的类指针，该指针可能指向已重新分配的类结构。
  * 如果由于链接弱而忽略 cls ，则返回nil。
- * 锁定：runtimeLock必须由调用者读取或写入锁定
  */
-static Class remapClass(Class cls)
-{
+static Class remapClass(Class cls){
     runtimeLock.assertLocked();
-    
     Class c2;
-    
     if (!cls) return nil;
-    
     NXMapTable *map = remappedClasses(NO);
     if (!map  ||  NXMapMember(map, cls, (void**)&c2) == NX_MAPNOTAKEY) {
         return cls;
@@ -1304,14 +1295,10 @@ Class _class_remap(Class cls)
     return remapClass(cls);
 }
 
-/***********************************************************************
- * remapClassRef
- * Fix up a class ref, in case the class referenced has been reallocated
- * or is an ignored weak-linked class.
- * Locking: runtimeLock must be read- or write-locked by the caller
- **********************************************************************/
-static void remapClassRef(Class *clsref)
-{
+/* 重新映射类 remapped_class_map
+ * 修复类ref，以防引用的类已重新分配或是一个被忽略的弱链接类。
+ */
+static void remapClassRef(Class *clsref){
     runtimeLock.assertLocked();
     
     Class newcls = remapClass(*clsref);
@@ -1553,36 +1540,26 @@ static void removeSubclass(Class supercls, Class subcls)
 
 
 
-/***********************************************************************
- * protocols
- * Returns the protocol name => protocol map for protocols.
- * Locking: runtimeLock must read- or write-locked by the caller
- **********************************************************************/
+/* 获取哈希表 protocol_map，表中存储着协议，映射关系为 name => protocol
+ */
 static NXMapTable *protocols(void)
 {
     static NXMapTable *protocol_map = nil;
     
     runtimeLock.assertLocked();
-    
-    INIT_ONCE_PTR(protocol_map,
-                  NXCreateMapTable(NXStrValueMapPrototype, 16),
-                  NXFreeMapTable(v) );
-    
+    INIT_ONCE_PTR(protocol_map,NXCreateMapTable(NXStrValueMapPrototype, 16),NXFreeMapTable(v) );
     return protocol_map;
 }
 
 
-/***********************************************************************
- * getProtocol
- * Looks up a protocol by name. Demangled Swift names are recognized.
- * Locking: runtimeLock must be read- or write-locked by the caller.
- **********************************************************************/
-static Protocol *getProtocol(const char *name)
-{
+/* 从哈希表 protocol_map 中获取指定的协议
+ * @param name （Demangled Swift names 能被识别）
+ * @return 如果哈希表 protocol_map 中存在该映射，则返回 Protocol ；否则返回 nil；
+ */
+static Protocol *getProtocol(const char *name){
     runtimeLock.assertLocked();
     
-    // Try name as-is.
-    Protocol *result = (Protocol *)NXMapGet(protocols(), name);
+    Protocol *result = (Protocol *)NXMapGet(protocols(), name);//尝试从哈希表 protocol_map 中获取 name 对应的值
     if (result) return result;
     
     // Try Swift-mangled equivalent of the given name.
@@ -2169,14 +2146,15 @@ readthem:
 }
 
 
-/*
+/* 将编译时的类结构改为运行时的类结构；并将改变后的新类加入哈希表  gdb_objc_realized_classes 、allocatedClasses
+ * 如果来自 Bundle ，将该类标记为 Bundle 类
+ *
  * @param cls 读取编译器编写的类和元类：此时类的结构为 objc_class->ro
  * @param headerIsBundle 类所在的文件是否是 Bundle 文件
  * @param headerIsPreoptimized 类所在的文件是否在共享缓存中；
  * @return 返回新类，此时类的结构是 objc_class->rw->ro
  *        cls缺少一个弱链接超类，返回 nil，
  *         something else (space for this class was reserved by a future class)
- * @note 除了改变类的结构，还将新类加入哈希表 gdb_objc_realized_classes 、allocatedClasses
  * @note 注意，该函数执行的所有工作都由 mustReadClasses() 预先设置，在调用该函数之前需要调用 mustReadClasses() 。
  */
 Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
@@ -2249,6 +2227,7 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
     }
     
     //共享缓存中不包含 Bundle
+    //标记为 Bundle 类
     if (headerIsBundle) { 
         cls->data()->flags |= RO_FROM_BUNDLE;
         cls->ISA()->data()->flags |= RO_FROM_BUNDLE;
@@ -2257,40 +2236,36 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
 }
 
 
-/***********************************************************************
- * readProtocol
- * Read a protocol as written by a compiler.
- **********************************************************************/
-static void
-readProtocol(protocol_t *newproto, Class protocol_class,
-             NXMapTable *protocol_map,
-             bool headerIsPreoptimized, bool headerIsBundle)
-{
-    // This is not enough to make protocols in unloaded bundles safe,
-    // but it does prevent crashes when looking up unrelated protocols.
+/* 读取编译器编译的协议
+ * @param newproto 从Mach-O 文件取出的由编译器编译的 protocol_t
+ * @param protocol_class
+ * @param protocol_map 哈希表，映射关系为 name => protocol_t
+ * @param headerIsPreoptimized 头文件是否预优化
+ * @param headerIsBundle 头文件是否是 bundle 文件
+ *
+ * @note 1、如果 newproto 已经存在于哈希表 protocol_map 中，则什么也不做；
+ *       2、如果预优化，则从预优化中取出新的 protocol_t，并将取出的协议插入哈希表 protocol_map ；
+ *       3、
+ */
+static void readProtocol(protocol_t *newproto, Class protocol_class, NXMapTable *protocol_map,bool headerIsPreoptimized, bool headerIsBundle){
+    
+    // 这不足以保证卸载 bundles 中的 protocol_t 是安全的，但它确实可以防止在查找不相关的protocol_t时崩溃。
     auto insertFn = headerIsBundle ? NXMapKeyCopyingInsert : NXMapInsert;
     
-    protocol_t *oldproto = (protocol_t *)getProtocol(newproto->mangledName);
+    protocol_t *oldproto = (protocol_t *)getProtocol(newproto->mangledName);//从哈希表 protocol_map 中获取指定的协议
     
     if (oldproto) {
         // Some other definition already won.
         if (PrintProtocols) {
-            _objc_inform("PROTOCOLS: protocol at %p is %s  "
-                         "(duplicate of %p)",
-                         newproto, oldproto->nameForLogging(), oldproto);
+            _objc_inform("PROTOCOLS: protocol at %p is %s (duplicate of %p)",newproto, oldproto->nameForLogging(), oldproto);
         }
     }
     else if (headerIsPreoptimized) {
-        // Shared cache initialized the protocol object itself,
-        // but in order to allow out-of-cache replacement we need
-        // to add it to the protocol table now.
-        
-        protocol_t *cacheproto = (protocol_t *)
-        getPreoptimizedProtocol(newproto->mangledName);
+        // 共享缓存初始化了protocol_t对象本身，但是为了允许缓存外替换，需要将它添加到哈希表 protocol_map 中
+        protocol_t *cacheproto = (protocol_t *)getPreoptimizedProtocol(newproto->mangledName);
         protocol_t *installedproto;
         if (cacheproto  &&  cacheproto != newproto) {
-            // Another definition in the shared cache wins (because
-            // everything in the cache was fixed up to point to it).
+            // Another definition in the shared cache wins (because everything in the cache was fixed up to point to it).
             installedproto = cacheproto;
         }
         else {
@@ -2300,17 +2275,13 @@ readProtocol(protocol_t *newproto, Class protocol_class,
         
         assert(installedproto->getIsa() == protocol_class);
         assert(installedproto->size >= sizeof(protocol_t));
-        insertFn(protocol_map, installedproto->mangledName,
-                 installedproto);
+        insertFn(protocol_map, installedproto->mangledName,installedproto);
         
         if (PrintProtocols) {
-            _objc_inform("PROTOCOLS: protocol at %p is %s",
-                         installedproto, installedproto->nameForLogging());
+            _objc_inform("PROTOCOLS: protocol at %p is %s", installedproto, installedproto->nameForLogging());
             if (newproto != installedproto) {
-                _objc_inform("PROTOCOLS: protocol at %p is %s  "
-                             "(duplicate of %p)",
-                             newproto, installedproto->nameForLogging(),
-                             installedproto);
+                _objc_inform("PROTOCOLS: protocol at %p is %s (duplicate of %p)",
+                             newproto, installedproto->nameForLogging(),installedproto);
             }
         }
     }
@@ -2321,8 +2292,7 @@ readProtocol(protocol_t *newproto, Class protocol_class,
         newproto->initIsa(protocol_class);  // fixme pinned
         insertFn(protocol_map, newproto->mangledName, newproto);
         if (PrintProtocols) {
-            _objc_inform("PROTOCOLS: protocol at %p is %s",
-                         newproto, newproto->nameForLogging());
+            _objc_inform("PROTOCOLS: protocol at %p is %s",newproto, newproto->nameForLogging());
         }
     }
     else {
@@ -2337,12 +2307,9 @@ readProtocol(protocol_t *newproto, Class protocol_class,
         installedproto->initIsa(protocol_class);  // fixme pinned
         insertFn(protocol_map, installedproto->mangledName, installedproto);
         if (PrintProtocols) {
-            _objc_inform("PROTOCOLS: protocol at %p is %s  ",
-                         installedproto, installedproto->nameForLogging());
-            _objc_inform("PROTOCOLS: protocol at %p is %s  "
-                         "(reallocated to %p)",
-                         newproto, installedproto->nameForLogging(),
-                         installedproto);
+            _objc_inform("PROTOCOLS: protocol at %p is %s  ",installedproto, installedproto->nameForLogging());
+            _objc_inform("PROTOCOLS: protocol at %p is %s (reallocated to %p)",
+                         newproto, installedproto->nameForLogging(),installedproto);
         }
     }
 }
@@ -2444,13 +2411,12 @@ hIndex++
         ts.log("IMAGE TIMES: first time tasks");
     }
     
-    // 发现类 ; 修复未解决的future classes ; 标记 bundle 类
-    // 由编译器读取类列表，并将所有类添加到类的哈希表中，并且标记懒加载的类并初始化内存空间
-    //遍历hList数组，
+
+    /* 2、遍历hList数组，取出header_info对应的类列表，将取出的编译类改为运行时的类结构，
+         并将该类加入哈希表 gdb_objc_realized_classes 、allocatedClasses，若有必要则标记为 Bundle 类；
+         最后将该类加入数组 resolvedFutureClasses
+     */
     for (EACH_HEADER) {
-        
-        /** 将新类添加到哈希表中 */
-        
         classref_t *classlist = _getObjc2ClassList(hi, &count);//获取镜像hi中的类
         
         if (! mustReadClasses(hi)) {
@@ -2466,7 +2432,7 @@ hIndex++
             //例如CF、Fundation、libdispatch中的类；以及自己创建的类
             Class cls = (Class)classlist[i];
             
-            // 该函数获将编译的类结构改为运行时的类结构，并将该类加入哈希表
+            //将编译时的类结构改为运行时的类结构，并将该类加入哈希表gdb_objc_realized_classes 、allocatedClasses，若有必要则标记为 Bundle 类
             Class newCls = readClass(cls, headerIsBundle, headerIsPreoptimized);
             
             // 初始化所有懒加载的类需要的内存空间
@@ -2482,19 +2448,13 @@ hIndex++
     
     ts.log("IMAGE TIMES: discover classes");
     
-    // 将未映射Class和Super Class重映射，被remap的类都是非懒加载的类
-    //修复重新映射的类
-    //类列表和非懒加载类列表保持未重新映射。
-    //重新映射Class引用和父类引用以进行消息调度。
+    // 重新将非懒加载的类插入哈希表 remapped_class_map ，映射关系  : oldClass =>newClass
     if (!noClassesRemapped()) {
         for (EACH_HEADER) {
-            // 重映射Class，注意是从_getObjc2ClassRefs函数中取出类的引用
             Class *classrefs = _getObjc2ClassRefs(hi, &count);
             for (i = 0; i < count; i++) {
                 remapClassRef(&classrefs[i]);
             }
-            // 重映射父类
-            // fixme why doesn't test future1 catch the absence of this?
             classrefs = _getObjc2SuperRefs(hi, &count);
             for (i = 0; i < count; i++) {
                 remapClassRef(&classrefs[i]);
@@ -2504,8 +2464,7 @@ hIndex++
     
     ts.log("IMAGE TIMES: remap classes");
     
-    // 将所有SEL都注册到哈希表中，是另外一张哈希表
-    // 修复@selector引用
+    // 3、遍历hList数组，将所有的 SEL 插入哈希表 namedSelectors，映射关系为 ： name=> SEL
     static size_t UnfixedSelectors;
     {
         mutex_locker_t lock(selLock);
@@ -2543,20 +2502,19 @@ hIndex++
     ts.log("IMAGE TIMES: fix up objc_msgSend_fixup");
 #endif
     
-    // 遍历所有协议列表，并且将协议列表加载到Protocol的哈希表中
+    //4、遍历hList数组，将所有的 protocol_t 插入哈希表 namedSelectors，映射关系为 ： name=> SEL
     for (EACH_HEADER) {
         extern objc_class OBJC_CLASS_$_Protocol;
         Class cls = (Class)&OBJC_CLASS_$_Protocol;// cls = Protocol类，所有协议和对象的结构体都类似，isa都对应Protocol类
         
         assert(cls);
-        NXMapTable *protocol_map = protocols();// 获取protocol哈希表
+        NXMapTable *protocol_map = protocols();//获取哈希表 protocol_map
         bool isPreoptimized = hi->isPreoptimized();
         bool isBundle = hi->isBundle();
         
-        protocol_t **protolist = _getObjc2ProtocolList(hi, &count);// 从编译器中读取并初始化Protocol
+        protocol_t **protolist = _getObjc2ProtocolList(hi, &count);
         for (i = 0; i < count; i++) {
-            readProtocol(protolist[i], cls, protocol_map,
-                         isPreoptimized, isBundle);
+            readProtocol(protolist[i], cls, protocol_map,isPreoptimized, isBundle);
         }
     }
     
@@ -2578,8 +2536,7 @@ hIndex++
     
     // 实现非懒加载的类，对于load方法和静态实例变量
     for (EACH_HEADER) {
-        classref_t *classlist =
-        _getObjc2NonlazyClassList(hi, &count);
+        classref_t *classlist = _getObjc2NonlazyClassList(hi, &count);
         for (i = 0; i < count; i++) {
             Class cls = remapClass(classlist[i]);
             if (!cls) continue;
