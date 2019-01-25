@@ -167,7 +167,8 @@ void _objc_error(id self, const char *fmt, va_list ap)
 }
 
 /* 该函数处理涉及对象(或类)的错误。
- */_objc_fatal
+ * _objc_fatal
+ */
 void __objc_error(id rcv, const char *fmt, ...) 
 { 
     va_list vp; 

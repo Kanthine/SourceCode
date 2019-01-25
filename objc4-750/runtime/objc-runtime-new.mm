@@ -538,7 +538,8 @@ static void removeUnattachedCategoryForClass(category_t *cat, Class cls)
  * Locking: runtimeLock must be held by the caller.
  */
 static category_list *unattachedCategoriesForClass(Class cls, bool realizing){
-    runtimeLock.assertWriting();
+//    runtimeLock.assertWriting();
+    runtimeLock.assertLocked();
     //unattachedCategories() 函数获取未添加到 Class 中的 category 数组
     //NXMapRemove() 函数移除哈希表中的键值对，并返回与键关联的值
     return (category_list *)NXMapRemove(unattachedCategories(), cls);
@@ -548,7 +549,8 @@ static category_list *unattachedCategoriesForClass(Class cls, bool realizing){
  * Locking: runtimeLock must be held by the caller.
  */
 static void removeAllUnattachedCategoriesForClass(Class cls){
-    runtimeLock.assertWriting();
+//    runtimeLock.assertWriting();
+    runtimeLock.assertLocked();
     void *list = NXMapRemove(unattachedCategories(), cls);
     if (list) free(list);
 }
