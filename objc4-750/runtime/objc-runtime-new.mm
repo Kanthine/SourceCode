@@ -2121,6 +2121,10 @@ readthem:
 Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
     const char *mangledName = cls->mangledName();
     
+    if (strcmp(cls->demangledName(), "MyModel") == 0) {
+        printf("Class == %s \n",cls->demangledName());
+    }
+
     if (missingWeakSuperclass(cls)) {
         // 没有超类(可能是弱链接):否认任何关于这个子类的知识。
         if (PrintConnecting) {
@@ -2187,9 +2191,8 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
         addClassTableEntry(cls);//将 cls 和它的元类加入哈希表 allocatedClasses
     }
     
-    //共享缓存中不包含 Bundle
-    //标记为 Bundle 类
-    if (headerIsBundle) { 
+    //共享缓存中不包含 Bundle : 标记为 Bundle 类
+    if (headerIsBundle) {
         cls->data()->flags |= RO_FROM_BUNDLE;
         cls->ISA()->data()->flags |= RO_FROM_BUNDLE;
     }
@@ -2395,13 +2398,23 @@ hIndex++
             //例如CF、Fundation、libdispatch中的类；以及自己创建的类
             Class cls = (Class)classlist[i];
             
+            
+            //断点 MyModel
+            if (strcmp(cls->demangledName(), "MyModel") == 0) {
+                printf("Class == %s \n",cls->demangledName());
+            }
+            if (hi->mhdr()->filetype == MH_EXECUTE) {
+                printf("Class == %s \n",cls->demangledName());
+            }
+
+            
             //将编译时的类结构改为运行时的类结构，并将该类加入哈希表gdb_objc_realized_classes 、allocatedClasses，若有必要则标记为 Bundle 类
             Class newCls = readClass(cls, headerIsBundle, headerIsPreoptimized);
             
             // 初始化所有懒加载的类需要的内存空间
             if (newCls != cls  &&  newCls) {
                 //将懒加载的类添加到数组中
-                //类被移动但未删除。 目前，仅当新类解析了 future class 时才会发生这种情况。
+                //类被移动但未删除。目前，仅当新类解析了 future class 时才会发生这种情况。
                 //非懒加载地实现下面的类。
                 resolvedFutureClasses = (Class *)realloc(resolvedFutureClasses,(resolvedFutureClassCount+1) * sizeof(Class));
                 resolvedFutureClasses[resolvedFutureClassCount++] = newCls;
@@ -2437,6 +2450,9 @@ hIndex++
             UnfixedSelectors += count;
             for (i = 0; i < count; i++) {
                 const char *name = sel_cname(sels[i]);
+                if (hi->mhdr()->filetype == MH_EXECUTE) {
+                    printf("sel_cname == %s \n",name);
+                }
                 sels[i] = sel_registerNameNoLock(name, isBundle);
             }
         }
