@@ -785,8 +785,7 @@ static void attachCategories(Class cls, category_list *cats, bool flush_caches)
  * 附加任何未完成的类别；
  * Locking: runtimeLock must be held by the caller
  */
-static void methodizeClass(Class cls)
-{
+static void methodizeClass(Class cls){
     runtimeLock.assertLocked();
     
     bool isMeta = cls->isMetaClass();
@@ -795,11 +794,10 @@ static void methodizeClass(Class cls)
     
     // Methodizing for the first time
     if (PrintConnecting) {
-        _objc_inform("CLASS: methodizing class '%s' %s",
-                     cls->nameForLogging(), isMeta ? "(meta)" : "");
+        _objc_inform("CLASS: methodizing class '%s' %s",cls->nameForLogging(), isMeta ? "(meta)" : "");
     }
     
-    // 加载类本身实现的方法和属性。
+    // 加载类本身实现的方法和属性
     method_list_t *list = ro->baseMethods();
     if (list) {
         prepareMethodLists(cls, &list, 1, YES, isBundleClass(cls));
@@ -1213,10 +1211,9 @@ static Class popFutureNamedClass(const char *name){
     return cls;
 }
 
-/* 获取一个重新映射类的哈希表
- * 返回已实现的未来类的 oldClass =>newClass 映射。
- * 返回被忽略的弱链接类的 oldClass => nil 映射。
- * 锁定：runtimeLock必须由调用者读取或写入锁定
+/* 获取哈希表remapped_class_map：存储类的重新映射关系
+ * @note 可能的映射关系：已实现的 future class 的 oldClass =>newClass ；
+ *                    被忽略的弱链接类的 oldClass => nil 映射。
  */
 static NXMapTable *remappedClasses(bool create){
     static NXMapTable *remapped_class_map = nil;
@@ -1259,9 +1256,12 @@ static void addRemappedClass(Class oldcls, Class newcls){
     assert(!old);
 }
 
-/* 重新映射类
- * 返回 cls 的运行时的类指针，该指针可能指向已重新分配的类结构。
- * 如果由于链接弱而忽略 cls ，则返回nil。
+
+/* 如果可能，获取哈希表remapped_class_map中 cls 对应的值；若没有可能，则返回 cls 自身
+ * @param cls 是一个从编译器读取的编译时结构的类
+ * @note 哈希表 remapped_class_map 中存在着它的运行时结构
+ * @note remapped_class_map 的映射关系：已实现的 future class 的 oldClass =>newClass ；
+ *                                    被忽略的弱链接类的 oldClass => nil 映射。
  */
 static Class remapClass(Class cls){
     runtimeLock.assertLocked();
@@ -1275,27 +1275,23 @@ static Class remapClass(Class cls){
     }
 }
 
-// 重新映射类
 static Class remapClass(classref_t cls){
     return remapClass((Class)cls);
 }
 
-Class _class_remap(Class cls)
-{
+Class _class_remap(Class cls){
     mutex_locker_t lock(runtimeLock);
     return remapClass(cls);
 }
 
-/* 重新映射类 remapped_class_map
- * 修复类ref，以防引用的类已重新分配或是一个被忽略的弱链接类。
+/* 如果可能，将 clsref 指向哈希表remapped_class_map中 clsref 对应的值；
+ * 若没有可能，不做任何操作
  */
 static void remapClassRef(Class *clsref){
     runtimeLock.assertLocked();
-    
     Class newcls = remapClass(*clsref);
     if (*clsref != newcls) *clsref = newcls;
 }
-
 
 /* 获取指定的普通类
  * @param metacls 如果该类不是元类，则返回它自身；
@@ -1448,10 +1444,8 @@ Class firstRealizedClass()
     return _firstRealizedClass;
 }
 
-static void addRootClass(Class cls)
-{
+static void addRootClass(Class cls){
     runtimeLock.assertLocked();
-    
     assert(cls->isRealized());
     cls->data()->nextSiblingClass = _firstRealizedClass;
     _firstRealizedClass = cls;
@@ -1473,8 +1467,7 @@ static void removeRootClass(Class cls)
 /* 将指定类添加到它的父类的子类列表
  * Locking: runtimeLock must be held by the caller.
  */
-static void addSubclass(Class supercls, Class subcls)
-{
+static void addSubclass(Class supercls, Class subcls){
     runtimeLock.assertLocked();
     
     if (supercls  &&  subcls) {
@@ -1499,8 +1492,7 @@ static void addSubclass(Class supercls, Class subcls)
             subcls->setHasCustomAWZ(true);
         }
         
-        // Special case: instancesRequireRawIsa does not propagate
-        // from root class to root metaclass
+        // 特殊情况: instancesRequireRawIsa 不会从根类传播到根元类
         if (supercls->instancesRequireRawIsa()  &&  supercls->superclass) {
             subcls->setInstancesRequireRawIsa(true);
         }
@@ -1585,12 +1577,10 @@ static void remapProtocolRef(protocol_t **protoref){
 }
 
 
-/***********************************************************************
- * moveIvars
- * Slides a class's ivars to accommodate the given superclass size.
- * Ivars are NOT compacted to compensate for a superclass that shrunk.
- * Locking: runtimeLock must be held by the caller.
- **********************************************************************/
+/* ro 中的instanceStart和instanceSize其实并不是最终值,具体调整的过程:
+ * 更新当前类ivar中的offset字段 ;
+ * 更新当前类ro的instanceStart和instanceSize ;
+ */
 static void moveIvars(class_ro_t *ro, uint32_t superSize)
 {
     runtimeLock.assertLocked();
@@ -1598,15 +1588,15 @@ static void moveIvars(class_ro_t *ro, uint32_t superSize)
     uint32_t diff;
     
     assert(superSize > ro->instanceStart);
-    diff = superSize - ro->instanceStart;
+    diff = superSize - ro->instanceStart;//获取了当前类的instanceStart和父类的instanceSize的偏移量，但这并不是最终的结果，因为存在对齐的问题
     
     if (ro->ivars) {
-        // Find maximum alignment in this class's ivars
+        //遍历了ivars，获取了最大得alignment
         uint32_t maxAlignment = 1;
         for (const auto& ivar : *ro->ivars) {
             if (!ivar.offset) continue;  // anonymous bitfield
             
-            uint32_t alignment = ivar.alignment();
+            uint32_t alignment = ivar.alignment();//结果是1 << 3，也就是8
             if (alignment > maxAlignment) maxAlignment = alignment;
         }
         
@@ -1623,10 +1613,8 @@ static void moveIvars(class_ro_t *ro, uint32_t superSize)
             *ivar.offset = newOffset;
             
             if (PrintIvars) {
-                _objc_inform("IVARS:    offset %u -> %u for %s "
-                             "(size %u, align %u)",
-                             oldOffset, newOffset, ivar.name,
-                             ivar.size, ivar.alignment());
+                _objc_inform("IVARS:    offset %u -> %u for %s (size %u, align %u)",
+                             oldOffset, newOffset, ivar.name,ivar.size, ivar.alignment());
             }
         }
     }
@@ -1635,25 +1623,16 @@ static void moveIvars(class_ro_t *ro, uint32_t superSize)
     *(uint32_t *)&ro->instanceSize += diff;
 }
 
-
-static void reconcileInstanceVariables(Class cls, Class supercls, const class_ro_t*& ro)
-{
+/* ro 中的instanceStart和instanceSize其实并不是最终值,可能的调整过程:
+ * 更新当前类ivar中的offset字段 ;
+ * 更新当前类ro的instanceStart和instanceSize ;
+ */
+static void reconcileInstanceVariables(Class cls, Class supercls, const class_ro_t*& ro){
     class_rw_t *rw = cls->data();
     
     assert(supercls);
     assert(!cls->isMetaClass());
     
-    /* debug: print them all before sliding
-     if (ro->ivars) {
-     for (const auto& ivar : *ro->ivars) {
-     if (!ivar.offset) continue;  // anonymous bitfield
-     
-     _objc_inform("IVARS: %s.%s (offset %u, size %u, align %u)",
-     ro->name, ivar.name,
-     *ivar.offset, ivar.size, ivar.alignment());
-     }
-     }
-     */
     
     // Non-fragile ivars - reconcile this class with its superclass
     const class_ro_t *super_ro = supercls->data()->ro;
@@ -1712,21 +1691,18 @@ static void reconcileInstanceVariables(Class cls, Class supercls, const class_ro
     }
     
     if (ro->instanceStart >= super_ro->instanceSize) {
-        // Superclass has not overgrown its space. We're done here.
+        // Superclass 没有超出它的空间。我们在这里完成。
         return;
     }
     // fixme can optimize for "class has no new ivars", etc
     
     if (ro->instanceStart < super_ro->instanceSize) {
-        // Superclass has changed size. This class's ivars must move.
+        // Superclass 改变了大小, 这个类的ivars必须移动。
         // Also slide layout bits in parallel.
-        // This code is incapable of compacting the subclass to
-        //   compensate for a superclass that shrunk, so don't do that.
+        // 这段代码不能压缩子类来补偿收缩的Superclass ，所以不要这样做。
         if (PrintIvars) {
-            _objc_inform("IVARS: sliding ivars for class %s "
-                         "(superclass was %u bytes, now %u)",
-                         cls->nameForLogging(), ro->instanceStart,
-                         super_ro->instanceSize);
+            _objc_inform("IVARS: sliding ivars for class %s (superclass was %u bytes, now %u)",
+                         cls->nameForLogging(), ro->instanceStart,super_ro->instanceSize);
         }
         class_ro_t *ro_w = make_ro_writeable(rw);
         ro = rw->ro;
@@ -1735,7 +1711,19 @@ static void reconcileInstanceVariables(Class cls, Class supercls, const class_ro
     }
 }
 
-/* 实现一个类：对类 cls 执行首次初始化，分配可读写数据空间；返回真正的类结构
+/* 实现一个类：对类 cls 执行首次初始化，分配可读写数据空间；返回真正的类结构；该函数大致功能：
+ * 1、修改类结构，转为运行时的类结构
+ * 2、配置类的 version ，设置索引
+ * 3、重建立与父类和元类的关系
+ * 4、更新实例变量偏移量
+ * 5、将这个类连接到它的父类的子类列表
+ * 6、
+ *
+ *
+ * @note 从 Runtime 初始化之后，截止到 realizeClass() 函数之前的类结构：
+ *                            objc_class->class_data_bits_t->class_ro_t
+ *       realizeClass() 函数之后的类结构：
+ *                             objc_class->class_data_bits_t->class_rw_t->class_ro_t
  *
  */
 static Class realizeClass(Class cls){
@@ -1748,30 +1736,30 @@ static Class realizeClass(Class cls){
     bool isMeta;
     
     if (!cls) return nil;
-    if (cls->isRealized()) return cls;//如果传入的类已实现，则返回该类
-    assert(cls == remapClass(cls));//如果重新映射后不相等，抛出异常
+    if (cls->isRealized()) return cls;
+    assert(cls == remapClass(cls));//
     
     // fixme verify class is not in an un-dlopened part of the shared cache?
     
-    ro = (const class_ro_t *)cls->data();
+    ro = (const class_ro_t *)cls->data();//编译器读取的类结构没有 class_rw_t ，此处需要强制转换
     if (ro->flags & RO_FUTURE) {
-        //未实现的future; rw数据已经分配。
+        //未实现的 future， rw数据已经分配
         rw = cls->data();
         ro = cls->data()->ro;
         cls->changeInfo(RW_REALIZED|RW_REALIZING, RW_FUTURE);
     } else {
-        //正常的类：分配可写类数据。
+        //编译器读取的正常类：分配 class_rw_t内存
         rw = (class_rw_t *)calloc(sizeof(class_rw_t), 1);
         rw->ro = ro;
-        rw->flags = RW_REALIZED|RW_REALIZING;
+        rw->flags = RW_REALIZED|RW_REALIZING; // 已实现|正在实现  = 0x80080000
         cls->setData(rw);
     }
     
-    isMeta = ro->flags & RO_META;
+    isMeta = ro->flags & RO_META; // flags&1
     
     rw->version = isMeta ? 7 : 0;
     
-    // 为这个类选择一个索引;如果索引不可用，则设置cls->instancesRequireRawIsa
+    // 为这个类选择一个索引;如果索引不可用，则设置 RW_REQUIRES_RAW_ISA
     cls->chooseClassArrayIndex();
     
     if (PrintConnecting) {
@@ -1795,16 +1783,11 @@ static Class realizeClass(Class cls){
         // Non-pointer isa disabled by environment or app SDK version
         instancesRequireRawIsa = true;
     }
-    else if (!hackedDispatch  &&  !(ro->flags & RO_META)  &&
-             0 == strcmp(ro->name, "OS_object"))
-    {
+    else if (!hackedDispatch  &&  !(ro->flags & RO_META)  && 0 == strcmp(ro->name, "OS_object")){
         // hack for libdispatch et al - isa also acts as vtable pointer
         hackedDispatch = true;
         instancesRequireRawIsa = true;
-    }
-    else if (supercls  &&  supercls->superclass  &&
-             supercls->instancesRequireRawIsa())
-    {
+    }else if (supercls  &&  supercls->superclass  && supercls->instancesRequireRawIsa()){
         // This is also propagated by addSubclass()
         // but nonpointer isa setup needs it earlier.
         // Special case: instancesRequireRawIsa does not propagate
@@ -1819,14 +1802,14 @@ static Class realizeClass(Class cls){
     // SUPPORT_NONPOINTER_ISA
 #endif
     
-    // 在重新映射的情况下更新父类和元类
+    //更新父类和元类之后重新建立映射关系
     cls->superclass = supercls;
     cls->initClassIsa(metacls);
     
-    // 协调实例变量偏移量/布局: 这可能会重新分配 class_ro_t ，更新 ro 变量。
-    if (supercls  &&  !isMeta) reconcileInstanceVariables(cls, supercls, ro);
+    // 更新实例变量偏移量/布局: 这可能会重新分配 class_ro_t ，更新 ro 变量。
+    if (supercls && !isMeta) reconcileInstanceVariables(cls, supercls, ro);
     
-    // Set fastInstanceSize if it wasn't set already.
+    // 如果还没有设置，设置 fastInstanceSize
     cls->setInstanceSize(ro->instanceSize);
     
     // 将一些标志从 ro 复制到 rw
@@ -1844,6 +1827,7 @@ static Class realizeClass(Class cls){
         addRootClass(cls);
     }
     
+    // 这一步会把ro中的方法、属性、协议拷贝到rw中。另外会把此类所有的category中附加的方法、属性、协议也拷贝进去。oc之所以能在运行时做各种事情，其实都是基于runtime的这些支持。
     // 附加 categories
     methodizeClass(cls);
     
@@ -2285,12 +2269,12 @@ static void readProtocol(protocol_t *newproto, Class protocol_class, NXMapTable 
 }
 
 /* 该函数中完成了大量的初始化操作：
- * 1、首次执行时：初始化 TaggedPointer混淆器、哈希表 gdb_objc_realized_classes 与 allocatedClasses
- * 2、遍历hList数组，取出header_info对应的类列表，将取出的编译类改为运行时的类结构，
+ * 1、首次执行时：初始化TaggedPointer混淆器、哈希表 gdb_objc_realized_classes 与 allocatedClasses
+ * 2、遍历hList数组，取出每个header_info对应的类列表，将取出的编译类改为运行时的类结构，
  *    并将该类加入哈希表 gdb_objc_realized_classes 、allocatedClasses，若有必要则标记为 Bundle 类；
  *    最后将该类加入数组 resolvedFutureClasses
- * 3、遍历hList数组，将所有的 SEL 插入哈希表 namedSelectors，映射关系为 ： name=> SEL
- * 4、遍历hList数组，设置 protocol_ t 的 isa ，将其插入哈希表 protocol_map，映射关系为name => protocol_t
+ * 3、遍历hList数组，将所有的 SEL 插入哈希表 namedSelectors，映射关系为name=>SEL
+ * 4、遍历hList数组，设置protocol_t的isa，将其插入哈希表protocol_map，映射关系为name=>protocol_t
  *
  *
  *
@@ -2336,8 +2320,7 @@ hIndex++
 # if SUPPORT_INDEXED_ISA
         // 如果任何镜像包含旧的Swift代码，禁用非指针isa
         for (EACH_HEADER) {
-            if (hi->info()->containsSwift()  &&
-                hi->info()->swiftVersion() < objc_image_info::SwiftVersion3){
+            if (hi->info()->containsSwift()  && hi->info()->swiftVersion() < objc_image_info::SwiftVersion3){
                 DisableNonpointerIsa = true;
                 if (PrintRawIsa) {
                     _objc_inform("RAW ISA: disabling non-pointer isa because the app or a framework contains Swift code older than Swift 3.0");
@@ -2490,7 +2473,6 @@ hIndex++
         }
     }
     ts.log("IMAGE TIMES: discover protocols");
-    
     // 修复协议列表引用，优化后的images可能是正确的，但是并不确定
     for (EACH_HEADER) {
         // 需要注意到是，下面的函数是_getObjc2ProtocolRefs，和上面的_getObjc2ProtocolList不一样

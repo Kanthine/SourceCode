@@ -177,8 +177,7 @@ enum ReturnDisposition : bool {
     }
     
     inline void
-    objc_object::initClassIsa(Class cls)
-    {
+    objc_object::initClassIsa(Class cls){
         if (DisableNonpointerIsa  ||  cls->instancesRequireRawIsa()) {
             initIsa(cls, false/*not nonpointer*/, false);
         } else {

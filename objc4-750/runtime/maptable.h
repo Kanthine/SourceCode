@@ -107,14 +107,20 @@ OBJC_EXPORT unsigned
 NXCountMapTable(NXMapTable * _Nonnull table)
     OBJC_MAP_AVAILABILITY;
     /* current number of data in table */
-	
-OBJC_EXPORT void * _Nullable
-NXMapMember(NXMapTable * _Nonnull table, const void * _Nullable key,
-            void * _Nullable * _Nonnull value) OBJC_MAP_AVAILABILITY;
-    /* return original table key or NX_MAPNOTAKEY.  If key is found, value is set */
-	
-OBJC_EXPORT void * _Nullable
-NXMapGet(NXMapTable * _Nonnull table, const void * _Nullable key)
+
+
+
+/* 获取指定哈希表中的指定键，并将哈希表中对应的值赋值给 value
+ * @param table 指定的哈希表
+ * @param key 指定的键
+ * @param value 要写入键值的内存地址；如果找到键，则设置值
+ * @return 如果该哈希表中存在键key，则返回哈希表中的键 key ；否则返回 NX_MAPNOTAKEY
+ */
+OBJC_EXPORT void * _Nullable NXMapMember(NXMapTable * _Nonnull table, const void * _Nullable key,void * _Nullable * _Nonnull value) OBJC_MAP_AVAILABILITY;
+
+
+
+OBJC_EXPORT void * _Nullable NXMapGet(NXMapTable * _Nonnull table, const void * _Nullable key)
     OBJC_MAP_AVAILABILITY;
     /* return original corresponding value or NULL.  When NULL need be stored as value, NXMapMember can be used to test for presence */
 	

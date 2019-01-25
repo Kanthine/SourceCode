@@ -377,77 +377,53 @@ struct locstamped_category_list_t {
 };
 
 
-// class_data_bits_t 是 class_t->data 字段（ class_rw_t 指针加标志）
-// 额外的位是对retain/release和alloc/dealloc路径优化的。
-
-// class_ro_t->flags 的值
-// 它们由编译器发出，是ABI的一部分。
-// Note: 参阅 clang 的 CGObjCNonFragileABIMac::BuildClassRoTInitializer
-// 元类
-#define RO_META               (1<<0)
-// 根类
-#define RO_ROOT               (1<<1)
-// class 具有 .cxx_construct/destruct 实现
-#define RO_HAS_CXX_STRUCTORS  (1<<2)
-// class 已经实现 +load
-// #define RO_HAS_LOAD_METHOD    (1<<3)
-// class 已经设置 visibility=hidden
-#define RO_HIDDEN             (1<<4)
-// 类具有 attribute(objc_exception): OBJC_EHTYPE_$_ThisClass 是非弱类型
-#define RO_EXCEPTION          (1<<5)
-// 该位可用于重新分配
-// #define RO_REUSE_ME           (1<<6)
-// 用ARC编译的类
-#define RO_IS_ARC             (1<<7)
+#pragma mark - 编译时类的结构标志 class_ro_t->flags
+#define RO_META               (1<<0)   // 元类
+#define RO_ROOT               (1<<1)   // 根类
+#define RO_HAS_CXX_STRUCTORS  (1<<2)  // class 具有 .cxx_construct/destruct 实现
+// #define RO_HAS_LOAD_METHOD (1<<3)  // class 已经实现 +load
+#define RO_HIDDEN    (1<<4) // class 已经设置 visibility=hidden
+#define RO_EXCEPTION (1<<5) // 类具有 attribute(objc_exception): OBJC_EHTYPE_$_ThisClass 是非弱类型
+//#define RO_REUSE_ME (1<<6)//该位可用于重新分配
+#define RO_IS_ARC (1<<7)// 用ARC编译的类
 // 类有 .cxx_destruct，但没有.cxx_construct(带有 RO_HAS_CXX_STRUCTORS)
 #define RO_HAS_CXX_DTOR_ONLY  (1<<8)
 // 不是ARC编译的类，但具有ARC样式的弱ivar布局
 #define RO_HAS_WEAK_WITHOUT_ARC (1<<9)
 
-// 类位于不可加载的 Bundle 中——编译器永远不能设置它
+/*********   不能由编译器设置的几个标记   **********/
+// 类位于不可加载的 Bundle 中
 #define RO_FROM_BUNDLE        (1<<29)
-// 未实现的future class——永远不能由编译器设置
+// 未实现的future class
 #define RO_FUTURE             (1<<30)
-// 类是可实现的;不能由编译器设置
+// 类是可实现的
 #define RO_REALIZED           (1<<31)
 
-// class_rw_t->flags 的值
-// 这些不是编译器发出的，在class_ro_t中从未使用过。
-// 在以后的ABI版本中应该考虑它们的存在。
-// class_t->data 是 class_rw_t, 不是 class_ro_t
-#define RW_REALIZED           (1<<31)
-// 未解析的 future class
-#define RW_FUTURE             (1<<30)
-// 已经完成初始化
-#define RW_INITIALIZED        (1<<29)
-// 正在初始化
-#define RW_INITIALIZING       (1<<28)
-// class_rw_t->ro is heap copy of class_ro_t
-#define RW_COPIED_RO          (1<<27)
-// 已创建但尚未注册的类
-#define RW_CONSTRUCTING       (1<<26)
-// 已创建并且注册的类
-#define RW_CONSTRUCTED        (1<<25)
-// available for use; was RW_FINALIZE_ON_MAIN_THREAD
-// #define RW_24 (1<<24)
-// 类方法 +load 已经调用
-#define RW_LOADED             (1<<23)
+#pragma mark - Runtime 时类的结构标志 class_rw_t->flags
+
+#define RW_REALIZED     (1<<31) // 已实现
+#define RW_FUTURE       (1<<30) // 未解析的 future class
+#define RW_INITIALIZED  (1<<29) // 已经完成初始化
+#define RW_INITIALIZING (1<<28) // 正在初始化
+#define RW_COPIED_RO    (1<<27) // class_rw_t->ro is heap copy of class_ro_t
+#define RW_CONSTRUCTING (1<<26) // 已创建但尚未注册的类
+#define RW_CONSTRUCTED  (1<<25) // 已创建并且注册的类
+// #define RW_24        (1<<24) // available for use; was RW_FINALIZE_ON_MAIN_THREAD
+#define RW_LOADED       (1<<23) // 类方法 +load 已经调用
+
 #if !SUPPORT_NONPOINTER_ISA
-// class instances may have associative references
-#define RW_INSTANCES_HAVE_ASSOCIATED_OBJECTS (1<<22)
+#define RW_INSTANCES_HAVE_ASSOCIATED_OBJECTS (1<<22)// 类实例可能具有关联引用
 #endif
-// class has instance-specific GC layout
-#define RW_HAS_INSTANCE_SPECIFIC_LAYOUT (1 << 21)
-// available for use
-// #define RW_20       (1<<20)
-// 类已经开始实现，但尚未完成
-#define RW_REALIZING          (1<<19)
+
+#define RW_HAS_INSTANCE_SPECIFIC_LAYOUT (1 << 21) //类具有特定于实例的GC布局
+// #define RW_20       (1<<20) // 可用的
+#define RW_REALIZING   (1<<19) // 类正在实现，但尚未完成
 
 // 注:更多的RW_标志定义如下
 
 // Values for class_rw_t->flags or class_t->bits
-// These flags are optimized for retain/release and alloc/dealloc
-// 64-bit stores more of them in class_t->bits to reduce pointer indirection.
+// 这些标志针对retain/release和alloc/dealloc进行了优化
+// 64位将它们更多地存储在 class_t->bits 中，以减少指针的间接指向。
 
 #if !__LP64__
 
@@ -540,7 +516,7 @@ struct locstamped_category_list_t {
 static_assert(FAST_IS_SWIFT_LEGACY == 1, "resistance is futile");
 static_assert(FAST_IS_SWIFT_STABLE == 2, "resistance is futile");
 
-
+//class_ro_t 存储了该类在编译时就已经确定的属性、方法以及遵循的协议
 struct class_ro_t {
     uint32_t flags;//标志
     uint32_t instanceStart;
@@ -768,9 +744,7 @@ public:
 };
 
 
-class method_array_t :
-public list_array_tt<method_t, method_list_t>
-{
+class method_array_t : public list_array_tt<method_t, method_list_t>{
     typedef list_array_tt<method_t, method_list_t> Super;
     
 public:
@@ -786,9 +760,7 @@ public:
 };
 
 
-class property_array_t :
-public list_array_tt<property_t, property_list_t>
-{
+class property_array_t : public list_array_tt<property_t, property_list_t>{
     typedef list_array_tt<property_t, property_list_t> Super;
     
 public:
@@ -798,9 +770,7 @@ public:
 };
 
 
-class protocol_array_t :
-public list_array_tt<protocol_ref_t, protocol_list_t>
-{
+class protocol_array_t : public list_array_tt<protocol_ref_t, protocol_list_t>{
     typedef list_array_tt<protocol_ref_t, protocol_list_t> Super;
     
 public:
@@ -809,7 +779,7 @@ public:
     }
 };
 
-
+//ObjC 类中的属性、方法还有遵循的协议等信息都保存在 class_rw_t 中
 struct class_rw_t {
     // Symbolication 知道此结构的布局。
     uint32_t flags;
@@ -858,14 +828,12 @@ struct class_data_bits_t {
     
     uintptr_t bits;//值是上面的 FAST_ 标志。
 private:
-    bool getBit(uintptr_t bit)
-    {
+    bool getBit(uintptr_t bit){
         return bits & bit;
     }
     
 #if FAST_ALLOC
-    static uintptr_t updateFastAlloc(uintptr_t oldBits, uintptr_t change)
-    {
+    static uintptr_t updateFastAlloc(uintptr_t oldBits, uintptr_t change){
         if (change & FAST_ALLOC_MASK) {
             if (((oldBits & FAST_ALLOC_MASK) == FAST_ALLOC_VALUE)  &&
                 ((oldBits >> FAST_SHIFTED_SIZE_SHIFT) != 0))
@@ -893,8 +861,7 @@ private:
         } while (!StoreReleaseExclusive(&bits, oldBits, newBits));
     }
     
-    void clearBits(uintptr_t clear)
-    {
+    void clearBits(uintptr_t clear){
         uintptr_t oldBits;
         uintptr_t newBits;
         do {
@@ -906,6 +873,9 @@ private:
 public:
     
     class_rw_t* data() {
+        // 0x00007ffffffffff8
+        //
+        // 将 bits 与 FAST_DATA_MASK 进行位运算，只取其中的 [3, 47] 位转换成 class_rw_t * 返回。
         return (class_rw_t *)(bits & FAST_DATA_MASK);
     }
     void setData(class_rw_t *newData)
@@ -1100,9 +1070,10 @@ public:
 
 struct objc_class : objc_object {
     // Class ISA;
-    Class superclass;
-    cache_t cache;             // formerly cache pointer and vtable
-    class_data_bits_t bits;    // class_rw_t * plus custom rr/alloc flags
+    Class superclass;//指向当前类的父类
+    cache_t cache;  //用于缓存指针和 vtable，加速方法的调用
+    class_data_bits_t bits;// class_rw_t* 加上自定义的rr/alloc标志；rr/alloc标志是指含有这些方法：retain/release/autorelease/retainCount/alloc等
+    //存储类的方法、属性、遵循的协议等信息
     
     class_rw_t *data() {
         return bits.data();
@@ -1239,11 +1210,11 @@ struct objc_class : objc_object {
     
     void setInitializing() {//设置该类的状态为：正在初始化
         assert(!isMetaClass());
-        ISA()->setInfo(RW_INITIALIZING);//正在初始化
+        ISA()->setInfo(RW_INITIALIZING);//正在初始化 flags&1<<28
     }
     
     bool isInitialized() {//判断该类的状态为：已完成初始化
-        return getMeta()->data()->flags & RW_INITIALIZED;
+        return getMeta()->data()->flags & RW_INITIALIZED;// flags&1<<29
     }
     
     void setInitialized();
@@ -1257,19 +1228,19 @@ struct objc_class : objc_object {
     
     // Locking: To prevent concurrent realization, hold runtimeLock.
     bool isRealized() {
-        return data()->flags & RW_REALIZED;
+        return data()->flags & RW_REALIZED;// flags&1<<31
     }
     
     // Returns true if this is an unrealized future class.
     // Locking: To prevent concurrent realization, hold runtimeLock.
     bool isFuture() {
-        return data()->flags & RW_FUTURE;
+        return data()->flags & RW_FUTURE;// flags&1<<30
     }
     
-    bool isMetaClass() {
+    bool isMetaClass() {//只读
         assert(this);
         assert(isRealized());
-        return data()->ro->flags & RO_META;
+        return data()->ro->flags & RO_META;// flags&1<<0
     }
     
     /* 获取该类的元类
