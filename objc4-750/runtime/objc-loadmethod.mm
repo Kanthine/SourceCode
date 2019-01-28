@@ -19,18 +19,17 @@
 
 typedef void(*load_method_t)(id, SEL);
 
-//存储了 +load 方法所属的Class和+load方法的IMP
+//存储了 +load 方法所属的Class和 +load 方法的IMP
 struct loadable_class {
     Class cls;  //+load 方法所属的Class；可能为 nil
-    IMP method;//+load方法的IMP
+    IMP method;
 };
 
 //存储了 +load 方法所属的 Category 和+load方法的IMP
 struct loadable_category {
     Category cat;  //+load 方法所属的 Category；可能为 nil
-    IMP method;//+load方法的IMP
+    IMP method;
 };
-
 
 /* loadable_classes 结构数组：存储着一个个结构元素 loadable_class
  * 静态变量 loadable_classes_used 用于记录 add_class_to_loadable_list() 函数的调用次数，也是 loadable_classes 数组的元素个数
@@ -49,41 +48,34 @@ static int loadable_categories_used = 0;
 static int loadable_categories_allocated = 0;
 
 
-/* 将类添加到数组 loadable_classes 中
- * @param cls 要添加的类
+/* 向数组 loadable_classes 添加实现了 +load 方法的指定类；
+ * @param cls 要添加的类，该类实现了 +load 方法；
  * @note 该函数每执行一次，loadable_classes_used 都会加 1 ；
  * @note loadable_classes_used 用于记录这个方法的调用次数，相当于数组 loadable_classes 的元素个数
  * @note 类cls刚刚连接起来：如果它实现了一个+load方法，那么为+load调用它。
  */
 void add_class_to_loadable_list(Class cls){
     IMP method;
-
     loadMethodLock.assertLocked();
     
     method = cls->getLoadMethod();//获取类 cls 的 +load 方法的 IMP
-    if (!method) return;  // 如果 cls 没有+load 方法，直接返回，不需要接着执行
+    if (!method) return;
     
     if (PrintLoading) {
         _objc_inform("LOAD: class '%s' scheduled for +load", cls->nameForLogging());
     }
     
     if (loadable_classes_used == loadable_classes_allocated) {
-        // 如果已使用大小等于数组大小，对数组进行动态扩容
+        // 如果数组 loadable_classes 分配的内存已用完，对数组进行动态扩容
         loadable_classes_allocated = loadable_classes_allocated*2 + 16;
-        loadable_classes = (struct loadable_class *)
-            realloc(loadable_classes,
-                              loadable_classes_allocated *
-                              sizeof(struct loadable_class));
+        loadable_classes = (struct loadable_class *)realloc(loadable_classes,
+                              loadable_classes_allocated *sizeof(struct loadable_class));
     }
     
-    /* loadable_classes[loadable_classes_used] 取出数组中第 loadable_classes_used 个元素
-     * 该元素是个结构体 loadable_class ，分别为它的成员赋值
-     */
-    loadable_classes[loadable_classes_used].cls = cls;//+load 方法所属的Class
-    loadable_classes[loadable_classes_used].method = method;//+load方法的IMP
+    loadable_classes[loadable_classes_used].cls = cls;
+    loadable_classes[loadable_classes_used].method = method;
     loadable_classes_used++;//加 1，用于记录该函数的调用次数；相当于数组 loadable_classes 的元素个数
 }
-
 
 /* 将分类添加到数组 loadable_categories 中
  * @param cat 要添加的分类
@@ -91,10 +83,8 @@ void add_class_to_loadable_list(Class cls){
  * @note loadable_categories_used 用于记录这个方法的调用次数，相当于数组 loadable_categories 的元素个数
  * @note 类cls刚刚连接起来：如果它实现了一个+load方法，那么为+load调用它。
  */
-void add_category_to_loadable_list(Category cat)
-{
+void add_category_to_loadable_list(Category cat){
     IMP method;
-
     loadMethodLock.assertLocked();
 
     //获取分类实现的 +load 方法的 IMP；如果该分类没有实现+load 方法 ，则返回 nil
@@ -108,7 +98,7 @@ void add_category_to_loadable_list(Category cat)
     }
     
     if (loadable_categories_used == loadable_categories_allocated) {
-        // 如果已使用大小等于数组大小，对数组进行动态扩容
+        //如果数组 loadable_categories 分配的内存已用完，对数组进行动态扩容
         loadable_categories_allocated = loadable_categories_allocated*2 + 16;
         loadable_categories = (struct loadable_category *)
             realloc(loadable_categories,
@@ -180,8 +170,7 @@ void remove_category_from_loadable_list(Category cat)
  * 调用之后，将 loadable_classes 置为 nil；
  * 如果新类变得可加载，则不调用它们的 +load。
  */
-static void call_class_loads(void)
-{
+static void call_class_loads(void){
     int i;
     struct loadable_class *classes = loadable_classes;
     int used = loadable_classes_used;
@@ -234,12 +223,10 @@ static bool call_category_loads(void)
         cls = _category_getClass(cat);//获取分类所属的类
         if (cls  &&  cls->isLoadable()) {//要求该类可加载
             if (PrintLoading) {
-                _objc_inform("LOAD: +[%s(%s) load]\n", 
-                             cls->nameForLogging(), 
+                _objc_inform("LOAD: +[%s(%s) load]\n", cls->nameForLogging(),
                              _category_getName(cat));
             }
-#pragma mark - 调用的是分类的 +load 方法 还是该类的 +load 方法 ？
-            (*load_method)(cls, SEL_load);//通过函数指针执行指定分类所属类 cls 的 +load 方法
+            (*load_method)(cls, SEL_load);//通过函数指针执行指定分类的 +load 方法
             cats[i].cat = nil;
         }
     }
@@ -308,11 +295,10 @@ static bool call_category_loads(void)
  * Category +load 只运行一次，以确保“父类优先”排序，即使 Category +load 触发了一个新的可加载类，以及一个附加到该类的可加载类别。
  * 锁定:loadMethodLock 必须由调用方持有，其他所有锁都不能持有。
  */
-void call_load_methods(void)
-{
+void call_load_methods(void){
     static bool loading = NO;
     bool more_categories;
-
+    
     loadMethodLock.assertLocked();
 
     // Re-entrant calls do nothing; the outermost call will finish the job.
@@ -339,5 +325,3 @@ void call_load_methods(void)
 
     loading = NO;
 }
-
-

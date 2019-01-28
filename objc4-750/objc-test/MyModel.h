@@ -2,7 +2,7 @@
 //  MyModel.h
 //  objc-test
 //
-//  Created by Wanst on 2019/1/25.
+//  Created by 苏沫离 on 2019/1/25.
 //
 
 #import <Foundation/Foundation.h>

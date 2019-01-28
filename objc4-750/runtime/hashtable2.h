@@ -153,12 +153,11 @@ OBJC_EXPORT void * _Nullable
 NXHashInsert (NXHashTable * _Nonnull table, const void * _Nullable data)
     OBJC_HASH_AVAILABILITY;
     /* previous data or NULL is returned. */
-	
-OBJC_EXPORT void * _Nullable
-NXHashInsertIfAbsent (NXHashTable * _Nonnull table, const void * _Nullable data)
+
+// 如果数据已经在表中，返回表中的数据，否则将参数添加到表中并返回参数
+OBJC_EXPORT void * _Nullable NXHashInsertIfAbsent (NXHashTable * _Nonnull table, const void * _Nullable data)
     OBJC_HASH_AVAILABILITY;
-    /* If data already in table, returns the one in table
-    else adds argument to table and returns argument. */
+    /* If data already in table, returns the one in table else adds argument to table and returns argument. */
 
 OBJC_EXPORT void * _Nullable
 NXHashRemove (NXHashTable * _Nonnull table, const void * _Nullable data)

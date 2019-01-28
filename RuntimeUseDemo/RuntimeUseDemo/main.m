@@ -9,6 +9,14 @@
 #import <UIKit/UIKit.h>
 #import "AppDelegate.h"
 #import "FatherModel.h"
+
+
+static __attribute__((constructor)) void run_test(void){
+    printf("Hello Word!! \n");
+    printf("Hello Girl!! \n");
+}
+
+
 int main(int argc, char * argv[]) {
     @autoreleasepool {
         
@@ -18,8 +26,8 @@ int main(int argc, char * argv[]) {
         NSLog(@"RW_REALIZED-------- %x",1<<31);
 
         
-        NSLog(@"-------- %lx",0x000000010000B7A8 -  0x00000001000099A0 + 0x00000000);
-//        NSLog(@"-------- %lx",0x00000a28 -  0x0000000100000000 + 0x00000000);
+        NSLog(@"-------- %lx",0x000000010000B9A8 -  0x0000000100000000 + 0x00000000);//0xB9A8
+        NSLog(@"-------- %lx",0xDA83000001000000  -  0x0000000100000000 + 0x00000000);//0xda82ffff01000000
 
         return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
     }

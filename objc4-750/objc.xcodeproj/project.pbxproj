@@ -22,6 +22,7 @@
 
 /* Begin PBXBuildFile section */
 		1AE5233F21FB0EF9007A5180 /* MyModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 1AE5233E21FB0EF9007A5180 /* MyModel.m */; };
+		228EA03A21FC3B6E00599A0D /* PeopleModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 228EA03921FC3B6E00599A0D /* PeopleModel.m */; };
 		393CEAC00DC69E3E000B69DE /* objc-references.mm in Sources */ = {isa = PBXBuildFile; fileRef = 393CEABF0DC69E3E000B69DE /* objc-references.mm */; };
 		393CEAC60DC69E67000B69DE /* objc-references.h in Headers */ = {isa = PBXBuildFile; fileRef = 393CEAC50DC69E67000B69DE /* objc-references.h */; };
 		39ABD72312F0B61800D1054C /* objc-weak.h in Headers */ = {isa = PBXBuildFile; fileRef = 39ABD71F12F0B61800D1054C /* objc-weak.h */; };
@@ -164,6 +165,8 @@
 /* Begin PBXFileReference section */
 		1AE5233D21FB0EF9007A5180 /* MyModel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MyModel.h; sourceTree = "<group>"; };
 		1AE5233E21FB0EF9007A5180 /* MyModel.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MyModel.m; sourceTree = "<group>"; };
+		228EA03821FC3B6E00599A0D /* PeopleModel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PeopleModel.h; sourceTree = "<group>"; };
+		228EA03921FC3B6E00599A0D /* PeopleModel.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PeopleModel.m; sourceTree = "<group>"; };
 		393CEABF0DC69E3E000B69DE /* objc-references.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "objc-references.mm"; path = "runtime/objc-references.mm"; sourceTree = "<group>"; };
 		393CEAC50DC69E67000B69DE /* objc-references.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "objc-references.h"; path = "runtime/objc-references.h"; sourceTree = "<group>"; };
 		39ABD71F12F0B61800D1054C /* objc-weak.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "objc-weak.h"; path = "runtime/objc-weak.h"; sourceTree = "<group>"; };
@@ -387,6 +390,8 @@
 				5255259A21C68E3C00072CE6 /* main.m */,
 				1AE5233D21FB0EF9007A5180 /* MyModel.h */,
 				1AE5233E21FB0EF9007A5180 /* MyModel.m */,
+				228EA03821FC3B6E00599A0D /* PeopleModel.h */,
+				228EA03921FC3B6E00599A0D /* PeopleModel.m */,
 			);
 			path = "objc-test";
 			sourceTree = "<group>";
@@ -763,6 +768,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5255259B21C68E3C00072CE6 /* main.m in Sources */,
+				228EA03A21FC3B6E00599A0D /* PeopleModel.m in Sources */,
 				1AE5233F21FB0EF9007A5180 /* MyModel.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
