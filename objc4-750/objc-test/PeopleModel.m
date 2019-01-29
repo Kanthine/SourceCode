@@ -31,5 +31,10 @@
 + (void)load{
     printf("WomanCategory ========= +load \n");
 }
+
+- (void)PeopleModelTestProtocol{
+    
+}
+
 @end
 

@@ -244,7 +244,6 @@ method_list_t **method_array_t::endCategoryMethodLists(Class cls){
 }
 
 /* 获取指定选择器 sel 的名称
- * @param sel 指定的选择器
  */
 static const char *sel_cname(SEL sel){
     return (const char *)(void *)sel;
@@ -652,8 +651,7 @@ static void  fixupMethodList(method_list_t *mlist, bool bundleCopy, bool sort)
         // Unique selectors in list.
         for (auto& meth : *mlist) {
             const char *name = sel_cname(meth.name);//获取指定选择器 sel 的名称
-            //sel_registerNameNoLock() 将方法名与选择器关联在哈希表 namedSelectors 中；并返回选择器
-            //使用返回值为方法的选择器赋值
+            //将方法名与选择器关联在哈希表 namedSelectors 中；并返回选择器
             meth.name = sel_registerNameNoLock(name, bundleCopy);
         }
     }
@@ -675,10 +673,8 @@ static void  fixupMethodList(method_list_t *mlist, bool bundleCopy, bool sort)
  * @param methodsFromBundle 是否来自 bundle
  */
 static void prepareMethodLists(Class cls, method_list_t **addedLists, int addedCount,
-                               bool baseMethods, bool methodsFromBundle)
-{
+                               bool baseMethods, bool methodsFromBundle){
     runtimeLock.assertLocked();
-    
     if (addedCount == 0) return;
     
     bool scanForCustomRR = !cls->hasCustomRR();//类实现release和retain方法
@@ -692,14 +688,11 @@ static void prepareMethodLists(Class cls, method_list_t **addedLists, int addedC
     
     // 遍历二维数组addedLists，向数组中添加方法列表：新方法放在方法列表数组的前面。
     for (int i = 0; i < addedCount; i++) {
-        method_list_t *mlist = addedLists[i];//二维数组指定索引处的方法列表
-        assert(mlist);//断言方法列表不为空
-        
-        if (!mlist->isFixedUp()) {//该方法列表是否被标记
-            //关联方法名称与选择器
-            fixupMethodList(mlist, methodsFromBundle, true/*sort*/);
+        method_list_t *mlist = addedLists[i];
+        assert(mlist);
+        if (!mlist->isFixedUp()) {
+            fixupMethodList(mlist, methodsFromBundle, true);//将方法名与选择器关联在哈希表 namedSelectors，并排序
         }
-        
         //扫描类标记跟踪的方法实现
         // Scan for method implementations tracked by the class's flags
         if (scanForCustomRR  &&  methodListImplementsRR(mlist)) {
@@ -719,23 +712,18 @@ static void prepareMethodLists(Class cls, method_list_t **addedLists, int addedC
  * @param flush_caches 是否清空缓存：YES则清空方法缓存
  * @note 假设分类列表中的分类都是按加载顺序加载和排序的，该函数倒序遍历分类列表（最老的类别优先）
  */
-static void attachCategories(Class cls, category_list *cats, bool flush_caches)
-{
-    if (!cats) return;//分类列表为空，则直接返回；
+static void attachCategories(Class cls, category_list *cats, bool flush_caches){
+    if (!cats) return;
     if (PrintReplacedMethods) printReplacements(cls, cats);
-    
-    bool isMeta = cls->isMetaClass();//判断是否是元类
+    bool isMeta = cls->isMetaClass();
     
     /* 为列表分配内存
      * 列表为二维数组：第一维数组的元素是一个指向列表的指针；如 mlists 的第一维数组的元素是一个指向方法列表的数组
      * 第二维数组的元素是一个个方法、属性、协议
      */
-    method_list_t **mlists = (method_list_t **)
-    malloc(cats->count * sizeof(*mlists));//为方法列表分配内存
-    property_list_t **proplists = (property_list_t **)
-    malloc(cats->count * sizeof(*proplists));//为属性列表分配内存
-    protocol_list_t **protolists = (protocol_list_t **)
-    malloc(cats->count * sizeof(*protolists));//为协议列表分配内存
+    method_list_t **mlists = (method_list_t **)malloc(cats->count * sizeof(*mlists));
+    property_list_t **proplists = (property_list_t **)malloc(cats->count * sizeof(*proplists));
+    protocol_list_t **protolists = (protocol_list_t **)malloc(cats->count * sizeof(*protolists));
     
     
     // 倒序遍历分类列表，最先得到最新的分类
@@ -781,13 +769,12 @@ static void attachCategories(Class cls, category_list *cats, bool flush_caches)
 
 
 /* methodizeClass 为 Class 指定顺序：
- * 修复 cls 的方法列表、协议列表和属性列表；
- * 附加任何未完成的类别；
+ * 将 ro 的方法、属性、协议复制到 rw 上；
+ * 将分类中的方法列表、属性列表和协议列表添加到类
  * Locking: runtimeLock must be held by the caller
  */
 static void methodizeClass(Class cls){
     runtimeLock.assertLocked();
-    
     bool isMeta = cls->isMetaClass();
     auto rw = cls->data();
     auto ro = rw->ro;
@@ -797,18 +784,15 @@ static void methodizeClass(Class cls){
         _objc_inform("CLASS: methodizing class '%s' %s",cls->nameForLogging(), isMeta ? "(meta)" : "");
     }
     
-    // 加载类本身实现的方法和属性
     method_list_t *list = ro->baseMethods();
     if (list) {
         prepareMethodLists(cls, &list, 1, YES, isBundleClass(cls));
         rw->methods.attachLists(&list, 1);
     }
-    
     property_list_t *proplist = ro->baseProperties;
     if (proplist) {
         rw->properties.attachLists(&proplist, 1);
     }
-    
     protocol_list_t *protolist = ro->baseProtocols;
     if (protolist) {
         rw->protocols.attachLists(&protolist, 1);
@@ -819,21 +803,17 @@ static void methodizeClass(Class cls){
         // 根元类
         addMethod(cls, SEL_initialize, (IMP)&objc_noop_imp, "", NO);
     }
-    
-    // 附加 categories.
+    // 将分类中的方法列表、属性列表和协议列表添加到类
     category_list *cats = unattachedCategoriesForClass(cls, true /*realizing*/);
     attachCategories(cls, cats, false /*don't flush caches*/);
-    
     if (PrintConnecting) {
         if (cats) {
             for (uint32_t i = 0; i < cats->count; i++) {
-                _objc_inform("CLASS: attached category %c%s(%s)",
-                             isMeta ? '+' : '-',
+                _objc_inform("CLASS: attached category %c%s(%s)",isMeta ? '+' : '-',
                              cls->nameForLogging(), cats->list[i].cat->name);
             }
         }
     }
-    
     if (cats) free(cats);
     
 #if DEBUG
@@ -1199,6 +1179,11 @@ static void addFutureNamedClass(const char *name, Class cls){
  */
 static Class popFutureNamedClass(const char *name){
     runtimeLock.assertLocked();
+    
+    if (strcmp(name, "MyModel") == 0) {
+        printf("popFutureNamedClass \n");
+    }
+    
     Class cls = nil;
     if (future_named_class_map) {
         cls = (Class)NXMapKeyFreeingRemove(future_named_class_map, name);
@@ -1223,7 +1208,6 @@ static NXMapTable *remappedClasses(bool create){
     INIT_ONCE_PTR(remapped_class_map,NXCreateMapTable(NXPtrValueMapPrototype, 32),NXFreeMapTable(v));
     return remapped_class_map;
 }
-
 
 /* 如果没有重新映射类，则返回YES
  */
@@ -1715,8 +1699,7 @@ static void reconcileInstanceVariables(Class cls, Class supercls, const class_ro
  * 3、重建立与父类和元类的关系
  * 4、更新实例变量偏移量
  * 5、将这个类连接到它的父类的子类列表
- * 6、
- *
+ * 6、将ro的方法、属性、协议拷贝到rw上；将分类中的方法列表、属性列表和协议列表添加到类的rw上
  *
  * @note 从 Runtime 初始化之后，截止到 realizeClass() 函数之前的类结构：
  *                            objc_class->class_data_bits_t->class_ro_t
@@ -1741,7 +1724,7 @@ static Class realizeClass(Class cls){
     
     ro = (const class_ro_t *)cls->data();//编译器读取的类结构没有 class_rw_t ，此处需要强制转换
     if (ro->flags & RO_FUTURE) {
-        //未实现的 future， rw数据已经分配
+        //future class， rw数据已经分配
         rw = cls->data();
         ro = cls->data()->ro;
         cls->changeInfo(RW_REALIZED|RW_REALIZING, RW_FUTURE);
@@ -1825,8 +1808,7 @@ static Class realizeClass(Class cls){
         addRootClass(cls);
     }
     
-    // 这一步会把ro中的方法、属性、协议拷贝到rw中。另外会把此类所有的category中附加的方法、属性、协议也拷贝进去。oc之所以能在运行时做各种事情，其实都是基于runtime的这些支持。
-    // 附加 categories
+    // 将ro的方法、属性、协议拷贝到rw上；将分类中的方法列表、属性列表和协议列表添加到类的rw上
     methodizeClass(cls);
     
     return cls;
@@ -2100,22 +2082,18 @@ readthem:
 }
 
 
-/* 将编译时的类结构改为运行时的类结构；并将改变后的新类加入哈希表  gdb_objc_realized_classes 、allocatedClasses
- * 如果来自 Bundle ，将该类标记为 Bundle 类
- *
- * @param cls 读取编译器编写的类和元类：此时类的结构为 objc_class->ro
+/* 针对日出开发来说，该函数的主要功能是：将入参 cls 存入哈希表  gdb_objc_realized_classes 、allocatedClasses
+ * @note1 如果该类是 future class ，则加入哈希表之前，将将编译时的类结构改为运行时的类结构
+ * @note2 如果来自 Bundle ，将该类标记为 Bundle 类
  * @param headerIsBundle 类所在的文件是否是 Bundle 文件
  * @param headerIsPreoptimized 类所在的文件是否在共享缓存中；
- * @return 返回新类，此时类的结构是 objc_class->rw->ro
- *        cls缺少一个弱链接超类，返回 nil，
- *         something else (space for this class was reserved by a future class)
  * @note 注意，该函数执行的所有工作都由 mustReadClasses() 预先设置，在调用该函数之前需要调用 mustReadClasses() 。
  */
 Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
     const char *mangledName = cls->mangledName();
     
     if (strcmp(cls->demangledName(), "MyModel") == 0) {
-        printf("Class == %s \n",cls->demangledName());
+        printf("readClass : Class1 == %s ： %x \n",cls->demangledName(),cls->data()->flags);
     }
 
     if (missingWeakSuperclass(cls)) {
@@ -2200,7 +2178,7 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
  * @param headerIsPreoptimized 头文件是否预优化
  * @param headerIsBundle 头文件是否是 bundle 文件
  *
- * @note 1、如果 newproto 已经存在于哈希表 protocol_map 中，则什么也不做；
+ * @note 1、如果 newproto 已经存在于哈希表 protocol_map 中，则什么也不做，比如 NSObject 协议；
  *       2、如果预优化，则从预优化中取出新的 protocol_t，并将取出的协议插入哈希表 protocol_map ；
  *       3、如果 newproto 已分配内存，则为其设置 isa ，并将 newproto 插入哈希表 protocol_map ；
  *       4、如果 newproto 内存不够，重新分配内存，为其设置 isa ，并将 newproto 插入哈希表 protocol_map ；
@@ -2267,13 +2245,15 @@ static void readProtocol(protocol_t *newproto, Class protocol_class, NXMapTable 
 }
 
 /* 该函数中完成了大量的初始化操作：
- * 1、首次执行时：初始化TaggedPointer混淆器、哈希表 gdb_objc_realized_classes 与 allocatedClasses
- * 2、遍历hList数组，取出每个header_info对应的类列表，将取出的编译类改为运行时的类结构，
- *    并将该类加入哈希表 gdb_objc_realized_classes 、allocatedClasses，若有必要则标记为 Bundle 类；
- *    最后将该类加入数组 resolvedFutureClasses
+ * 1、首次执行时：初始化 TaggedPointer 混淆器、哈希表 gdb_objc_realized_classes 与 allocatedClasses
+ * 2、遍历hList数组，取出每个header_info对应的类列表，
+ *    将类 加入哈希表 gdb_objc_realized_classes 、allocatedClasses
+ *    若是Future Classe，将该类改为运行时的类结构，并将新类加入 resolvedFutureClasses
+ *    若有必要则标记为 Bundle 类；
  * 3、遍历hList数组，将所有的 SEL 插入哈希表 namedSelectors，映射关系为name=>SEL
  * 4、遍历hList数组，设置protocol_t的isa，将其插入哈希表protocol_map，映射关系为name=>protocol_t
- *
+ * 5、遍历hList数组，将实现了+load方法的类及元类加入哈希表 allocatedClasses
+ *    并将该类的ro中的信息全部拷贝至rw上，将分类的方法、属性、协议也添加至rw
  *
  *
  * 1、加载所有类到类的 gdb_objc_realized_classes 表中；
@@ -2371,52 +2351,30 @@ hIndex++
     }
     
 
-    /* 2、遍历hList数组，取出header_info对应的类列表，将取出的编译类改为运行时的类结构，
-         并将该类加入哈希表 gdb_objc_realized_classes 、allocatedClasses，若有必要则标记为 Bundle 类；
-         最后将该类加入数组 resolvedFutureClasses
+    /* 2、遍历hList数组，取出每个header_info对应的类列表，将类 加入哈希表 gdb_objc_realized_classes 、allocatedClasses；
+     *   若是future Classe，将该类改为运行时的类结构，并将新类加入 resolvedFutureClasses；
+     *   若有必要则标记为 Bundle 类；
      */
     for (EACH_HEADER) {
         classref_t *classlist = _getObjc2ClassList(hi, &count);//获取镜像hi中的类
-        
         if (! mustReadClasses(hi)) {
-            //指定的镜像不需要读取类
-            continue;
+            continue;//指定的镜像不需要读取类
         }
-        
         bool headerIsBundle = hi->isBundle();
         bool headerIsPreoptimized = hi->isPreoptimized();
-        
         for (i = 0; i < count; i++) {
-            //有 OS_dispatch_queue_concurrent、OS_xpc_object、NSRunloop等系统类，
-            //例如CF、Fundation、libdispatch中的类；以及自己创建的类
             Class cls = (Class)classlist[i];
-            
-            
-            //断点 MyModel
-            if (strcmp(cls->demangledName(), "MyModel") == 0) {
-                printf("Class == %s \n",cls->demangledName());
-            }
-            if (hi->mhdr()->filetype == MH_EXECUTE) {
-                printf("Class == %s \n",cls->demangledName());
-            }
-
-            
-            //将编译时的类结构改为运行时的类结构，并将该类加入哈希表gdb_objc_realized_classes 、allocatedClasses，若有必要则标记为 Bundle 类
+            //将该类加入哈希表 gdb_objc_realized_classes 、allocatedClasses
             Class newCls = readClass(cls, headerIsBundle, headerIsPreoptimized);
-            
-            // 初始化所有懒加载的类需要的内存空间
-            if (newCls != cls  &&  newCls) {
+            if (newCls != cls  &&  newCls) {//目前，仅当新类解析了 future class 时才会发生这种情况
                 //将懒加载的类添加到数组中
-                //类被移动但未删除。目前，仅当新类解析了 future class 时才会发生这种情况。
-                //非懒加载地实现下面的类。
                 resolvedFutureClasses = (Class *)realloc(resolvedFutureClasses,(resolvedFutureClassCount+1) * sizeof(Class));
                 resolvedFutureClasses[resolvedFutureClassCount++] = newCls;
             }
         }
     }
-    
     ts.log("IMAGE TIMES: discover classes");
-    // 重新将非懒加载的类插入哈希表 remapped_class_map ，映射关系  : oldClass =>newClass
+    // 重新 将future Classe 插入哈希表 remapped_class_map ，映射关系: oldClass =>newClass
     if (!noClassesRemapped()) {
         for (EACH_HEADER) {
             Class *classrefs = _getObjc2ClassRefs(hi, &count);
@@ -2429,10 +2387,9 @@ hIndex++
             }
         }
     }
-    
     ts.log("IMAGE TIMES: remap classes");
     
-    // 3、遍历hList数组，将所有的 SEL 插入哈希表 namedSelectors，映射关系为 ： name=> SEL
+    // 3、遍历hList数组，将所有的SEL插入哈希表 namedSelectors，映射关系为 name=> SEL
     static size_t UnfixedSelectors;
     {
         mutex_locker_t lock(selLock);
@@ -2476,7 +2433,6 @@ hIndex++
         NXMapTable *protocol_map = protocols();//获取哈希表 protocol_map
         bool isPreoptimized = hi->isPreoptimized();
         bool isBundle = hi->isBundle();
-        
         protocol_t **protolist = _getObjc2ProtocolList(hi, &count);
         for (i = 0; i < count; i++) {
             //为协议设置 isa = OBJC_CLASS_$_Protocol ，将协议插入哈希表 protocol_map
@@ -2489,19 +2445,26 @@ hIndex++
         // 需要注意到是，下面的函数是_getObjc2ProtocolRefs，和上面的_getObjc2ProtocolList不一样
         protocol_t **protolist = _getObjc2ProtocolRefs(hi, &count);
         for (i = 0; i < count; i++) {
+            if (hi->mhdr()->filetype == MH_EXECUTE) {
+                printf("_read_images : protocol_t == %s \n",((protocol_t)*protolist[i]).demangledName());
+            }
             remapProtocolRef(&protolist[i]);
         }
     }
     ts.log("IMAGE TIMES: fix up @protocol references");
     
-    // 实现非懒加载的类，对于load方法和静态实例变量
-    //5、遍历hList数组，从哈希表remapped_class_map中获取非懒加载的运行时结构的类，将该类加入哈希表 allocatedClasses
+    /* 5、遍历hList数组，将实现了+load方法的类及元类加入哈希表 allocatedClasses
+     * 并将该类的ro中的信息全部拷贝至rw上，将分类的方法、属性、协议也添加至rw
+     */
     for (EACH_HEADER) {
-        classref_t *classlist = _getObjc2NonlazyClassList(hi, &count);
+        classref_t *classlist = _getObjc2NonlazyClassList(hi, &count);//获取实现了+load方法的类的列表
         for (i = 0; i < count; i++) {
-            Class cls = remapClass(classlist[i]);//从哈希表remapped_class_map中获取非懒加载的运行时结构的类
+            if (hi->mhdr()->filetype == MH_EXECUTE) {
+                printf("_read_images : Class == %s \n",((Class)classlist[i])->demangledName());
+            }
+            //针对 future class，从哈希表 remapped_class_map 中获取非懒加载的运行时结构的类
+            Class cls = remapClass(classlist[i]);
             if (!cls) continue;
-            
             // hack for class __ARCLite__, which didn't get this above
 #if TARGET_OS_SIMULATOR
             if (cls->cache._buckets == (void*)&_objc_empty_cache  &&
@@ -2515,9 +2478,8 @@ hIndex++
                 cls->ISA()->cache._occupied = 0;
             }
 #endif
-            
-            addClassTableEntry(cls);//加入哈希表 allocatedClasses
-            realizeClass(cls);//实现所有非懒加载的类(实例化类对象的一些信息，例如rw)
+            addClassTableEntry(cls);//将该类及元类加入哈希表 allocatedClasses
+            realizeClass(cls);//将ro中的信息全部拷贝至rw上，并将分类的方法、属性、协议也添加至rw
         }
     }
     
@@ -2531,33 +2493,24 @@ hIndex++
         }
         free(resolvedFutureClasses);
     }
-    
     ts.log("IMAGE TIMES: realize future classes");
     
     // 发现和处理所有Category
     for (EACH_HEADER) {
-        // 外部循环遍历找到当前类，查找类对应的Category数组
-        // 调用 _getObjc2CategoryList() 函数获取所有的分类
-        category_t **catlist =
-        _getObjc2CategoryList(hi, &count);
+        category_t **catlist = _getObjc2CategoryList(hi, &count);//获取所有的分类
         bool hasClassProperties = hi->info()->hasCategoryClassProperties();
-        
-        // 内部循环遍历当前类的所有Category
         for (i = 0; i < count; i++) {
             category_t *cat = catlist[i];//取出列表中指定索引的分类
-            
-            /* 由于分类所属的类 cat->cls 的类结构可能被改变，此时 cls 指针指向已重新分配的类结构
-             * 所以在此处获取 cls 的实时类指针，重新映射该类，否则指向一个无效的类
+            /* 由于cat->cls的类结构可能被改变，此时cls指针指向已重新分配的类结构
+             * 所以在此处获取cls的实时类指针，重新映射该类，否则指向一个无效的类
              * 如果由于链接弱而忽略 cls 则 remapClass() 返回nil。
              */
             Class cls = remapClass(cat->cls);
-            
             if (!cls) {
                 // Category的目标类丢失了(可能是弱链接的)：将 Category 实例置为 nil
                 catlist[i] = nil;
                 if (PrintConnecting) {
-                    _objc_inform("CLASS: IGNORING category \?\?\?(%s) %p with "
-                                 "missing weak-linked target class",
+                    _objc_inform("CLASS: IGNORING category \?\?\?(%s) %p with missing weak-linked target class",
                                  cat->name, cat);
                 }
                 continue;
@@ -2566,6 +2519,9 @@ hIndex++
             // 首先，通过其所属的类注册Category。如果这个类已经被实现，则重新构造类的方法列表。
             // 然后，如果实现了类，则重建类的方法列表(etc)。
             bool classExists = NO;
+            if (hi->mhdr()->filetype == MH_EXECUTE) {
+                printf("_read_images : category_t == %s \n",((Class)cat->cls)->demangledName());
+            }
             if (cat->instanceMethods ||  cat->protocols ||  cat->instanceProperties){
                 // 将Category添加到对应Class的value中，value是Class对应的所有category数组
                 addUnattachedCategoryForClass(cat, cls, hi);

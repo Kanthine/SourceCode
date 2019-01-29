@@ -9,6 +9,12 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@protocol PeopleModelDelegate <NSObject>
+
+- (void)PeopleModelTestProtocol;
+
+@end
+
 @interface PeopleModel : NSObject
 
 @end
@@ -23,7 +29,7 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 
-@interface WomanModel(WomanCategory)
+@interface WomanModel(WomanCategory)<PeopleModelDelegate>
 
 @end
 

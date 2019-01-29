@@ -135,10 +135,8 @@ static SEL search_builtins(const char *name){
  */
 static SEL __sel_registerName(const char *name, bool shouldLock, bool copy){
     SEL result = 0;
-    
     if (shouldLock) selLock.assertUnlocked();
     else selLock.assertLocked();
-    
     if (!name) return (SEL)0;
     
     result = search_builtins(name);
@@ -150,8 +148,6 @@ static SEL __sel_registerName(const char *name, bool shouldLock, bool copy){
     }
     if (result) return result;
     
-    // No match. Insert.
-    
     if (!namedSelectors) {//如果哈希表还没有创建，则创建一个哈希表
         namedSelectors = NXCreateMapTable(NXStrValueMapPrototype, (unsigned)SelrefCount);
     }
@@ -160,7 +156,6 @@ static SEL __sel_registerName(const char *name, bool shouldLock, bool copy){
         result = sel_alloc(name, copy);
         NXMapInsert(namedSelectors, sel_getName(result), result);
     }
-    
     return result;
 }
 

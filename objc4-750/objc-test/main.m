@@ -16,6 +16,11 @@ int main(int argc, const char * argv[]) {
         model.name = @"Hello Word!";
         [model logName];
         NSLog(@"model === %p",model);
+        
+        
+        NSURL *url = [[NSURL alloc] initWithString:@"http://www.baidu.com"];
+        CFURLRef ref = (__bridge CFURLRef)url;
+
     }
     return 0;
 }

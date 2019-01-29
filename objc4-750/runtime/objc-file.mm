@@ -48,8 +48,8 @@ GETSECT(_getObjc2SelectorRefs,        SEL,             "__objc_selrefs"); //被�
 GETSECT(_getObjc2MessageRefs,         message_ref_t,   "__objc_msgrefs"); //
 GETSECT(_getObjc2ClassRefs,           Class,           "__objc_classrefs");//获取被引用的 OC 类
 GETSECT(_getObjc2SuperRefs,           Class,           "__objc_superrefs");//获取被引用的 OC 类的父类
-GETSECT(_getObjc2ClassList,           classref_t,      "__objc_classlist");//获取所有的Class
-GETSECT(_getObjc2NonlazyClassList,    classref_t,      "__objc_nlclslist");//获取实现了+load方法的类的列表
+GETSECT(_getObjc2ClassList,           classref_t,      "__objc_classlist");//获取所有类
+GETSECT(_getObjc2NonlazyClassList,    classref_t,      "__objc_nlclslist");//获取实现了+load方法的类
 GETSECT(_getObjc2CategoryList,        category_t *,    "__objc_catlist");//获取所有的 category
 GETSECT(_getObjc2NonlazyCategoryList, category_t *,    "__objc_nlcatlist");//获取非懒加载的所有的分类的列表
 GETSECT(_getObjc2ProtocolList,        protocol_t *,    "__objc_protolist");//获取所有的 Protocol
