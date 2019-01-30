@@ -51,7 +51,7 @@ GETSECT(_getObjc2SuperRefs,           Class,           "__objc_superrefs");//获
 GETSECT(_getObjc2ClassList,           classref_t,      "__objc_classlist");//获取所有类
 GETSECT(_getObjc2NonlazyClassList,    classref_t,      "__objc_nlclslist");//获取实现了+load方法的类
 GETSECT(_getObjc2CategoryList,        category_t *,    "__objc_catlist");//获取所有的 category
-GETSECT(_getObjc2NonlazyCategoryList, category_t *,    "__objc_nlcatlist");//获取非懒加载的所有的分类的列表
+GETSECT(_getObjc2NonlazyCategoryList, category_t *,    "__objc_nlcatlist");//获取实现了+load方法的分类列表
 GETSECT(_getObjc2ProtocolList,        protocol_t *,    "__objc_protolist");//获取所有的 Protocol
 GETSECT(_getObjc2ProtocolRefs,        protocol_t *,    "__objc_protorefs");//OC 协议引用
 GETSECT(getLibobjcInitializers,       UnsignedInitializer, "__objc_init_func");

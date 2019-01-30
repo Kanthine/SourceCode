@@ -29,6 +29,10 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 
+@interface ManModel(ManCategory)
++ (void)losdaf;
+@end
+
 @interface WomanModel(WomanCategory)<PeopleModelDelegate>
 
 @end

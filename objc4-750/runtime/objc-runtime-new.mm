@@ -336,8 +336,7 @@ static class_ro_t *make_ro_writeable(class_rw_t *rw)
     if (rw->flags & RW_COPIED_RO) {
         // already writeable, do nothing
     } else {
-        class_ro_t *ro = (class_ro_t *)
-        memdup(rw->ro, sizeof(*rw->ro));
+        class_ro_t *ro = (class_ro_t *)memdup(rw->ro, sizeof(*rw->ro));
         rw->ro = ro;
         rw->flags |= RW_COPIED_RO;
     }
@@ -345,22 +344,16 @@ static class_ro_t *make_ro_writeable(class_rw_t *rw)
 }
 
 
-/* 获取未添加到 Class 中的 category 哈希表
- * @key 哈希表的键，是指定的 class
- * @value 键值，是一个结构数组，数组中存储结构 locstamped_category_t
- * Locking: runtimeLock must be held by the caller.
+/* 获取哈希表category_map：该哈希表用于存储未添加到 Class 中的 category
+ * 映射关系为 class=>locstamped_category_t
  */
-static NXMapTable *unattachedCategories(void)
-{
+static NXMapTable *unattachedCategories(void){
     runtimeLock.assertLocked();
-    // 未添加到Class中的category哈希表
     static NXMapTable *category_map = nil;
-    
     if (category_map) return category_map;
-    category_map = NXCreateMapTable(NXPtrValueMapPrototype, 16);// 创建一个哈希表
+    category_map = NXCreateMapTable(NXPtrValueMapPrototype, 16);
     return category_map;
 }
-
 
 /* 判断指定的指针是否位于加载镜像的数据段中
  * @param ptr 指定的指针
@@ -454,101 +447,69 @@ static bool isKnownClass(Class cls) {
  */
 static void addClassTableEntry(Class cls, bool addMeta = true) {
     runtimeLock.assertLocked();
-    
-    // 允许 cls 通过共享缓存或数据段成为已知类，但它不允许已经在allocatedClasses中。
     assert(!NXHashMember(allocatedClasses, cls));
     if (!isKnownClass(cls))
-        NXHashInsert(allocatedClasses, cls);//未知类
+        NXHashInsert(allocatedClasses, cls);
     if (addMeta)
-        addClassTableEntry(cls->ISA(), false);//addMeta = true，再次添加其元类
+        addClassTableEntry(cls->ISA(), false);//添加其元类
 }
 
-
-/* 检查指定的类是否已知：
- * @note 按指定的顺序查找：
- *       1、检查共享区域
- *       2、检查哈希表 allocatedClasses
- *       3、检查加载镜像的数据段中
- * 只要在任何一处查找到，则返回 YES
- * 如果没有找到，则程序终止。
- */
 static void checkIsKnownClass(Class cls){
     if (!isKnownClass(cls))
         _objc_fatal("Attempt to use unknown class %p.", cls);
 }
 
+#pragma mark - 哈希表 category_map 的操作
 
-
-/* 将指定分类插入到哈希表中：在哈希表中对 Class 和 Category 做一个映射关联
- * @param cat 指定分类的结构指针；
- * @param cls 指定的类；
- * Locking: runtimeLock must be held by the caller.
+/* 将指定分类插入到哈希表category_map，映射关系为 class=>locstamped_category_t
+ * @note 调用时机：_read_images() 函数中处理 category_t 时才调用
  */
-static void addUnattachedCategoryForClass(category_t *cat, Class cls,
-                                          header_info *catHeader)
-{
+static void addUnattachedCategoryForClass(category_t *cat, Class cls, header_info *catHeader){
     runtimeLock.assertLocked();
-    NXMapTable *cats = unattachedCategories();// 获取到未添加的Category哈希表
+    NXMapTable *cats = unattachedCategories();
     category_list *list;
-    list = (category_list *)NXMapGet(cats, cls);// 获取未添加到 Class 中的 category 数组
+    list = (category_list *)NXMapGet(cats, cls);
     if (!list) {
-        //如果数组为 NULL ，为数组分配内存空间
-        list = (category_list *)
-        calloc(sizeof(*list) + sizeof(list->list[0]), 1);
+        list = (category_list *)calloc(sizeof(*list) + sizeof(list->list[0]), 1);
     } else {
-        //如果数组有值，分配一个新的 内存空间存储指定的 cat
-        list = (category_list *)
-        realloc(list, sizeof(*list) + sizeof(list->list[0]) * (list->count + 1));
+        list = (category_list *)realloc(list, sizeof(*list) + sizeof(list->list[0]) * (list->count + 1));
     }
-    // 将指定的 cat 存储在新分配的内存上
     list->list[list->count++] = (locstamped_category_t){cat, catHeader};
-    //插入哈希表
     NXMapInsert(cats, cls, list);
 }
 
-/* 将指定分类从到哈希表中移除：解除 Class 和 Category 之间的映射关系
- * Locking: runtimeLock must be held by the caller.
+/* 将指定分类从到哈希表category_map中移除
  */
-static void removeUnattachedCategoryForClass(category_t *cat, Class cls)
-{
+static void removeUnattachedCategoryForClass(category_t *cat, Class cls){
     runtimeLock.assertLocked();
-    NXMapTable *cats = unattachedCategories();//获取未添加到Class中的category哈希表
+    NXMapTable *cats = unattachedCategories();
     category_list *list;
-    list = (category_list *)NXMapGet(cats, cls);// 获取未添加到 Class 中的 category 数组
-    if (!list) return;//如果取出的值为 NULL ，则返回
+    list = (category_list *)NXMapGet(cats, cls);
+    if (!list) return;
     
     //遍历分类数组，查找指定的分类 category_t
     uint32_t i;
     for (i = 0; i < list->count; i++) {
-        if (list->list[i].cat == cat) {//在分类数组中找到指定的 category_t
+        if (list->list[i].cat == cat) {
             //删除该category_t 并 移动条目以保留列表顺序
-            memmove(&list->list[i], &list->list[i+1],
-                    (list->count-i-1) * sizeof(list->list[i]));
+            memmove(&list->list[i], &list->list[i+1],(list->count-i-1) * sizeof(list->list[i]));
             list->count--;//重置数组元素数量
             return;
         }
     }
 }
 
-
-/* 从哈希表中获取指定类的未附加类别列表，并将其从哈希表中移除。
- * @param realizing
+/* 从哈希表 category_map 中获取没有添加到指定类的category_list，并将category_list从哈希表中移除
  * @note 最后需要释放获取的列表。
- * Locking: runtimeLock must be held by the caller.
  */
 static category_list *unattachedCategoriesForClass(Class cls, bool realizing){
-//    runtimeLock.assertWriting();
     runtimeLock.assertLocked();
-    //unattachedCategories() 函数获取未添加到 Class 中的 category 数组
-    //NXMapRemove() 函数移除哈希表中的键值对，并返回与键关联的值
     return (category_list *)NXMapRemove(unattachedCategories(), cls);
 }
 
-/* 从哈希表中获取指定类的未附加分类列表，并将其从哈希表中移除；然后释放掉获取的分类数组；
- * Locking: runtimeLock must be held by the caller.
+/* 从哈希表 category_map 删除指定类的category_list
  */
 static void removeAllUnattachedCategoriesForClass(Class cls){
-//    runtimeLock.assertWriting();
     runtimeLock.assertLocked();
     void *list = NXMapRemove(unattachedCategories(), cls);
     if (list) free(list);
@@ -556,8 +517,7 @@ static void removeAllUnattachedCategoriesForClass(Class cls){
 
 /* 获取 NSObject 类
  */
-static Class classNSObject(void)
-{
+static Class classNSObject(void){
     extern objc_class OBJC_CLASS_$_NSObject;
     return (Class)&OBJC_CLASS_$_NSObject;
 }
@@ -626,8 +586,7 @@ static void printReplacements(Class cls, category_list *cats)
 }
 
 //判断是否是 Bundle 中的类
-static bool isBundleClass(Class cls)
-{
+static bool isBundleClass(Class cls){
     return cls->data()->ro->flags & RO_FROM_BUNDLE;
 }
 
@@ -714,6 +673,12 @@ static void prepareMethodLists(Class cls, method_list_t **addedLists, int addedC
  */
 static void attachCategories(Class cls, category_list *cats, bool flush_caches){
     if (!cats) return;
+    
+    if (strcmp("WomanModel", cls->mangledName()) == 0 ||
+        strcmp("ManModel", cls->mangledName()) == 0) {
+        printf("attachCategories ==== start ：%s \n",cls->mangledName());
+    }
+    
     if (PrintReplacedMethods) printReplacements(cls, cats);
     bool isMeta = cls->isMetaClass();
     
@@ -724,8 +689,7 @@ static void attachCategories(Class cls, category_list *cats, bool flush_caches){
     method_list_t **mlists = (method_list_t **)malloc(cats->count * sizeof(*mlists));
     property_list_t **proplists = (property_list_t **)malloc(cats->count * sizeof(*proplists));
     protocol_list_t **protolists = (protocol_list_t **)malloc(cats->count * sizeof(*protolists));
-    
-    
+
     // 倒序遍历分类列表，最先得到最新的分类
     int mcount = 0;//方法数量
     int propcount = 0;//属性数量
@@ -741,8 +705,7 @@ static void attachCategories(Class cls, category_list *cats, bool flush_caches){
             fromBundle |= entry.hi->isBundle();// 分类的头部信息中存储了是否是 bundle，将其记住
         }
         //获取属性列表：如果是元类返回 nil ；否则返回实例属性列表
-        property_list_t *proplist =
-        entry.cat->propertiesForMeta(isMeta, entry.hi);
+        property_list_t *proplist = entry.cat->propertiesForMeta(isMeta, entry.hi);
         if (proplist) {
             proplists[propcount++] = proplist;//将属性列表存入二维数组 proplists中
         }
@@ -765,21 +728,30 @@ static void attachCategories(Class cls, category_list *cats, bool flush_caches){
     
     rw->protocols.attachLists(protolists, protocount);
     free(protolists);
+    
+    if (strcmp("WomanModel", cls->mangledName()) == 0) {
+        printf("attachCategories ---- end   \n");
+    }
 }
 
 
 /* methodizeClass 为 Class 指定顺序：
  * 将 ro 的方法、属性、协议复制到 rw 上；
  * 将分类中的方法列表、属性列表和协议列表添加到类
+ * 仅仅被 realizeClass() 函数调用；
  * Locking: runtimeLock must be held by the caller
  */
 static void methodizeClass(Class cls){
     runtimeLock.assertLocked();
+    
+    if ((strcmp("WomanModel", cls->mangledName()) == 0 ||
+        strcmp(cls->demangledName(), "ManModel") == 0) && !cls->isMetaClass() ) {
+        printf("methodizeClass  ==== start : %s \n",cls->mangledName());
+    }
+    
     bool isMeta = cls->isMetaClass();
     auto rw = cls->data();
     auto ro = rw->ro;
-    
-    // Methodizing for the first time
     if (PrintConnecting) {
         _objc_inform("CLASS: methodizing class '%s' %s",cls->nameForLogging(), isMeta ? "(meta)" : "");
     }
@@ -798,13 +770,18 @@ static void methodizeClass(Class cls){
         rw->protocols.attachLists(&protolist, 1);
     }
     
-    // 如果根类还没有方法实现，那么它们将获得额外的方法实现。这些适用于类别替换之前。
     if (cls->isRootMetaclass()) {
-        // 根元类
+        // 根元类：如果根类还没有方法实现，那么它们将获得额外的方法实现；适用于类别替换之前。
         addMethod(cls, SEL_initialize, (IMP)&objc_noop_imp, "", NO);
     }
-    // 将分类中的方法列表、属性列表和协议列表添加到类
-    category_list *cats = unattachedCategoriesForClass(cls, true /*realizing*/);
+    
+    if (strcmp(cls->demangledName(), "ManModel") == 0 && !cls->isMetaClass()) {
+        printf("methodizeClass  ====  ManModel \n");
+    }
+    
+    //从哈希表 category_map 中获取没有添加到指定类的category_list，并将category_list从哈希表中移除
+    //将分类中的方法列表、属性列表和协议列表添加到类
+    category_list *cats = unattachedCategoriesForClass(cls, true);
     attachCategories(cls, cats, false /*don't flush caches*/);
     if (PrintConnecting) {
         if (cats) {
@@ -826,6 +803,12 @@ static void methodizeClass(Class cls){
         assert(sel_registerName(sel_getName(meth.name)) == meth.name);
     }
 #endif
+    
+    
+    if ((strcmp("WomanModel", cls->mangledName()) == 0 ||
+         strcmp(cls->demangledName(), "ManModel") == 0) && !cls->isMetaClass() ) {
+        printf("methodizeClass  ---- end   \n");
+    }
 }
 
 /* 将未完成的类别附加到现有类。
@@ -833,20 +816,16 @@ static void methodizeClass(Class cls){
  * 更新 cls 及其子类的方法缓存。
  * Locking: runtimeLock must be held by the caller
  */
-static void remethodizeClass(Class cls)
-{
-    category_list *cats;//未添加到类的分类列表
+static void remethodizeClass(Class cls){
+    category_list *cats;//未添加到 cls 的 category_list
     bool isMeta;
-    
     runtimeLock.assertLocked();
-    
-    isMeta = cls->isMetaClass();//是否是元类
+    isMeta = cls->isMetaClass();
     
     //获取指定类的未附加类别列表，并将其从哈希表中删除
     if ((cats = unattachedCategoriesForClass(cls, false/*not realizing*/))) {
         if (PrintConnecting) {
-            _objc_inform("CLASS: attaching categories to class '%s' %s",
-                         cls->nameForLogging(), isMeta ? "(meta)" : "");
+            _objc_inform("CLASS: attaching categories to class '%s' %s",cls->nameForLogging(), isMeta ? "(meta)" : "");
         }
         
         //将分类中的方法列表、属性列表和协议列表添加到类；并清空方法缓存
@@ -858,30 +837,26 @@ static void remethodizeClass(Class cls)
 
 /***********************************************************************
  * nonMetaClasses
- * Returns the secondary metaclass => class map
+ * Returns the secondary metaclass=>class map
  * Used for some cases of +initialize and +resolveClassMethod:.
- * This map does not contain all class and metaclass pairs. It only
- * contains metaclasses whose classes would be in the runtime-allocated
- * named-class table, but are not because some other class with the same name
- * is in that table.
- * Classes with no duplicates are not included.
- * Classes in the preoptimized named-class table are not included.
- * Classes whose duplicates are in the preoptimized table are not included.
- * Most code should use getNonMetaClass() instead of reading this table.
+ * This map does not contain all class and metaclass pairs. It only contains metaclasses whose classes would be in the runtime-allocated named-class table, but are not because some other class with the same name is in that table.
+ * 这个映射不包含所有的类和元类对。它只包含元类，这些元类的类将位于运行时分配的命名类表中，但并不是因为该表中有其他具有相同名称的类。
+ *
+ *
+ * 未包含没有重复的类。
+ * 未包含预优化的named-class表中的类。
+ * 未包含预优化表中重复项的类。
+ * 大多数代码应该使用 getNonMetaClass() 而不是读取该表。
  * Locking: runtimeLock must be read- or write-locked by the caller
  **********************************************************************/
 static NXMapTable *nonmeta_class_map = nil;
-static NXMapTable *nonMetaClasses(void)
-{
+static NXMapTable *nonMetaClasses(void){
     runtimeLock.assertLocked();
     
     if (nonmeta_class_map) return nonmeta_class_map;
     
     // nonmeta_class_map is typically small
-    INIT_ONCE_PTR(nonmeta_class_map,
-                  NXCreateMapTable(NXPtrValueMapPrototype, 32),
-                  NXFreeMapTable(v));
-    
+    INIT_ONCE_PTR(nonmeta_class_map,NXCreateMapTable(NXPtrValueMapPrototype, 32),NXFreeMapTable(v));
     return nonmeta_class_map;
 }
 
@@ -1034,15 +1009,11 @@ static char *copySwiftV1MangledName(const char *string, bool isProtocol = false)
 //哈希表：将类名映射到类，仅存储已实现的类
 NXMapTable *gdb_objc_realized_classes;
 
-/* 根据指定的名称获取一个类
- * @param name 指定的名称
+/* 根据类名称从哈希表gdb_objc_realized_classes获取指定的类
  */
-static Class getClass_impl(const char *name)
-{
+static Class getClass_impl(const char *name){
     runtimeLock.assertLocked();
-    
-    // 在 _read_images 中分配
-    assert(gdb_objc_realized_classes);
+    assert(gdb_objc_realized_classes);// 通过 _read_images() 分配
     
     // Try runtime-allocated table
     Class result = (Class)NXMapGet(gdb_objc_realized_classes, name);
@@ -1052,11 +1023,9 @@ static Class getClass_impl(const char *name)
     return getPreoptimizedClass(name);
 }
 
-/* 根据指定的名称获取一个类
- * @param name 指定的名称
+/* 根据类名称从哈希表gdb_objc_realized_classes获取指定的类
  */
-static Class getClass(const char *name)
-{
+static Class getClass(const char *name){
     runtimeLock.assertLocked();
     
     // Try name as-is
@@ -1074,16 +1043,7 @@ static Class getClass(const char *name)
 }
 
 
-/*
- *
- * @param cls 指定的类
- * @param name 指定的名称
- * @param
- *
- * 将 name=>cls 添加到命名的非元类映射。
- * Adds name => cls to the named non-meta class map.
- * 警告类名重复，并保留旧映射。
- * Locking: runtimeLock must be held by the caller
+/* 将指定的类插入哈希表gdb_objc_realized_classes,映射关系为 name=>cls
  */
 static void addNamedClass(Class cls, const char *name, Class replacing = nil){
     runtimeLock.assertLocked();
@@ -1096,9 +1056,6 @@ static void addNamedClass(Class cls, const char *name, Class replacing = nil){
         NXMapInsert(gdb_objc_realized_classes, name, cls);
     }
     assert(!(cls->data()->flags & RO_META));
-    
-    // wrong: constructed classes are already realized when they get here
-    // assert(!cls->isRealized());
 }
 
 
@@ -1705,22 +1662,22 @@ static void reconcileInstanceVariables(Class cls, Class supercls, const class_ro
  *                            objc_class->class_data_bits_t->class_ro_t
  *       realizeClass() 函数之后的类结构：
  *                             objc_class->class_data_bits_t->class_rw_t->class_ro_t
- *
  */
 static Class realizeClass(Class cls){
     runtimeLock.assertLocked();
-    
     const class_ro_t *ro;
     class_rw_t *rw;
     Class supercls;
     Class metacls;
     bool isMeta;
-    
     if (!cls) return nil;
     if (cls->isRealized()) return cls;
-    assert(cls == remapClass(cls));//
+    assert(cls == remapClass(cls));
     
-    // fixme verify class is not in an un-dlopened part of the shared cache?
+    if (strcmp(cls->demangledName(), "WomanModel") == 0 ||
+        strcmp(cls->demangledName(), "ManModel") == 0) {
+        printf("realizeClass ==== start  \n");
+    }
     
     ro = (const class_ro_t *)cls->data();//编译器读取的类结构没有 class_rw_t ，此处需要强制转换
     if (ro->flags & RO_FUTURE) {
@@ -1810,6 +1767,11 @@ static Class realizeClass(Class cls){
     
     // 将ro的方法、属性、协议拷贝到rw上；将分类中的方法列表、属性列表和协议列表添加到类的rw上
     methodizeClass(cls);
+    
+    if (strcmp(cls->demangledName(), "WomanModel") == 0  ||
+        strcmp(cls->demangledName(), "ManModel") == 0) {
+        printf("realizeClass ---- end \n");
+    }
     
     return cls;
 }
@@ -1995,16 +1957,10 @@ void map_images(unsigned count, const char * const paths[],const struct mach_hea
 extern bool hasLoadMethods(const headerType *mhdr);
 extern void prepare_load_methods(const headerType *mhdr);
 
-/* load_images() 函数会多次调用（每个类都会调用一次）
- *
- * 进程 +load 被dyld映射到的指定镜像。
- * Process +load in the given images which are being mapped in by dyld.
- * Locking: write-locks runtimeLock and loadMethodLock
+/* 处理指定镜像中实现的 +load 方法
  */
 void load_images(const char *path __unused, const struct mach_header *mh){
-    // 如果没有 +load 方法，直接返回
     if (!hasLoadMethods((const headerType *)mh)) return;
-    
     recursive_mutex_locker_t lock(loadMethodLock);
     
     // 寻找 +load 方法
@@ -2012,11 +1968,10 @@ void load_images(const char *path __unused, const struct mach_header *mh){
         mutex_locker_t lock2(runtimeLock);
         prepare_load_methods((const headerType *)mh);
     }
-    
+        
     // 调用 +load 方法
     call_load_methods();
 }
-
 
 /***********************************************************************
  * unmap_image
@@ -2092,8 +2047,8 @@ readthem:
 Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
     const char *mangledName = cls->mangledName();
     
-    if (strcmp(cls->demangledName(), "MyModel") == 0) {
-        printf("readClass : Class1 == %s ： %x \n",cls->demangledName(),cls->data()->flags);
+    if (strcmp(cls->demangledName(), "WomanModel") == 0) {
+        printf("readClass ==== start  \n");
     }
 
     if (missingWeakSuperclass(cls)) {
@@ -2167,6 +2122,11 @@ Class readClass(Class cls, bool headerIsBundle, bool headerIsPreoptimized){
         cls->data()->flags |= RO_FROM_BUNDLE;
         cls->ISA()->data()->flags |= RO_FROM_BUNDLE;
     }
+    
+    if (strcmp(cls->demangledName(), "WomanModel") == 0) {
+        printf("readClass ---- end   \n");
+    }
+    
     return cls;
 }
 
@@ -2253,25 +2213,14 @@ static void readProtocol(protocol_t *newproto, Class protocol_class, NXMapTable 
  * 3、遍历hList数组，将所有的 SEL 插入哈希表 namedSelectors，映射关系为name=>SEL
  * 4、遍历hList数组，设置protocol_t的isa，将其插入哈希表protocol_map，映射关系为name=>protocol_t
  * 5、遍历hList数组，将实现了+load方法的类及元类加入哈希表 allocatedClasses
- *    并将该类的ro中的信息全部拷贝至rw上，将分类的方法、属性、协议也添加至rw
+ *    并将该类的ro中的信息全部拷贝至rw上
+ * 6、遍历hList数组，将实现了+load方法的Category的方法、属性、协议添加到 cat->cls-rw
  *
- *
- * 1、加载所有类到类的 gdb_objc_realized_classes 表中；
- * 2、对所有类做重映射；
- * 3、将所有SEL都注册到namedSelectors表中；
- * 4、修复函数指针遗留；
- * 5、将所有Protocol都添加到protocol_map表中；
- * 6、对所有Protocol做重映射；
- * 7、初始化所有非懒加载的类，进行rw、ro等操作；
- * 8、遍历已标记的懒加载的类，并做初始化操作；
- * 9、处理所有Category，包括Class和Meta Class；
- * 10、初始化所有未初始化的类；
- *
- * 从 headerList 开始对链表中的头文件执行初始处理。
- * 被 map_images_nolock() 调用
- * 锁定:由map_images获取的runtimeLock
  */
 void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int unoptimizedTotalClasses){
+    
+    printf("_read_images ====== start \n");
+    
     header_info *hi;
     uint32_t hIndex;
     size_t count;
@@ -2401,7 +2350,7 @@ hIndex++
             for (i = 0; i < count; i++) {
                 const char *name = sel_cname(sels[i]);
                 if (hi->mhdr()->filetype == MH_EXECUTE) {
-                    printf("sel_cname == %s \n",name);
+                    printf("_read_images : sel_cname == %s \n",name);
                 }
                 sels[i] = sel_registerNameNoLock(name, isBundle);
             }
@@ -2446,7 +2395,7 @@ hIndex++
         protocol_t **protolist = _getObjc2ProtocolRefs(hi, &count);
         for (i = 0; i < count; i++) {
             if (hi->mhdr()->filetype == MH_EXECUTE) {
-                printf("_read_images : protocol_t == %s \n",((protocol_t)*protolist[i]).demangledName());
+//                printf("_read_images : protocol_t == %s \n",((protocol_t)*protolist[i]).demangledName());
             }
             remapProtocolRef(&protolist[i]);
         }
@@ -2454,13 +2403,13 @@ hIndex++
     ts.log("IMAGE TIMES: fix up @protocol references");
     
     /* 5、遍历hList数组，将实现了+load方法的类及元类加入哈希表 allocatedClasses
-     * 并将该类的ro中的信息全部拷贝至rw上，将分类的方法、属性、协议也添加至rw
+     * 并将该类的ro中的信息全部拷贝至rw上，
      */
     for (EACH_HEADER) {
         classref_t *classlist = _getObjc2NonlazyClassList(hi, &count);//获取实现了+load方法的类的列表
         for (i = 0; i < count; i++) {
             if (hi->mhdr()->filetype == MH_EXECUTE) {
-                printf("_read_images : Class == %s \n",((Class)classlist[i])->demangledName());
+                printf("_read_images : Class-5 == %s \n",((Class)classlist[i])->demangledName());
             }
             //针对 future class，从哈希表 remapped_class_map 中获取非懒加载的运行时结构的类
             Class cls = remapClass(classlist[i]);
@@ -2479,12 +2428,10 @@ hIndex++
             }
 #endif
             addClassTableEntry(cls);//将该类及元类加入哈希表 allocatedClasses
-            realizeClass(cls);//将ro中的信息全部拷贝至rw上，并将分类的方法、属性、协议也添加至rw
+            realizeClass(cls);//将ro中的信息全部拷贝至rw上
         }
     }
-    
     ts.log("IMAGE TIMES: realize non-lazy classes");
-    
     // 遍历resolvedFutureClasses数组，实现所有懒加载的类
     if (resolvedFutureClasses) {
         for (i = 0; i < resolvedFutureClassCount; i++) {
@@ -2495,20 +2442,19 @@ hIndex++
     }
     ts.log("IMAGE TIMES: realize future classes");
     
-    // 发现和处理所有Category
+    /* 6、遍历hList数组，将实现了+load方法的Category的方法、属性、协议添加到 cat->cls-rw
+     */
     for (EACH_HEADER) {
-        category_t **catlist = _getObjc2CategoryList(hi, &count);//获取所有的分类
+        category_t **catlist = _getObjc2CategoryList(hi, &count);
         bool hasClassProperties = hi->info()->hasCategoryClassProperties();
         for (i = 0; i < count; i++) {
-            category_t *cat = catlist[i];//取出列表中指定索引的分类
+            category_t *cat = catlist[i];
             /* 由于cat->cls的类结构可能被改变，此时cls指针指向已重新分配的类结构
              * 所以在此处获取cls的实时类指针，重新映射该类，否则指向一个无效的类
-             * 如果由于链接弱而忽略 cls 则 remapClass() 返回nil。
              */
             Class cls = remapClass(cat->cls);
             if (!cls) {
-                // Category的目标类丢失了(可能是弱链接的)：将 Category 实例置为 nil
-                catlist[i] = nil;
+                catlist[i] = nil;// 由于链接弱而cat->cls 为 nil，则将 Category 实例置为 nil
                 if (PrintConnecting) {
                     _objc_inform("CLASS: IGNORING category \?\?\?(%s) %p with missing weak-linked target class",
                                  cat->name, cat);
@@ -2516,14 +2462,9 @@ hIndex++
                 continue;
             }
             
-            // 首先，通过其所属的类注册Category。如果这个类已经被实现，则重新构造类的方法列表。
-            // 然后，如果实现了类，则重建类的方法列表(etc)。
             bool classExists = NO;
-            if (hi->mhdr()->filetype == MH_EXECUTE) {
-                printf("_read_images : category_t == %s \n",((Class)cat->cls)->demangledName());
-            }
             if (cat->instanceMethods ||  cat->protocols ||  cat->instanceProperties){
-                // 将Category添加到对应Class的value中，value是Class对应的所有category数组
+                //将指定分类插入到哈希表category_map，映射关系为 class=>locstamped_category_t
                 addUnattachedCategoryForClass(cat, cls, hi);
                 if (cls->isRealized()) {
                     // 将Category的method、protocol、property添加到Class
@@ -2537,9 +2478,7 @@ hIndex++
             }
             
             if (cat->classMethods  ||  cat->protocols ||  (hasClassProperties && cat->_classProperties)){
-                /* addUnattachedCategoryForClass() 为类添加独立的类别
-                 * 该函数会对 Class 和 Category 做一个映射关联
-                 */
+                //将指定分类插入到哈希表category_map，映射关系为 class=>locstamped_category_t
                 addUnattachedCategoryForClass(cat, cls->ISA(), hi);
                 if (cls->ISA()->isRealized()) {
                     
@@ -2550,18 +2489,14 @@ hIndex++
                     remethodizeClass(cls->ISA());
                 }
                 if (PrintConnecting) {
-                    _objc_inform("CLASS: found category +%s(%s)",
-                                 cls->nameForLogging(), cat->name);
+                    _objc_inform("CLASS: found category +%s(%s)",cls->nameForLogging(), cat->name);
                 }
             }
         }
     }
-    
     ts.log("IMAGE TIMES: discover categories");
     
-    // 初始化从磁盘中加载的所有类，Category 必须是最后一个查找，以避免潜在的竞争
-    // 当其他线程在此线程完成修复之前调用新类别代码时:
-    // +load handled by prepare_load_methods()
+
     if (DebugNonFragileIvars) {
         realizeAllClasses();
     }
@@ -2623,6 +2558,7 @@ hIndex++
     }
     
 #undef EACH_HEADER
+    printf("_read_images ------ end \n");
 }
 
 
@@ -2642,7 +2578,7 @@ static void schedule_class_load(Class cls){
     // 确保 super 已经被添加到 +load 列表中，默认是整个继承者链的顺序
     schedule_class_load(cls->superclass);
     
-    // 将IMP和Class添加到调用列表
+    // 将IMP和Class添加到数组loadable_classes
     add_class_to_loadable_list(cls);
     
     // 设置Class的flags，表示已经添加Class到调用列表中
@@ -2657,8 +2593,7 @@ bool hasLoadMethods(const headerType *mhdr){
     return false;
 }
 
-/* 准备加载方法
- * @param mhdr 对于 64 位体系结构，64 位 mach 头出现在目标文件的最开头
+/* 指定镜像中所有实现的 +load 方法分别存储到数组loadable_classes 与数组 loadable_categories
  */
 void prepare_load_methods(const headerType *mhdr){
     size_t count, i;
@@ -2667,11 +2602,11 @@ void prepare_load_methods(const headerType *mhdr){
     //获取实现了+load方法的类的列表
     classref_t *classlist = _getObjc2NonlazyClassList(mhdr, &count);
     for (i = 0; i < count; i++) {
-        //打印主程序的类
-        if (mhdr->filetype == MH_EXECUTE) {
-            Class cls = (Class)classlist[i];
-            printf("className ==== %s \n",cls->demangledName());
-        }
+//        //打印主程序的类
+//        if (mhdr->filetype == MH_EXECUTE) {
+//            Class cls = (Class)classlist[i];
+//            printf("prepare_load_methods ==== %s \n",cls->demangledName());
+//        }
         schedule_class_load(remapClass(classlist[i]));
     }
     
@@ -5019,6 +4954,10 @@ void objc_class::chooseClassArrayIndex(){
 #if SUPPORT_INDEXED_ISA
     Class cls = (Class)this;
     runtimeLock.assertLocked();
+    
+    if (strcmp("WomanModel", cls->mangledName()) == 0) {
+        printf("chooseClassArrayIndex");
+    }
     
     if (objc_indexed_classes_count >= ISA_INDEX_COUNT) {
         // 没有更多的类索引可用

@@ -428,6 +428,8 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
     uint32_t hCount;
     size_t selrefCount = 0;
     
+    printf("map_images_nolock ====== start \n");
+    
     /* 1、首次调用，初始化共享缓存   */
     if (firstTime) {
         preopt_init();
@@ -534,6 +536,8 @@ void map_images_nolock(unsigned mhCount, const char * const mhPaths[], const str
     }
     
     firstTime = NO;
+    printf("map_images_nolock ------ end \n");
+
 }
 
 /* 处理将要被 dyld 取消映射的指定镜像
@@ -825,6 +829,9 @@ void _objc_init(void){
     if (initialized) return;
     initialized = true;
     
+    printf("_objc_init ==== start \n");
+
+    
     environ_init();//环境初始化,读取影响运行时的环境变量; 如果需要，还可以打印环境变量帮助。
     tls_init();//初始化线程存储的键
     static_init();//运行 C++ 静态构造函数
@@ -836,6 +843,9 @@ void _objc_init(void){
      * map_images 函数是初始化的关键，内部完成了大量 Runtime 环境的初始化操作。
      */
     _dyld_objc_notify_register(&map_images, load_images, unmap_image);
+    
+    printf("_objc_init ---- end \n");
+
 }
 
 /* 获取指定类或者分类的 header_info 信息

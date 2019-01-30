@@ -12,14 +12,15 @@
 
 int main(int argc, const char * argv[]) {
     @autoreleasepool {
+        
+        printf("\n\n objc-test ----- main \n");
+        
+
+        
         MyModel *model = [[MyModel alloc] init];
         model.name = @"Hello Word!";
         [model logName];
-        NSLog(@"model === %p",model);
-        
-        
-        NSURL *url = [[NSURL alloc] initWithString:@"http://www.baidu.com"];
-        CFURLRef ref = (__bridge CFURLRef)url;
+        printf("model === %p \n",model);
 
     }
     return 0;

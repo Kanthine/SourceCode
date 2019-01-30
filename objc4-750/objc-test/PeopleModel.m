@@ -9,14 +9,17 @@
 
 @implementation PeopleModel
 + (void)load{
-    printf("PeopleModel ========= +load \n");
+    printf("=========  PeopleModel ========= +load \n");
 }
 @end
 
 
 @implementation ManModel
 + (void)load{
-    printf("ManModel ========= +load \n");
+    printf("=========  ManModel ========= +load \n");
+    
+    [ManModel losdaf];
+    
 }
 @end
 
@@ -26,10 +29,18 @@
 @end
 
 
+@implementation ManModel(ManCategory)
+
++ (void)losdaf{
+    printf("=========  ManCategory ========= \n");
+}
+
+@end
+
 @implementation WomanModel(WomanCategory)
 
 + (void)load{
-    printf("WomanCategory ========= +load \n");
+    printf("=========  WomanCategory ========= +load \n");
 }
 
 - (void)PeopleModelTestProtocol{

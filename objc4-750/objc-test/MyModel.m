@@ -9,12 +9,8 @@
 
 @implementation MyModel
 
-+ (void)load{
-    printf("MyModel ========= +load \n");
-}
-
 + (void)initialize{
-    printf("MyModel ========= +initialize \n");
+    printf("=========  MyModel ========= +initialize \n");
 }
 
 - (void)logName{
