@@ -678,7 +678,7 @@ static void attachCategories(Class cls, category_list *cats, bool flush_caches){
         strcmp("ManModel", cls->mangledName()) == 0) {
         printf("attachCategories ==== start ：%s \n",cls->mangledName());
     }
-    
+
     if (PrintReplacedMethods) printReplacements(cls, cats);
     bool isMeta = cls->isMetaClass();
     
@@ -1252,6 +1252,11 @@ static void remapClassRef(Class *clsref){
 static Class getNonMetaClass(Class metacls, id inst){
     static int total, named, secondary, sharedcache;
     runtimeLock.assertLocked();
+    
+    if (strcmp("WomanModel", metacls->mangledName()) == 0 ||
+        strcmp("ManModel", metacls->mangledName()) == 0) {
+        printf("getNonMetaClass ==== start ：%s \n",metacls->mangledName());
+    }
     
     realizeClass(metacls);//实现一个类
     
@@ -2441,6 +2446,16 @@ hIndex++
         free(resolvedFutureClasses);
     }
     ts.log("IMAGE TIMES: realize future classes");
+    
+//    for (EACH_HEADER) {
+//        
+//        if (hi) {
+//            <#statements#>
+//        }
+//        
+//        category_t **catlist = _getObjc2CategoryList(hi, &count);
+//
+//    }
     
     /* 6、遍历hList数组，将实现了+load方法的Category的方法、属性、协议添加到 cat->cls-rw
      */
@@ -4431,6 +4446,7 @@ static void log_and_fill_cache(Class cls, IMP imp, SEL sel, id receiver, Class i
     cache_fill (cls, sel, imp, receiver);
 }
 
+#pragma mark - 标准IMP查找流程
 
 /* 查找方法并加载缓存
  * 仅为 dispatchers 查找方法。其他代码应该使用 lookUpImp()
@@ -4468,6 +4484,13 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst, bool initialize, bool cache,
     bool triedResolver = NO;//是否实行动态决议的标记，指标记防止循环调用 动态方法决议
     
     runtimeLock.assertUnlocked();
+    
+    
+    if (strcmp("WomanModel", cls->mangledName()) == 0 ||
+        strcmp("ManModel", cls->mangledName()) == 0) {
+        printf("lookUpImpOrForward ==== start ：%s \n",sel_cname(sel));
+    }
+
     
     if (cache) {// 先去缓存查找
         imp = cache_getImp(cls, sel);
