@@ -1,29 +1,3 @@
-/*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
- *
- * @APPLE_APACHE_LICENSE_HEADER_START@
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * @APPLE_APACHE_LICENSE_HEADER_END@
- */
-
-/*
- * IMPORTANT: This header file describes INTERNAL interfaces to libdispatch
- * which are subject to change in future releases of Mac OS X. Any applications
- * relying on these interfaces WILL break.
- */
-
 #ifndef __DISPATCH_SOURCE_INTERNAL__
 #define __DISPATCH_SOURCE_INTERNAL__
 
@@ -32,34 +6,27 @@
 #include <dispatch/base.h> // for HeaderDoc
 #endif
 
-// NOTE: dispatch_source_mach_send_flags_t and dispatch_source_mach_recv_flags_t
-//       bit values must not overlap as they share the same kevent fflags !
 
-/*!
- * @enum dispatch_source_mach_send_flags_t
- *
- * @constant DISPATCH_MACH_SEND_DELETED
- * Port-deleted notification. Disabled for source registration.
+// 注意: dispatch_source_mach_send_flags_t 和 dispatch_source_mach_recv_flags_t 位值不能重叠，
+// 因为它们共享相同的 kevent ff!
+
+/* @enum dispatch_source_mach_send_flags_t
+ * @constant DISPATCH_MACH_SEND_DELETED ： Port-deleted notification. 禁用 source registration.
  */
 enum {
-	DISPATCH_MACH_SEND_DELETED = 0x4,
+	DISPATCH_MACH_SEND_DELETED = 0x4, // 0100
 };
-/*!
- * @enum dispatch_source_mach_recv_flags_t
- *
- * @constant DISPATCH_MACH_RECV_MESSAGE
- * Receive right has pending messages
- *
- * @constant DISPATCH_MACH_RECV_NO_SENDERS
- * Receive right has no more senders. TODO <rdar://problem/8132399>
+/* @enum dispatch_source_mach_recv_flags_t
+ * @constant DISPATCH_MACH_RECV_MESSAGE 接收待处理的消息
+ * @constant DISPATCH_MACH_RECV_NO_SENDERS 没有更多发消息方
  */
 enum {
-	DISPATCH_MACH_RECV_MESSAGE = 0x2,
-	DISPATCH_MACH_RECV_NO_SENDERS = 0x10,
+	DISPATCH_MACH_RECV_MESSAGE = 0x2, // 0010
+	DISPATCH_MACH_RECV_NO_SENDERS = 0x10,// 00010000
 };
 
 enum {
-	DISPATCH_TIMER_WALL_CLOCK = 0x4,
+	DISPATCH_TIMER_WALL_CLOCK = 0x4,// 0100
 };
 
 #define DISPATCH_EVFILT_TIMER		(-EVFILT_SYSCOUNT - 1)

@@ -1,28 +1,7 @@
-/*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
- *
- * @APPLE_APACHE_LICENSE_HEADER_START@
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * @APPLE_APACHE_LICENSE_HEADER_END@
- */
-
 #include "internal.h"
 
 #undef dispatch_once
 #undef dispatch_once_f
-
 
 struct _dispatch_once_waiter_s {
 	volatile struct _dispatch_once_waiter_s *volatile dow_next;
@@ -32,19 +11,14 @@ struct _dispatch_once_waiter_s {
 #define DISPATCH_ONCE_DONE ((struct _dispatch_once_waiter_s *)~0l)
 
 #ifdef __BLOCKS__
-void
-dispatch_once(dispatch_once_t *val, dispatch_block_t block)
-{
+void dispatch_once(dispatch_once_t *val, dispatch_block_t block){
 	struct Block_basic *bb = (void *)block;
-
 	dispatch_once_f(val, block, (void *)bb->Block_invoke);
 }
 #endif
 
 DISPATCH_NOINLINE
-void
-dispatch_once_f(dispatch_once_t *val, void *ctxt, dispatch_function_t func)
-{
+void dispatch_once_f(dispatch_once_t *val, void *ctxt, dispatch_function_t func){
 	struct _dispatch_once_waiter_s * volatile *vval =
 			(struct _dispatch_once_waiter_s**)val;
 	struct _dispatch_once_waiter_s dow = { NULL, 0 };
