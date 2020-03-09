@@ -1,23 +1,3 @@
-/*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
- *
- * @APPLE_APACHE_LICENSE_HEADER_START@
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * @APPLE_APACHE_LICENSE_HEADER_END@
- */
-
 #include "internal.h"
 #if HAVE_MACH
 #include "protocol.h"
@@ -28,14 +8,12 @@
 #define DISPATCH_ENABLE_THREAD_POOL 1
 #endif
 
-static void _dispatch_cache_cleanup(void *value);
-static void _dispatch_async_f_redirect(dispatch_queue_t dq,
-		dispatch_continuation_t dc);
-static void _dispatch_queue_cleanup(void *ctxt);
-static bool _dispatch_queue_wakeup_global(dispatch_queue_t dq);
+static void _dispatch_cache_cleanup(void *value); //缓存清理
+static void _dispatch_async_f_redirect(dispatch_queue_t dq, dispatch_continuation_t dc);
+static void _dispatch_queue_cleanup(void *ctxt); //队列清理
+static bool _dispatch_queue_wakeup_global(dispatch_queue_t dq);//唤醒全局队列
 static void _dispatch_queue_drain(dispatch_queue_t dq);
-static inline _dispatch_thread_semaphore_t
-		_dispatch_queue_drain_one_barrier_sync(dispatch_queue_t dq);
+static inline _dispatch_thread_semaphore_t _dispatch_queue_drain_one_barrier_sync(dispatch_queue_t dq);
 static void _dispatch_worker_thread2(void *context);
 #if DISPATCH_ENABLE_THREAD_POOL
 static void *_dispatch_worker_thread(void *context);
@@ -54,9 +32,9 @@ static void _dispatch_queue_wakeup_main(void);
 static void _dispatch_main_queue_drain(void);
 #endif
 
-#pragma mark -
-#pragma mark dispatch_queue_vtable
+#pragma mark - dispatch_queue_vtable
 
+//虚函数表
 const struct dispatch_queue_vtable_s _dispatch_queue_vtable = {
 	.do_type = DISPATCH_QUEUE_TYPE,
 	.do_kind = "queue",
@@ -81,21 +59,20 @@ static const struct dispatch_queue_vtable_s _dispatch_queue_mgr_vtable = {
 	.do_probe = _dispatch_mgr_wakeup,
 };
 
-#pragma mark -
-#pragma mark dispatch_root_queue
+#pragma mark - dispatch_root_queue
 
+//如果拥有 pthread 工作队列
 #if HAVE_PTHREAD_WORKQUEUES
+// 优先级
 static const int _dispatch_root_queue_wq_priorities[] = {
-	[DISPATCH_ROOT_QUEUE_IDX_LOW_PRIORITY] = WORKQ_LOW_PRIOQUEUE,
-	[DISPATCH_ROOT_QUEUE_IDX_LOW_OVERCOMMIT_PRIORITY] = WORKQ_LOW_PRIOQUEUE,
-	[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_PRIORITY] = WORKQ_DEFAULT_PRIOQUEUE,
-	[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY] =
-			WORKQ_DEFAULT_PRIOQUEUE,
-	[DISPATCH_ROOT_QUEUE_IDX_HIGH_PRIORITY] = WORKQ_HIGH_PRIOQUEUE,
-	[DISPATCH_ROOT_QUEUE_IDX_HIGH_OVERCOMMIT_PRIORITY] = WORKQ_HIGH_PRIOQUEUE,
-	[DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_PRIORITY] = WORKQ_BG_PRIOQUEUE,
-	[DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_OVERCOMMIT_PRIORITY] =
-			WORKQ_BG_PRIOQUEUE,
+	[DISPATCH_ROOT_QUEUE_IDX_LOW_PRIORITY] 			  = WORKQ_LOW_PRIOQUEUE, // 低优先级
+	[DISPATCH_ROOT_QUEUE_IDX_LOW_OVERCOMMIT_PRIORITY] = WORKQ_LOW_PRIOQUEUE, // 低优先级
+	[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_PRIORITY] 			  = WORKQ_DEFAULT_PRIOQUEUE, // 默认优先级
+	[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY] = WORKQ_DEFAULT_PRIOQUEUE, // 默认优先级
+	[DISPATCH_ROOT_QUEUE_IDX_HIGH_PRIORITY] 		   = WORKQ_HIGH_PRIOQUEUE, // 高优先级
+	[DISPATCH_ROOT_QUEUE_IDX_HIGH_OVERCOMMIT_PRIORITY] = WORKQ_HIGH_PRIOQUEUE, // 高优先级
+	[DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_PRIORITY] 			 = WORKQ_BG_PRIOQUEUE, // 后台优先级
+	[DISPATCH_ROOT_QUEUE_IDX_BACKGROUND_OVERCOMMIT_PRIORITY] = WORKQ_BG_PRIOQUEUE, // 后台优先级
 };
 #endif
 
@@ -145,6 +122,7 @@ static struct dispatch_semaphore_s _dispatch_thread_mediator[] = {
 };
 #endif
 
+// 最大线程数量 255
 #define MAX_THREAD_COUNT 255
 
 struct dispatch_root_queue_context_s {
@@ -214,7 +192,7 @@ static struct dispatch_root_queue_context_s _dispatch_root_queue_contexts[] = {
 DISPATCH_CACHELINE_ALIGN
 struct dispatch_queue_s _dispatch_root_queues[] = {
 	[DISPATCH_ROOT_QUEUE_IDX_LOW_PRIORITY] = {
-		.do_vtable = &_dispatch_queue_root_vtable,
+		.do_vtable = &_dispatch_queue_root_vtable, //虚函数表
 		.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,
 		.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,
 		.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,
@@ -305,48 +283,47 @@ struct dispatch_queue_s _dispatch_root_queues[] = {
 
 
 DISPATCH_CACHELINE_ALIGN
+/* 管理队列
+ */
 struct dispatch_queue_s _dispatch_mgr_q = {
 	.do_vtable = &_dispatch_queue_mgr_vtable,
 	.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,
 	.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,
 	.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,
-	.do_targetq = &_dispatch_root_queues[
-			DISPATCH_ROOT_QUEUE_IDX_HIGH_OVERCOMMIT_PRIORITY],
-
-	.dq_label = "com.apple.libdispatch-manager",
-	.dq_width = 1,
-	.dq_serialnum = 2,
+	.do_targetq = &_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_HIGH_OVERCOMMIT_PRIORITY],// 高优先级
+	.dq_label = "com.apple.libdispatch-manager", // 唯一标识符
+	.dq_width = 1, // 并发数为 1 ，串行队列
+	.dq_serialnum = 2, // 序列号为 2
 };
 
 
-dispatch_queue_t
-dispatch_get_global_queue(long priority, unsigned long flags){
+/* 获取全局队列
+ * @param priority 优先级
+ * @param flags 是否创建线程
+ */
+dispatch_queue_t dispatch_get_global_queue(long priority, unsigned long flags){
 	if (flags & ~DISPATCH_QUEUE_OVERCOMMIT) {
 		// flags!=0 或者 flags!=2 ,返回 NULL
 		return NULL;
 	}
-	return _dispatch_get_root_queue(priority,
-			flags & DISPATCH_QUEUE_OVERCOMMIT);
+	return _dispatch_get_root_queue(priority, flags & DISPATCH_QUEUE_OVERCOMMIT);
 }
 
-dispatch_queue_t
-dispatch_get_current_queue(void){
+/* 获取当前队列
+ */
+dispatch_queue_t dispatch_get_current_queue(void){
 	return _dispatch_queue_get_current() ?: _dispatch_get_root_queue(0, true);
 }
 
-#pragma mark -
-#pragma mark dispatch_init
+#pragma mark - dispatch_init
 
-static void
-_dispatch_hw_config_init(void){
+static void _dispatch_hw_config_init(void){
 	_dispatch_hw_config.cc_max_active = _dispatch_get_activecpu();
 	_dispatch_hw_config.cc_max_logical = _dispatch_get_logicalcpu_max();
 	_dispatch_hw_config.cc_max_physical = _dispatch_get_physicalcpu_max();
 }
 
-static inline bool
-_dispatch_root_queues_init_workq(void)
-{
+static inline bool _dispatch_root_queues_init_workq(void){
 	bool result = false;
 #if HAVE_PTHREAD_WORKQUEUES
 #if DISPATCH_ENABLE_THREAD_POOL
@@ -359,7 +336,6 @@ _dispatch_root_queues_init_workq(void)
 	for (i = 0; i < DISPATCH_ROOT_QUEUE_COUNT; i++) {
 		pthread_workqueue_t pwq = NULL;
 		const int prio = _dispatch_root_queue_wq_priorities[i];
-
 		r = pthread_workqueue_attr_setqueuepriority_np(&pwq_attr, prio);
 		(void)dispatch_assume_zero(r);
 		r = pthread_workqueue_attr_setovercommit_np(&pwq_attr, i & 1);
@@ -375,19 +351,16 @@ _dispatch_root_queues_init_workq(void)
 	return result;
 }
 
-static inline void
-_dispatch_root_queues_init_thread_pool(void)
-{
+/* 初始化线程池
+ */
+static inline void _dispatch_root_queues_init_thread_pool(void){
 #if DISPATCH_ENABLE_THREAD_POOL
 	int i;
 	for (i = 0; i < DISPATCH_ROOT_QUEUE_COUNT; i++) {
 #if TARGET_OS_EMBEDDED
-		// some software hangs if the non-overcommitting queues do not
-		// overcommit when threads block. Someday, this behavior should apply
-		// to all platforms
+		// some software hangs if the non-overcommitting queues do not overcommit when threads block.
 		if (!(i & 1)) {
-			_dispatch_root_queue_contexts[i].dgq_thread_pool_size =
-					_dispatch_hw_config.cc_max_active;
+			_dispatch_root_queue_contexts[i].dgq_thread_pool_size = _dispatch_hw_config.cc_max_active;
 		}
 #endif
 #if USE_MACH_SEM
@@ -408,9 +381,9 @@ _dispatch_root_queues_init_thread_pool(void)
 #endif // DISPATCH_ENABLE_THREAD_POOL
 }
 
-static void
-_dispatch_root_queues_init(void *context DISPATCH_UNUSED)
-{
+/* 初始化根队列
+ */
+static void _dispatch_root_queues_init(void *context DISPATCH_UNUSED){
 	if (!_dispatch_root_queues_init_workq()) {
 		_dispatch_root_queues_init_thread_pool();
 	}
@@ -420,36 +393,29 @@ _dispatch_root_queues_init(void *context DISPATCH_UNUSED)
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 
 DISPATCH_EXPORT DISPATCH_NOTHROW
-void
-libdispatch_init(void)
-{
-	dispatch_assert(DISPATCH_QUEUE_PRIORITY_COUNT == 4);
-	dispatch_assert(DISPATCH_ROOT_QUEUE_COUNT == 8);
+/* libdispatch 库初始化
+ */
+void libdispatch_init(void){
+	dispatch_assert(DISPATCH_QUEUE_PRIORITY_COUNT == 4);//四个优先级
+	dispatch_assert(DISPATCH_ROOT_QUEUE_COUNT == 8); //根队列有 8 个
 
-	dispatch_assert(DISPATCH_QUEUE_PRIORITY_LOW ==
-			-DISPATCH_QUEUE_PRIORITY_HIGH);
-	dispatch_assert(countof(_dispatch_root_queues) ==
-			DISPATCH_ROOT_QUEUE_COUNT);
-	dispatch_assert(countof(_dispatch_root_queue_contexts) ==
-			DISPATCH_ROOT_QUEUE_COUNT);
+	dispatch_assert(DISPATCH_QUEUE_PRIORITY_LOW == -DISPATCH_QUEUE_PRIORITY_HIGH);
+	dispatch_assert(countof(_dispatch_root_queues) == DISPATCH_ROOT_QUEUE_COUNT);
+	dispatch_assert(countof(_dispatch_root_queue_contexts) == DISPATCH_ROOT_QUEUE_COUNT);
 #if HAVE_PTHREAD_WORKQUEUES
-	dispatch_assert(countof(_dispatch_root_queue_wq_priorities) ==
-			DISPATCH_ROOT_QUEUE_COUNT);
+	dispatch_assert(countof(_dispatch_root_queue_wq_priorities) == DISPATCH_ROOT_QUEUE_COUNT);
 #endif
 #if DISPATCH_ENABLE_THREAD_POOL
-	dispatch_assert(countof(_dispatch_thread_mediator) ==
-			DISPATCH_ROOT_QUEUE_COUNT);
+	dispatch_assert(countof(_dispatch_thread_mediator) == DISPATCH_ROOT_QUEUE_COUNT);
 #endif
 	dispatch_assert(sizeof(struct dispatch_source_s) ==
 			sizeof(struct dispatch_queue_s) - DISPATCH_QUEUE_CACHELINE_PAD);
 #if DISPATCH_DEBUG
-	dispatch_assert(sizeof(struct dispatch_queue_s) % DISPATCH_CACHELINE_SIZE
-			== 0);
+	dispatch_assert(sizeof(struct dispatch_queue_s) % DISPATCH_CACHELINE_SIZE == 0);
 #endif
 
 	_dispatch_thread_key_create(&dispatch_queue_key, _dispatch_queue_cleanup);
-	_dispatch_thread_key_create(&dispatch_sema4_key,
-			(void (*)(void *))_dispatch_thread_semaphore_dispose);
+	_dispatch_thread_key_create(&dispatch_sema4_key, (void (*)(void *))_dispatch_thread_semaphore_dispose);
 	_dispatch_thread_key_create(&dispatch_cache_key, _dispatch_cache_cleanup);
 	_dispatch_thread_key_create(&dispatch_io_key, NULL);
 	_dispatch_thread_key_create(&dispatch_apply_key, NULL);
@@ -460,7 +426,7 @@ libdispatch_init(void)
 #if DISPATCH_USE_RESOLVERS // rdar://problem/8541707
 	_dispatch_main_q.do_vtable = &_dispatch_queue_vtable;
 	_dispatch_main_q.do_targetq = &_dispatch_root_queues[
-			DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY];
+DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY];
 	_dispatch_data_empty.do_vtable = &_dispatch_data_vtable;
 #endif
 
@@ -470,21 +436,18 @@ libdispatch_init(void)
 	(void)dispatch_assume_zero(pthread_atfork(dispatch_atfork_prepare,
 			dispatch_atfork_parent, dispatch_atfork_child));
 #endif
-
 	_dispatch_hw_config_init();
 }
 
 DISPATCH_EXPORT DISPATCH_NOTHROW
-void
-dispatch_atfork_child(void)
-{
+void dispatch_atfork_child(void){
 	void *crash = (void *)0x100;
 	size_t i;
 
 	if (_dispatch_safe_fork) {
 		return;
 	}
-
+	
 	_dispatch_main_q.dq_items_head = crash;
 	_dispatch_main_q.dq_items_tail = crash;
 
@@ -497,8 +460,7 @@ dispatch_atfork_child(void)
 	}
 }
 
-#pragma mark -
-#pragma mark dispatch_queue_t
+#pragma mark - dispatch_queue_t
 
 /* dq_serialnum 队列编号，跳过 0， 从 1 开始
  * 1 主队列
@@ -551,11 +513,11 @@ dispatch_queue_create(const char *label, dispatch_queue_attr_t attr){
 	return dq;
 }
 
-// 6618342 Contact the team that owns the Instrument DTrace probe before
-//         renaming this symbol
-void
-_dispatch_queue_dispose(dispatch_queue_t dq)
-{
+/* 销毁一个队列：
+ * @note1：当前队列不能被销毁
+ * @note2：队列有任务时不能被销毁
+ */
+void _dispatch_queue_dispose(dispatch_queue_t dq){
 	if (slowpath(dq == _dispatch_queue_get_current())) {
 		DISPATCH_CRASH("Release of a queue by itself");
 	}
@@ -566,24 +528,23 @@ _dispatch_queue_dispose(dispatch_queue_t dq)
 	// trash the tail queue so that use after free will crash
 	dq->dq_items_tail = (void *)0x200;
 
-	dispatch_queue_t dqsq = dispatch_atomic_xchg2o(dq, dq_specific_q,
-			(void *)0x200);
+	dispatch_queue_t dqsq = dispatch_atomic_xchg2o(dq, dq_specific_q,(void *)0x200);
 	if (dqsq) {
 		_dispatch_release(dqsq);
 	}
-
 	_dispatch_dispose(dq);
 }
 
-const char *
-dispatch_queue_get_label(dispatch_queue_t dq)
-{
+/* 获取队列的唯一标识
+ */
+const char * dispatch_queue_get_label(dispatch_queue_t dq){
 	return dq->dq_label;
 }
 
-static void
-_dispatch_queue_set_width2(void *ctxt)
-{
+/* 设置队列的并发数
+ * 队列的并发数都是偶数：第 0 位 都是 0；区别于 barrier
+ */
+static void _dispatch_queue_set_width2(void *ctxt){
 	int w = (int)(intptr_t)ctxt; // intentional truncation
 	uint32_t tmp;
 	dispatch_queue_t dq = _dispatch_queue_get_current();
@@ -612,31 +573,29 @@ _dispatch_queue_set_width2(void *ctxt)
 	dq->dq_width = tmp * 2;
 }
 
-void
-dispatch_queue_set_width(dispatch_queue_t dq, long width)
-{
+/* 设置队列的并发数
+ * @note 全局队列不设置
+ */
+void dispatch_queue_set_width(dispatch_queue_t dq, long width){
 	if (slowpath(dq->do_ref_cnt == DISPATCH_OBJECT_GLOBAL_REFCNT)) {
 		return;
 	}
-	dispatch_barrier_async_f(dq, (void*)(intptr_t)width,
-			_dispatch_queue_set_width2);
+	dispatch_barrier_async_f(dq, (void*)(intptr_t)width, _dispatch_queue_set_width2);
 }
 
-// 6618342 Contact the team that owns the Instrument DTrace probe before
-//         renaming this symbol
-static void
-_dispatch_set_target_queue2(void *ctxt)
-{
+/* 设置队列的目标队列
+ */
+static void _dispatch_set_target_queue2(void *ctxt){
 	dispatch_queue_t prev_dq, dq = _dispatch_queue_get_current();
-
 	prev_dq = dq->do_targetq;
 	dq->do_targetq = ctxt;
 	_dispatch_release(prev_dq);
 }
 
-void
-dispatch_set_target_queue(dispatch_object_t dou, dispatch_queue_t dq)
-{
+/* 设置队列的目标队列
+* @note 全局队列不设置
+*/
+void dispatch_set_target_queue(dispatch_object_t dou, dispatch_queue_t dq){
 	dispatch_queue_t prev_dq;
 	unsigned long type;
 
@@ -667,9 +626,9 @@ dispatch_set_target_queue(dispatch_object_t dou, dispatch_queue_t dq)
 	}
 }
 
-void
-dispatch_set_current_target_queue(dispatch_queue_t dq)
-{
+/*
+ */
+void dispatch_set_current_target_queue(dispatch_queue_t dq){
 	dispatch_queue_t queue = _dispatch_queue_get_current();
 
 	if (slowpath(!queue)) {
@@ -688,33 +647,30 @@ dispatch_set_current_target_queue(dispatch_queue_t dq)
 	_dispatch_set_target_queue2(dq);
 }
 
-#pragma mark -
-#pragma mark dispatch_queue_specific
+//特定队列
+#pragma mark - dispatch_queue_specific
 
 struct dispatch_queue_specific_queue_s {
-	DISPATCH_STRUCT_HEADER(dispatch_queue_specific_queue_s,
-			dispatch_queue_specific_queue_vtable_s);
+	DISPATCH_STRUCT_HEADER(dispatch_queue_specific_queue_s, dispatch_queue_specific_queue_vtable_s);
 	DISPATCH_QUEUE_HEADER;
 	union {
 		char _dqsq_pad[DISPATCH_QUEUE_MIN_LABEL_SIZE];
 		struct {
 			char dq_label[16];
-			TAILQ_HEAD(dispatch_queue_specific_head_s,
-					dispatch_queue_specific_s) dqsq_contexts;
+			TAILQ_HEAD(dispatch_queue_specific_head_s,dispatch_queue_specific_s) dqsq_contexts;
 		};
 	};
 };
+
 DISPATCH_DECL(dispatch_queue_specific_queue);
 
-static void
-_dispatch_queue_specific_queue_dispose(dispatch_queue_specific_queue_t dqsq);
+static void _dispatch_queue_specific_queue_dispose(dispatch_queue_specific_queue_t dqsq);
 
 struct dispatch_queue_specific_queue_vtable_s {
 	DISPATCH_VTABLE_HEADER(dispatch_queue_specific_queue_s);
 };
 
-static const struct dispatch_queue_specific_queue_vtable_s
-		_dispatch_queue_specific_queue_vtable = {
+static const struct dispatch_queue_specific_queue_vtable_s _dispatch_queue_specific_queue_vtable = {
 	.do_type = DISPATCH_QUEUE_SPECIFIC_TYPE,
 	.do_kind = "queue-context",
 	.do_dispose = _dispatch_queue_specific_queue_dispose,
@@ -731,11 +687,8 @@ struct dispatch_queue_specific_s {
 };
 DISPATCH_DECL(dispatch_queue_specific);
 
-static void
-_dispatch_queue_specific_queue_dispose(dispatch_queue_specific_queue_t dqsq)
-{
+static void _dispatch_queue_specific_queue_dispose(dispatch_queue_specific_queue_t dqsq){
 	dispatch_queue_specific_t dqs, tmp;
-
 	TAILQ_FOREACH_SAFE(dqs, &dqsq->dqsq_contexts, dqs_list, tmp) {
 		if (dqs->dqs_destructor) {
 			dispatch_async_f(_dispatch_get_root_queue(
@@ -747,17 +700,13 @@ _dispatch_queue_specific_queue_dispose(dispatch_queue_specific_queue_t dqsq)
 	_dispatch_queue_dispose((dispatch_queue_t)dqsq);
 }
 
-static void
-_dispatch_queue_init_specific(dispatch_queue_t dq)
-{
+static void _dispatch_queue_init_specific(dispatch_queue_t dq){
 	dispatch_queue_specific_queue_t dqsq;
-
 	dqsq = calloc(1ul, sizeof(struct dispatch_queue_specific_queue_s));
 	_dispatch_queue_init((dispatch_queue_t)dqsq);
 	dqsq->do_vtable = &_dispatch_queue_specific_queue_vtable;
 	dqsq->do_xref_cnt = 0;
-	dqsq->do_targetq = _dispatch_get_root_queue(DISPATCH_QUEUE_PRIORITY_HIGH,
-			true);
+	dqsq->do_targetq = _dispatch_get_root_queue(DISPATCH_QUEUE_PRIORITY_HIGH,true);
 	dqsq->dq_width = UINT32_MAX;
 	strlcpy(dqsq->dq_label, "queue-specific", sizeof(dqsq->dq_label));
 	TAILQ_INIT(&dqsq->dqsq_contexts);
@@ -767,13 +716,11 @@ _dispatch_queue_init_specific(dispatch_queue_t dq)
 	}
 }
 
-static void
-_dispatch_queue_set_specific(void *ctxt)
-{
+static void _dispatch_queue_set_specific(void *ctxt){
 	dispatch_queue_specific_t dqs, dqsn = ctxt;
 	dispatch_queue_specific_queue_t dqsq =
 			(dispatch_queue_specific_queue_t)_dispatch_queue_get_current();
-
+	
 	TAILQ_FOREACH(dqs, &dqsq->dqsq_contexts, dqs_list) {
 		if (dqs->dqs_key == dqsn->dqs_key) {
 			// Destroy previous context for existing key
@@ -799,10 +746,8 @@ _dispatch_queue_set_specific(void *ctxt)
 }
 
 DISPATCH_NOINLINE
-void
-dispatch_queue_set_specific(dispatch_queue_t dq, const void *key,
-	void *ctxt, dispatch_function_t destructor)
-{
+void dispatch_queue_set_specific(dispatch_queue_t dq, const void *key,
+	void *ctxt, dispatch_function_t destructor){
 	if (slowpath(!key)) {
 		return;
 	}
@@ -815,19 +760,14 @@ dispatch_queue_set_specific(dispatch_queue_t dq, const void *key,
 	if (slowpath(!dq->dq_specific_q)) {
 		_dispatch_queue_init_specific(dq);
 	}
-	dispatch_barrier_async_f(dq->dq_specific_q, dqs,
-			_dispatch_queue_set_specific);
+	dispatch_barrier_async_f(dq->dq_specific_q, dqs,_dispatch_queue_set_specific);
 }
 
-static void
-_dispatch_queue_get_specific(void *ctxt)
-{
+static void _dispatch_queue_get_specific(void *ctxt){
 	void **ctxtp = ctxt;
 	void *key = *ctxtp;
-	dispatch_queue_specific_queue_t dqsq =
-			(dispatch_queue_specific_queue_t)_dispatch_queue_get_current();
+	dispatch_queue_specific_queue_t dqsq = (dispatch_queue_specific_queue_t)_dispatch_queue_get_current();
 	dispatch_queue_specific_t dqs;
-
 	TAILQ_FOREACH(dqs, &dqsq->dqsq_contexts, dqs_list) {
 		if (dqs->dqs_key == key) {
 			*ctxtp = dqs->dqs_ctxt;
@@ -838,14 +778,11 @@ _dispatch_queue_get_specific(void *ctxt)
 }
 
 DISPATCH_NOINLINE
-void *
-dispatch_queue_get_specific(dispatch_queue_t dq, const void *key)
-{
+void *dispatch_queue_get_specific(dispatch_queue_t dq, const void *key){
 	if (slowpath(!key)) {
 		return NULL;
 	}
 	void *ctxt = NULL;
-
 	if (fastpath(dq->dq_specific_q)) {
 		ctxt = (void *)key;
 		dispatch_sync_f(dq->dq_specific_q, &ctxt, _dispatch_queue_get_specific);
@@ -854,15 +791,12 @@ dispatch_queue_get_specific(dispatch_queue_t dq, const void *key)
 }
 
 DISPATCH_NOINLINE
-void *
-dispatch_get_specific(const void *key)
-{
+void * dispatch_get_specific(const void *key){
 	if (slowpath(!key)) {
 		return NULL;
 	}
 	void *ctxt = NULL;
 	dispatch_queue_t dq = _dispatch_queue_get_current();
-
 	while (slowpath(dq)) {
 		if (slowpath(dq->dq_specific_q)) {
 			ctxt = (void *)key;
@@ -875,21 +809,16 @@ dispatch_get_specific(const void *key)
 	return ctxt;
 }
 
-#pragma mark -
-#pragma mark dispatch_queue_debug
+#pragma mark - dispatch_queue_debug
 
-size_t
-_dispatch_queue_debug_attr(dispatch_queue_t dq, char* buf, size_t bufsiz)
-{
+size_t _dispatch_queue_debug_attr(dispatch_queue_t dq, char* buf, size_t bufsiz){
 	dispatch_queue_t target = dq->do_targetq;
 	return snprintf(buf, bufsiz, "target = %s[%p], width = 0x%x, "
 			"running = 0x%x, barrier = %d ", target ? target->dq_label : "",
 			target, dq->dq_width / 2, dq->dq_running / 2, dq->dq_running & 1);
 }
 
-size_t
-dispatch_queue_debug(dispatch_queue_t dq, char* buf, size_t bufsiz)
-{
+size_t dispatch_queue_debug(dispatch_queue_t dq, char* buf, size_t bufsiz){
 	size_t offset = 0;
 	offset += snprintf(&buf[offset], bufsiz - offset, "%s[%p] = { ",
 			dq->dq_label, dq);
@@ -900,8 +829,7 @@ dispatch_queue_debug(dispatch_queue_t dq, char* buf, size_t bufsiz)
 }
 
 #if DISPATCH_DEBUG
-void
-dispatch_debug_queue(dispatch_queue_t dq, const char* str) {
+void dispatch_debug_queue(dispatch_queue_t dq, const char* str) {
 	if (fastpath(dq)) {
 		dispatch_debug(dq, "%s", str);
 	} else {
@@ -919,15 +847,11 @@ static struct {
 	uint64_t thread_total;
 } _dispatch_stats[65]; // ffs*/fls*() returns zero when no bits are set
 
-static void
-_dispatch_queue_merge_stats(uint64_t start)
-{
+static void _dispatch_queue_merge_stats(uint64_t start){
 	uint64_t avg, delta = _dispatch_absolute_time() - start;
 	unsigned long count, bucket;
-
 	count = (size_t)_dispatch_thread_getspecific(dispatch_bcounter_key);
 	_dispatch_thread_setspecific(dispatch_bcounter_key, NULL);
-
 	if (count) {
 		avg = delta / count;
 		bucket = flsll(avg);
@@ -937,48 +861,37 @@ _dispatch_queue_merge_stats(uint64_t start)
 
 	// 64-bit counters on 32-bit require a lock or a queue
 	OSSpinLockLock(&_dispatch_stats_lock);
-
 	_dispatch_stats[bucket].time_total += delta;
 	_dispatch_stats[bucket].count_total += count;
 	_dispatch_stats[bucket].thread_total++;
-
 	OSSpinLockUnlock(&_dispatch_stats_lock);
 }
 #endif
-
-#pragma mark -
-#pragma mark dispatch_continuation_t
+ 
+#pragma mark - dispatch_continuation_t
 
 static malloc_zone_t *_dispatch_ccache_zone;
 
-static void
-_dispatch_ccache_init(void *context DISPATCH_UNUSED)
-{
+static void _dispatch_ccache_init(void *context DISPATCH_UNUSED){
 	_dispatch_ccache_zone = malloc_create_zone(0, 0);
 	dispatch_assert(_dispatch_ccache_zone);
 	malloc_set_zone_name(_dispatch_ccache_zone, "DispatchContinuations");
 }
 
-static dispatch_continuation_t
-_dispatch_continuation_alloc_from_heap(void)
-{
+static dispatch_continuation_t _dispatch_continuation_alloc_from_heap(void){
 	static dispatch_once_t pred;
 	dispatch_continuation_t dc;
-
 	dispatch_once_f(&pred, NULL, _dispatch_ccache_init);
-
 	while (!(dc = fastpath(malloc_zone_calloc(_dispatch_ccache_zone, 1,
 			ROUND_UP_TO_CACHELINE_SIZE(sizeof(*dc)))))) {
 		sleep(1);
 	}
-
 	return dc;
 }
 
 DISPATCH_ALWAYS_INLINE
 static inline dispatch_continuation_t
-_dispatch_continuation_alloc_cacheonly(void)
-{
+_dispatch_continuation_alloc_cacheonly(void){
 	dispatch_continuation_t dc;
 	dc = fastpath(_dispatch_thread_getspecific(dispatch_cache_key));
 	if (dc) {
@@ -987,9 +900,7 @@ _dispatch_continuation_alloc_cacheonly(void)
 	return dc;
 }
 
-static void
-_dispatch_force_cache_cleanup(void)
-{
+static void _dispatch_force_cache_cleanup(void){
 	dispatch_continuation_t dc;
 	dc = _dispatch_thread_getspecific(dispatch_cache_key);
 	if (dc) {
@@ -999,11 +910,9 @@ _dispatch_force_cache_cleanup(void)
 }
 
 DISPATCH_NOINLINE
-static void
-_dispatch_cache_cleanup(void *value)
-{
+//清理缓存
+static void _dispatch_cache_cleanup(void *value){
 	dispatch_continuation_t dc, next_dc = value;
-
 	while ((dc = next_dc)) {
 		next_dc = dc->do_next;
 		malloc_zone_free(_dispatch_ccache_zone, dc);
@@ -1011,9 +920,7 @@ _dispatch_cache_cleanup(void *value)
 }
 
 DISPATCH_ALWAYS_INLINE
-static inline void
-_dispatch_continuation_free(dispatch_continuation_t dc)
-{
+static inline void _dispatch_continuation_free(dispatch_continuation_t dc){
 	dispatch_continuation_t prev_dc;
 	prev_dc = _dispatch_thread_getspecific(dispatch_cache_key);
 	dc->do_next = prev_dc;
@@ -1022,10 +929,8 @@ _dispatch_continuation_free(dispatch_continuation_t dc)
 
 DISPATCH_ALWAYS_INLINE_NDEBUG
 static inline void
-_dispatch_continuation_redirect(dispatch_queue_t dq, dispatch_object_t dou)
-{
+_dispatch_continuation_redirect(dispatch_queue_t dq, dispatch_object_t dou){
 	dispatch_continuation_t dc = dou._dc;
-
 	_dispatch_trace_continuation_pop(dq, dou);
 	(void)dispatch_atomic_add2o(dq, dq_running, 2);
 	if (!DISPATCH_OBJ_IS_VTABLE(dc) &&
@@ -1040,18 +945,16 @@ _dispatch_continuation_redirect(dispatch_queue_t dq, dispatch_object_t dou)
 
 DISPATCH_ALWAYS_INLINE_NDEBUG
 static inline void
-_dispatch_continuation_pop(dispatch_object_t dou)
-{
+_dispatch_continuation_pop(dispatch_object_t dou){
 	dispatch_continuation_t dc = dou._dc;
 	dispatch_group_t dg;
-
 	_dispatch_trace_continuation_pop(_dispatch_queue_get_current(), dou);
 	if (DISPATCH_OBJ_IS_VTABLE(dou._do)) {
 		return _dispatch_queue_invoke(dou._dq);
 	}
 
-	// Add the item back to the cache before calling the function. This
-	// allows the 'hot' continuation to be used for a quick callback.
+	// 在调用函数之前 将 item 添加到缓存
+	// 这允许 continuation 被快速回调
 	//
 	// The ccache version is per-thread.
 	// Therefore, the object has not been reused yet.
@@ -1071,31 +974,27 @@ _dispatch_continuation_pop(dispatch_object_t dou)
 	}
 }
 
-#pragma mark -
-#pragma mark dispatch_barrier_async
+#pragma mark - dispatch_barrier_async
 
 DISPATCH_NOINLINE
-static void
-_dispatch_barrier_async_f_slow(dispatch_queue_t dq, void *ctxt,
+static void _dispatch_barrier_async_f_slow(dispatch_queue_t dq, void *ctxt,
 		dispatch_function_t func){
 	dispatch_continuation_t dc = _dispatch_continuation_alloc_from_heap();
-
-	dc->do_vtable = (void *)(DISPATCH_OBJ_ASYNC_BIT | DISPATCH_OBJ_BARRIER_BIT);
-	dc->dc_func = func;
-	dc->dc_ctxt = ctxt;
+	dc->do_vtable = (void *)(DISPATCH_OBJ_ASYNC_BIT | DISPATCH_OBJ_BARRIER_BIT);// 0011
+	dc->dc_func = func; //任务
+	dc->dc_ctxt = ctxt;//入参的传递
 	_dispatch_queue_push(dq, dc);
 }
 
 DISPATCH_NOINLINE
-void
-dispatch_barrier_async_f(dispatch_queue_t dq, void *ctxt,dispatch_function_t func){
+void dispatch_barrier_async_f(dispatch_queue_t dq, void *ctxt,dispatch_function_t func){
 	dispatch_continuation_t dc;
 	dc = fastpath(_dispatch_continuation_alloc_cacheonly());
 	if (!dc) {
 		return _dispatch_barrier_async_f_slow(dq, ctxt, func);
 	}
 	
-	dc->do_vtable = (void *)(DISPATCH_OBJ_ASYNC_BIT | DISPATCH_OBJ_BARRIER_BIT);//标志位
+	dc->do_vtable = (void *)(DISPATCH_OBJ_ASYNC_BIT | DISPATCH_OBJ_BARRIER_BIT);//标志位 0011
 	dc->dc_func = func;//任务
 	dc->dc_ctxt = ctxt;//入参的传递
 	_dispatch_queue_push(dq, dc);
@@ -1107,21 +1006,16 @@ void dispatch_barrier_async(dispatch_queue_t dq, void (^work)(void)){
 }
 #endif
 
-#pragma mark -
-#pragma mark dispatch_async
+#pragma mark - dispatch_async
 
-static void
-_dispatch_async_f_redirect_invoke(void *_ctxt)
-{
+static void _dispatch_async_f_redirect_invoke(void *_ctxt){
 	struct dispatch_continuation_s *dc = _ctxt;
 	struct dispatch_continuation_s *other_dc = dc->dc_data[1];
 	dispatch_queue_t old_dq, dq = dc->dc_data[0], rq;
-
 	old_dq = _dispatch_thread_getspecific(dispatch_queue_key);
 	_dispatch_thread_setspecific(dispatch_queue_key, dq);
 	_dispatch_continuation_pop(other_dc);
 	_dispatch_thread_setspecific(dispatch_queue_key, old_dq);
-
 	rq = dq->do_targetq;
 	while (slowpath(rq->do_targetq) && rq != old_dq) {
 		if (dispatch_atomic_sub2o(rq, dq_running, 2) == 0) {
@@ -1129,7 +1023,6 @@ _dispatch_async_f_redirect_invoke(void *_ctxt)
 		}
 		rq = rq->do_targetq;
 	}
-
 	if (dispatch_atomic_sub2o(dq, dq_running, 2) == 0) {
 		_dispatch_wakeup(dq);
 	}
@@ -1137,29 +1030,22 @@ _dispatch_async_f_redirect_invoke(void *_ctxt)
 }
 
 DISPATCH_NOINLINE
-static void
-_dispatch_async_f2_slow(dispatch_queue_t dq, dispatch_continuation_t dc)
-{
-	_dispatch_wakeup(dq);
+static void _dispatch_async_f2_slow(dispatch_queue_t dq, dispatch_continuation_t dc){
+	_dispatch_wakeup(dq);//唤醒队列
 	_dispatch_queue_push(dq, dc);
 }
 
 DISPATCH_NOINLINE
 static void
-_dispatch_async_f_redirect(dispatch_queue_t dq,
-		dispatch_continuation_t other_dc)
-{
+_dispatch_async_f_redirect(dispatch_queue_t dq, dispatch_continuation_t other_dc){
 	dispatch_continuation_t dc;
 	dispatch_queue_t rq;
-
 	_dispatch_retain(dq);
-
 	dc = fastpath(_dispatch_continuation_alloc_cacheonly());
 	if (!dc) {
 		dc = _dispatch_continuation_alloc_from_heap();
 	}
-
-	dc->do_vtable = (void *)DISPATCH_OBJ_ASYNC_BIT;
+	dc->do_vtable = (void *)DISPATCH_OBJ_ASYNC_BIT; //标志位 0001
 	dc->dc_func = _dispatch_async_f_redirect_invoke;
 	dc->dc_ctxt = dc;
 	dc->dc_data[0] = dq;
@@ -1169,7 +1055,6 @@ _dispatch_async_f_redirect(dispatch_queue_t dq,
 	rq = dq->do_targetq;
 	while (slowpath(rq->do_targetq)) {
 		uint32_t running;
-
 		if (slowpath(rq->dq_items_tail) ||
 				slowpath(DISPATCH_OBJECT_SUSPENDED(rq)) ||
 				slowpath(rq->dq_width == 1)) {
@@ -1188,12 +1073,9 @@ _dispatch_async_f_redirect(dispatch_queue_t dq,
 }
 
 DISPATCH_NOINLINE
-static void
-_dispatch_async_f2(dispatch_queue_t dq, dispatch_continuation_t dc)
-{
+static void _dispatch_async_f2(dispatch_queue_t dq, dispatch_continuation_t dc){
 	uint32_t running;
 	bool locked;
-
 	do {
 		if (slowpath(dq->dq_items_tail)
 				|| slowpath(DISPATCH_OBJECT_SUSPENDED(dq))) {
@@ -1218,21 +1100,15 @@ _dispatch_async_f2(dispatch_queue_t dq, dispatch_continuation_t dc)
 }
 
 DISPATCH_NOINLINE
-static void
-_dispatch_async_f_slow(dispatch_queue_t dq, void *ctxt,
-		dispatch_function_t func)
-{
+static void _dispatch_async_f_slow(dispatch_queue_t dq, void *ctxt, dispatch_function_t func){
 	dispatch_continuation_t dc = _dispatch_continuation_alloc_from_heap();
-
-	dc->do_vtable = (void *)DISPATCH_OBJ_ASYNC_BIT;
+	dc->do_vtable = (void *)DISPATCH_OBJ_ASYNC_BIT; //标志位 0001
 	dc->dc_func = func;
 	dc->dc_ctxt = ctxt;
-
 	// No fastpath/slowpath hint because we simply don't know
-	if (dq->do_targetq) {
+	if (dq->do_targetq) {// 如果有do_targetq，将任务放到目标队列执行
 		return _dispatch_async_f2(dq, dc);
 	}
-
 	_dispatch_queue_push(dq, dc);
 }
 
@@ -1244,21 +1120,17 @@ void dispatch_async_f(dispatch_queue_t dq, void *ctxt, dispatch_function_t func)
 	if (dq->dq_width == 1){//如果是串行队列
 		return dispatch_barrier_async_f(dq, ctxt, func);
 	}
-	
 	dc = fastpath(_dispatch_continuation_alloc_cacheonly());
 	if (!dc) {
 		return _dispatch_async_f_slow(dq, ctxt, func);
 	}
-
-	dc->do_vtable = (void *)DISPATCH_OBJ_ASYNC_BIT;
+	dc->do_vtable = (void *)DISPATCH_OBJ_ASYNC_BIT; //标志位 0001
 	dc->dc_func = func;//任务先追加到 dispatch_continuation_t 结构体中
 	dc->dc_ctxt = ctxt;
-
 	if (dq->do_targetq) {
 		// 如果有do_targetq，将任务放到目标队列执行
 		return _dispatch_async_f2(dq, dc);
 	}
-
 	_dispatch_queue_push(dq, dc);
 }
 
@@ -1269,34 +1141,26 @@ void dispatch_async_f(dispatch_queue_t dq, void *ctxt, dispatch_function_t func)
  * 同时传入 _dispatch_call_block_and_release 来保证 block 执行后会执行 Block_release
  */
 void dispatch_async(dispatch_queue_t dq, void (^work)(void)){
-	dispatch_async_f(dq, _dispatch_Block_copy(work),
-			_dispatch_call_block_and_release);
+	dispatch_async_f(dq, _dispatch_Block_copy(work),_dispatch_call_block_and_release);
 }
 #endif
 
-#pragma mark -
-#pragma mark dispatch_group_async
+#pragma mark - dispatch_group_async
 
 DISPATCH_NOINLINE
-void
-dispatch_group_async_f(dispatch_group_t dg, dispatch_queue_t dq, void *ctxt,
-		dispatch_function_t func)
-{
+void dispatch_group_async_f(dispatch_group_t dg, dispatch_queue_t dq, void *ctxt,
+		dispatch_function_t func){
 	dispatch_continuation_t dc;
-
 	_dispatch_retain(dg);
 	dispatch_group_enter(dg);
-
 	dc = fastpath(_dispatch_continuation_alloc_cacheonly());
 	if (!dc) {
 		dc = _dispatch_continuation_alloc_from_heap();
 	}
-
-	dc->do_vtable = (void *)(DISPATCH_OBJ_ASYNC_BIT | DISPATCH_OBJ_GROUP_BIT);
+	dc->do_vtable = (void *)(DISPATCH_OBJ_ASYNC_BIT | DISPATCH_OBJ_GROUP_BIT); // 0101
 	dc->dc_func = func;
 	dc->dc_ctxt = ctxt;
 	dc->dc_group = dg;
-
 	// No fastpath/slowpath hint because we simply don't know
 	if (dq->dq_width != 1 && dq->do_targetq) {
 		return _dispatch_async_f2(dq, dc);
@@ -1306,17 +1170,12 @@ dispatch_group_async_f(dispatch_group_t dg, dispatch_queue_t dq, void *ctxt,
 }
 
 #ifdef __BLOCKS__
-void
-dispatch_group_async(dispatch_group_t dg, dispatch_queue_t dq,
-		dispatch_block_t db)
-{
-	dispatch_group_async_f(dg, dq, _dispatch_Block_copy(db),
-			_dispatch_call_block_and_release);
+void dispatch_group_async(dispatch_group_t dg, dispatch_queue_t dq,dispatch_block_t db){
+	dispatch_group_async_f(dg, dq, _dispatch_Block_copy(db), _dispatch_call_block_and_release);
 }
 #endif
 
-#pragma mark -
-#pragma mark dispatch_function_invoke
+#pragma mark - dispatch_function_invoke
 
 DISPATCH_ALWAYS_INLINE
 static inline void
@@ -2783,9 +2642,7 @@ _dispatch_mgr_invoke(void)
 }
 
 DISPATCH_NORETURN
-static dispatch_queue_t
-_dispatch_mgr_thread(dispatch_queue_t dq DISPATCH_UNUSED)
-{
+static dispatch_queue_t _dispatch_mgr_thread(dispatch_queue_t dq DISPATCH_UNUSED){
 	// never returns, so burn bridges behind us & clear stack 2k ahead
 	_dispatch_clear_stack(2048);
 	_dispatch_mgr_invoke();

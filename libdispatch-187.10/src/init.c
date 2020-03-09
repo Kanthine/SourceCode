@@ -1,25 +1,4 @@
-/*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
- *
- * @APPLE_APACHE_LICENSE_HEADER_START@
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * @APPLE_APACHE_LICENSE_HEADER_END@
- */
-
-// Contains exported global data and initialization & other routines that must
-// only exist once in the shared library even when resolvers are used.
+//包含导出的 全局数据 、初始化以及 即使使用解析器也必须只在共享库中存在一次的其它。
 
 #include "internal.h"
 
@@ -27,49 +6,37 @@
 #include "protocolServer.h"
 #endif
 
-#pragma mark -
-#pragma mark dispatch_init
+#pragma mark - dispatch_init
 
 #if USE_LIBDISPATCH_INIT_CONSTRUCTOR
 DISPATCH_NOTHROW __attribute__((constructor))
-void
-_libdispatch_init(void);
+void _libdispatch_init(void);
 
 DISPATCH_EXPORT DISPATCH_NOTHROW
-void
-_libdispatch_init(void)
-{
+void _libdispatch_init(void){
 	libdispatch_init();
 }
 #endif
 
 DISPATCH_EXPORT DISPATCH_NOTHROW
-void
-dispatch_atfork_prepare(void)
-{
-}
+void dispatch_atfork_prepare(void){}
 
 DISPATCH_EXPORT DISPATCH_NOTHROW
-void
-dispatch_atfork_parent(void)
-{
-}
+void dispatch_atfork_parent(void){}
 
-void
-dummy_function(void)
-{
-}
+void dummy_function(void){}
 
-long
-dummy_function_r0(void)
-{
+long dummy_function_r0(void){
 	return 0;
 }
 
-#pragma mark -
-#pragma mark dispatch_globals
+#pragma mark - dispatch_globals
 
 #if DISPATCH_COCOA_COMPAT
+
+/* dispatch_begin_thread_4GC() 有非默认触发 GC-only 慢路径，经常检查，
+ * 测试 NULL 比较 dummy_function 是否相等要快
+ */
 // dispatch_begin_thread_4GC having non-default value triggers GC-only slow
 // paths and is checked frequently, testing against NULL is faster than
 // comparing for equality with "dummy_function"
@@ -97,22 +64,21 @@ const struct dispatch_queue_offsets_s dispatch_queue_offsets = {
 	.dqo_running_size = sizeof(((dispatch_queue_t)NULL)->dq_running),
 };
 
-// 6618342 Contact the team that owns the Instrument DTrace probe before
-//         renaming this symbol
 DISPATCH_CACHELINE_ALIGN
+/* 主队列的赋值
+ */
 struct dispatch_queue_s _dispatch_main_q = {
 #if !DISPATCH_USE_RESOLVERS
 	.do_vtable = &_dispatch_queue_vtable,
-	.do_targetq = &_dispatch_root_queues[
-			DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY],
+	.do_targetq = &_dispatch_root_queues[DISPATCH_ROOT_QUEUE_IDX_DEFAULT_OVERCOMMIT_PRIORITY],//最高优先级
 #endif
 	.do_ref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,
 	.do_xref_cnt = DISPATCH_OBJECT_GLOBAL_REFCNT,
 	.do_suspend_cnt = DISPATCH_OBJECT_SUSPEND_LOCK,
-	.dq_label = "com.apple.main-thread",
+	.dq_label = "com.apple.main-thread", //唯一标识
 	.dq_running = 1,
-	.dq_width = 1,
-	.dq_serialnum = 1,
+	.dq_width = 1,//并发数为 1
+	.dq_serialnum = 1,//序列号为 1
 };
 
 const struct dispatch_queue_attr_vtable_s dispatch_queue_attr_vtable = {
@@ -140,34 +106,26 @@ const dispatch_block_t _dispatch_data_destructor_free = ^{
 	DISPATCH_CRASH("free destructor called");
 };
 
-#pragma mark -
-#pragma mark dispatch_log
+#pragma mark - dispatch_log
 
 static char _dispatch_build[16];
 
-static void
-_dispatch_bug_init(void *context DISPATCH_UNUSED)
-{
+static void _dispatch_bug_init(void *context DISPATCH_UNUSED){
 #ifdef __APPLE__
 	int mib[] = { CTL_KERN, KERN_OSVERSION };
 	size_t bufsz = sizeof(_dispatch_build);
-
 	sysctl(mib, 2, _dispatch_build, &bufsz, NULL, 0);
 #else
-	/*
-	 * XXXRW: What to do here for !Mac OS X?
+	/* XXXRW: What to do here for !Mac OS X?
 	 */
 	memset(_dispatch_build, 0, sizeof(_dispatch_build));
 #endif
 }
 
-void
-_dispatch_bug(size_t line, long val)
-{
+void _dispatch_bug(size_t line, long val){
 	static dispatch_once_t pred;
 	static void *last_seen;
 	void *ra = __builtin_return_address(0);
-
 	dispatch_once_f(&pred, NULL, _dispatch_bug_init);
 	if (last_seen != ra) {
 		last_seen = ra;
@@ -176,9 +134,7 @@ _dispatch_bug(size_t line, long val)
 	}
 }
 
-void
-_dispatch_bug_mach_client(const char* msg, mach_msg_return_t kr)
-{
+void _dispatch_bug_mach_client(const char* msg, mach_msg_return_t kr){
 	static void *last_seen;
 	void *ra = __builtin_return_address(0);
 	if (last_seen != ra) {
@@ -188,18 +144,13 @@ _dispatch_bug_mach_client(const char* msg, mach_msg_return_t kr)
 	}
 }
 
-void
-_dispatch_abort(size_t line, long val)
-{
+void _dispatch_abort(size_t line, long val){
 	_dispatch_bug(line, val);
 	abort();
 }
 
-void
-_dispatch_log(const char *msg, ...)
-{
+void _dispatch_log(const char *msg, ...){
 	va_list ap;
-
 	va_start(ap, msg);
 	_dispatch_logv(msg, ap);
 	va_end(ap);
@@ -208,9 +159,7 @@ _dispatch_log(const char *msg, ...)
 static FILE *dispatch_logfile;
 static bool dispatch_log_disabled;
 
-static void
-_dispatch_logv_init(void *context DISPATCH_UNUSED)
-{
+static void _dispatch_logv_init(void *context DISPATCH_UNUSED){
 #if DISPATCH_DEBUG
 	bool log_to_file = true;
 #else
@@ -249,12 +198,9 @@ _dispatch_logv_init(void *context DISPATCH_UNUSED)
 	}
 }
 
-void
-_dispatch_logv(const char *msg, va_list ap)
-{
+void _dispatch_logv(const char *msg, va_list ap){
 	static dispatch_once_t pred;
 	dispatch_once_f(&pred, NULL, _dispatch_logv_init);
-
 	if (slowpath(dispatch_log_disabled)) {
 		return;
 	}
@@ -268,55 +214,41 @@ _dispatch_logv(const char *msg, va_list ap)
 	vsyslog(LOG_NOTICE, msg, ap);
 }
 
-#pragma mark -
-#pragma mark dispatch_debug
+#pragma mark - dispatch_debug
 
-void
-dispatch_debug(dispatch_object_t dou, const char *msg, ...)
-{
+void dispatch_debug(dispatch_object_t dou, const char *msg, ...){
 	va_list ap;
-
 	va_start(ap, msg);
 	dispatch_debugv(dou._do, msg, ap);
 	va_end(ap);
 }
 
-void
-dispatch_debugv(dispatch_object_t dou, const char *msg, va_list ap)
-{
+void dispatch_debugv(dispatch_object_t dou, const char *msg, va_list ap){
 	char buf[4096];
 	size_t offs;
-
 	if (dou._do && dou._do->do_vtable->do_debug) {
 		offs = dx_debug(dou._do, buf, sizeof(buf));
 	} else {
 		offs = snprintf(buf, sizeof(buf), "NULL vtable slot");
 	}
-
 	snprintf(buf + offs, sizeof(buf) - offs, ": %s", msg);
 	_dispatch_logv(buf, ap);
 }
 
-#pragma mark -
-#pragma mark dispatch_block_t
+#pragma mark - dispatch_block_t
 
 #ifdef __BLOCKS__
 
 #undef _dispatch_Block_copy
-dispatch_block_t
-_dispatch_Block_copy(dispatch_block_t db)
-{
+dispatch_block_t _dispatch_Block_copy(dispatch_block_t db){
 	dispatch_block_t rval;
-
 	while (!(rval = Block_copy(db))) {
 		sleep(1);
 	}
 	return rval;
 }
 
-void
-_dispatch_call_block_and_release(void *block)
-{
+void _dispatch_call_block_and_release(void *block){
 	void (^b)(void) = block;
 	b();
 	Block_release(b);
@@ -324,8 +256,7 @@ _dispatch_call_block_and_release(void *block)
 
 #endif // __BLOCKS__
 
-#pragma mark -
-#pragma mark dispatch_client_callout
+#pragma mark - dispatch_client_callout
 
 #if DISPATCH_USE_CLIENT_CALLOUT
 
@@ -333,31 +264,24 @@ _dispatch_call_block_and_release(void *block)
 #undef _dispatch_client_callout2
 
 DISPATCH_NOINLINE
-void
-_dispatch_client_callout(void *ctxt, dispatch_function_t f)
-{
+void _dispatch_client_callout(void *ctxt, dispatch_function_t f){
 	return f(ctxt);
 }
 
 DISPATCH_NOINLINE
-void
-_dispatch_client_callout2(void *ctxt, size_t i, void (*f)(void *, size_t))
-{
+void _dispatch_client_callout2(void *ctxt, size_t i, void (*f)(void *, size_t)){
 	return f(ctxt, i);
 }
 
 #endif
 
-#pragma mark -
-#pragma mark dispatch_source_types
+#pragma mark - dispatch_source_types
 
-static void
-dispatch_source_type_timer_init(dispatch_source_t ds,
+static void dispatch_source_type_timer_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
 	uintptr_t handle DISPATCH_UNUSED,
 	unsigned long mask,
-	dispatch_queue_t q DISPATCH_UNUSED)
-{
+	dispatch_queue_t q DISPATCH_UNUSED){
 	ds->ds_refs = calloc(1ul, sizeof(struct dispatch_timer_source_refs_s));
 	if (slowpath(!ds->ds_refs)) return;
 	ds->ds_needs_rearm = true;
@@ -391,8 +315,7 @@ const struct dispatch_source_type_s _dispatch_source_type_write = {
 #if TARGET_IPHONE_SIMULATOR // rdar://problem/9219483
 static int _dispatch_ios_simulator_memory_warnings_fd = -1;
 static void
-_dispatch_ios_simulator_vm_source_init(void *context DISPATCH_UNUSED)
-{
+_dispatch_ios_simulator_vm_source_init(void *context DISPATCH_UNUSED){
 	char *e = getenv("IPHONE_SIMULATOR_MEMORY_WARNINGS");
 	if (!e) return;
 	_dispatch_ios_simulator_memory_warnings_fd = open(e, O_EVTONLY);
@@ -400,13 +323,12 @@ _dispatch_ios_simulator_vm_source_init(void *context DISPATCH_UNUSED)
 		(void)dispatch_assume_zero(errno);
 	}
 }
-static void
-dispatch_source_type_vm_init(dispatch_source_t ds,
+
+static void dispatch_source_type_vm_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
 	uintptr_t handle DISPATCH_UNUSED,
 	unsigned long mask,
-	dispatch_queue_t q DISPATCH_UNUSED)
-{
+	dispatch_queue_t q DISPATCH_UNUSED){
 	static dispatch_once_t pred;
 	dispatch_once_f(&pred, NULL, _dispatch_ios_simulator_vm_source_init);
 	ds->ds_dkev->dk_kevent.ident = (mask & DISPATCH_VM_PRESSURE ?
@@ -509,12 +431,10 @@ const struct dispatch_source_type_s _dispatch_source_type_data_or = {
 
 #if HAVE_MACH
 
-static void
-dispatch_source_type_mach_send_init(dispatch_source_t ds,
+static void dispatch_source_type_mach_send_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
 	uintptr_t handle DISPATCH_UNUSED, unsigned long mask,
-	dispatch_queue_t q DISPATCH_UNUSED)
-{
+	dispatch_queue_t q DISPATCH_UNUSED){
 	static dispatch_once_t pred;
 	dispatch_once_f(&pred, NULL, _dispatch_mach_notify_source_init);
 	if (!mask) {
@@ -533,13 +453,11 @@ const struct dispatch_source_type_s _dispatch_source_type_mach_send = {
 	.init = dispatch_source_type_mach_send_init,
 };
 
-static void
-dispatch_source_type_mach_recv_init(dispatch_source_t ds,
+static void dispatch_source_type_mach_recv_init(dispatch_source_t ds,
 	dispatch_source_type_t type DISPATCH_UNUSED,
 	uintptr_t handle DISPATCH_UNUSED,
 	unsigned long mask DISPATCH_UNUSED,
-	dispatch_queue_t q DISPATCH_UNUSED)
-{
+	dispatch_queue_t q DISPATCH_UNUSED){
 	ds->ds_is_level = false;
 }
 
@@ -552,15 +470,11 @@ const struct dispatch_source_type_s _dispatch_source_type_mach_recv = {
 	.init = dispatch_source_type_mach_recv_init,
 };
 
-#pragma mark -
-#pragma mark dispatch_mig
+#pragma mark - dispatch_mig
 
-void *
-dispatch_mach_msg_get_context(mach_msg_header_t *msg)
-{
+void *dispatch_mach_msg_get_context(mach_msg_header_t *msg){
 	mach_msg_context_trailer_t *tp;
 	void *context = NULL;
-
 	tp = (mach_msg_context_trailer_t *)((uint8_t *)msg +
 			round_msg(msg->msgh_size));
 	if (tp->msgh_trailer_size >=
@@ -570,24 +484,20 @@ dispatch_mach_msg_get_context(mach_msg_header_t *msg)
 	return context;
 }
 
-kern_return_t
-_dispatch_wakeup_main_thread(mach_port_t mp DISPATCH_UNUSED)
-{
+/* 唤醒主线程
+ */
+kern_return_t _dispatch_wakeup_main_thread(mach_port_t mp DISPATCH_UNUSED){
 	// dummy function just to pop out the main thread out of mach_msg()
 	return 0;
 }
 
-kern_return_t
-_dispatch_consume_send_once_right(mach_port_t mp DISPATCH_UNUSED)
-{
+kern_return_t _dispatch_consume_send_once_right(mach_port_t mp DISPATCH_UNUSED){
 	// dummy function to consume a send-once right
 	return 0;
 }
 
-kern_return_t
-_dispatch_mach_notify_port_destroyed(mach_port_t notify DISPATCH_UNUSED,
-		mach_port_t name)
-{
+kern_return_t _dispatch_mach_notify_port_destroyed(mach_port_t notify DISPATCH_UNUSED,
+		mach_port_t name){
 	kern_return_t kr;
 	// this function should never be called
 	(void)dispatch_assume_zero(name);
@@ -597,18 +507,14 @@ _dispatch_mach_notify_port_destroyed(mach_port_t notify DISPATCH_UNUSED,
 	return KERN_SUCCESS;
 }
 
-kern_return_t
-_dispatch_mach_notify_no_senders(mach_port_t notify,
-		mach_port_mscount_t mscnt DISPATCH_UNUSED)
-{
+kern_return_t _dispatch_mach_notify_no_senders(mach_port_t notify,
+		mach_port_mscount_t mscnt DISPATCH_UNUSED){
 	// this function should never be called
 	(void)dispatch_assume_zero(notify);
 	return KERN_SUCCESS;
 }
 
-kern_return_t
-_dispatch_mach_notify_send_once(mach_port_t notify DISPATCH_UNUSED)
-{
+kern_return_t _dispatch_mach_notify_send_once(mach_port_t notify DISPATCH_UNUSED){
 	// we only register for dead-name notifications
 	// some code deallocated our send-once right without consuming it
 #if DISPATCH_DEBUG
