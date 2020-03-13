@@ -87,8 +87,7 @@ _dispatch_trace_client_callout_block(dispatch_block_t b)
 DISPATCH_ALWAYS_INLINE
 static inline void
 _dispatch_trace_queue_push_list(dispatch_queue_t dq, dispatch_object_t _head,
-		dispatch_object_t _tail)
-{
+		dispatch_object_t _tail){
 	if (slowpath(DISPATCH_QUEUE_PUSH_ENABLED())) {
 		struct dispatch_object_s *dou = _head._do;
 		do {

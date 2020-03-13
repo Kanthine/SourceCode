@@ -59,6 +59,7 @@ void _dispatch_release(dispatch_object_t dou){
 		return; // global object
 	}
 
+	//do_ref_cnt = do_ref_cnt - 1
 	unsigned int ref_cnt = dispatch_atomic_dec2o(dou._do, do_ref_cnt) + 1;
 	if (fastpath(ref_cnt > 1)) {
 		return;
@@ -97,6 +98,8 @@ void dispatch_suspend(dispatch_object_t dou){
 	if (slowpath(dou._do->do_ref_cnt == DISPATCH_OBJECT_GLOBAL_REFCNT)) {
 		return;
 	}
+	
+	//do_suspend_cnt = do_suspend_cnt + DISPATCH_OBJECT_SUSPEND_INTERVAL
 	(void)dispatch_atomic_add2o(dou._do, do_suspend_cnt,DISPATCH_OBJECT_SUSPEND_INTERVAL);
 	_dispatch_retain(dou._do);
 }
@@ -122,6 +125,8 @@ void dispatch_resume(dispatch_object_t dou){
 	
 	/* 检查 suspend_cnt 的前一个值。如果前一个值是单个挂起间隔，则应该恢复该对象。
 	 * 如果之前的值小于挂起间隔，则该对象已被过度恢复。
+	 * do_suspend_cnt = do_suspend_cnt - DISPATCH_OBJECT_SUSPEND_INTERVAL
+	 * suspend_cnt = do_suspend_cnt + DISPATCH_OBJECT_SUSPEND_INTERVAL
 	 */
 	unsigned int suspend_cnt = dispatch_atomic_sub2o(dou._do, do_suspend_cnt,
 			DISPATCH_OBJECT_SUSPEND_INTERVAL) +

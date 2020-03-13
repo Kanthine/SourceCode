@@ -2465,7 +2465,7 @@ static int32_t __CFRunLoopRun(CFRunLoopRef rl, CFRunLoopModeRef rlm, CFTimeInter
         /*
          这个do...while里面主要做的事是等待内核响应
          过程：
-         1.msg = (mach_msg_header_t *)msg_buffer; 从缓冲区读取消息
+         1.dispatch_activatemsg = (mach_msg_header_t *)msg_buffer; 从缓冲区读取消息
          2.调用__CFRunLoopServiceMachPort, 监听waitSet所指定的mach port端口集合, 如果没有port message，进入 mach_msg_trap, RunLoop休眠,直到收到port message或者超时
          3.
          */
