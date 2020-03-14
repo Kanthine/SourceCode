@@ -31,10 +31,20 @@
 #define dispatch_atomic_xchg(p, n) \
 		((typeof(*(p)))__sync_swap((p), (n)))
 #else
+
+// 将*ptr设为 n 并返回*ptr操作之前的值
 #define dispatch_atomic_xchg(p, n) \
 		((typeof(*(p)))__sync_lock_test_and_set((p), (n)))
 #endif
+
+/************* 原子性操作函数 ********/
+/* p = p + v
+* @return 相加后的 p
+*/
 #define dispatch_atomic_add(p, v)	__sync_add_and_fetch((p), (v))
+/* p = p - v
+ * @return 相减后的 p
+ */
 #define dispatch_atomic_sub(p, v)	__sync_sub_and_fetch((p), (v))
 #define dispatch_atomic_or(p, v)	__sync_fetch_and_or((p), (v))
 #define dispatch_atomic_and(p, v)	__sync_fetch_and_and((p), (v))
@@ -48,8 +58,14 @@
 		dispatch_atomic_cmpxchg(&(p)->f, (e), (n))
 #define dispatch_atomic_xchg2o(p, f, n) \
 		dispatch_atomic_xchg(&(p)->f, (n))
+
+/* 加 v 并返回（线程安全） a = a + v
+*/
 #define dispatch_atomic_add2o(p, f, v) \
 		dispatch_atomic_add(&(p)->f, (v))
+
+/* 相减并返回（线程安全） f = f - v
+ */
 #define dispatch_atomic_sub2o(p, f, v) \
 		dispatch_atomic_sub(&(p)->f, (v))
 #define dispatch_atomic_or2o(p, f, v) \
@@ -58,6 +74,9 @@
 		dispatch_atomic_and(&(p)->f, (v))
 #define dispatch_atomic_inc2o(p, f) \
 		dispatch_atomic_add2o((p), f, 1)
+
+/* 减 1 并返回（线程安全） f = f - 1
+*/
 #define dispatch_atomic_dec2o(p, f) \
 		dispatch_atomic_sub2o((p), f, 1)
 

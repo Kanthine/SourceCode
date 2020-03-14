@@ -59,6 +59,7 @@ void _dispatch_release(dispatch_object_t dou){
 		return; // global object
 	}
 
+	//do_ref_cnt = do_ref_cnt - 1
 	unsigned int ref_cnt = dispatch_atomic_dec2o(dou._do, do_ref_cnt) + 1;
 	if (fastpath(ref_cnt > 1)) {
 		return;
@@ -89,14 +90,17 @@ void dispatch_set_finalizer_f(dispatch_object_t dou, dispatch_function_t finaliz
 	dou._do->do_finalizer = finalizer;
 }
 
+/* 挂起指定的 dispatch_object
+ * @note 全局队列不受影响
+ * @note 正在执行的 dispatch_block 不受影响
+ */
 void dispatch_suspend(dispatch_object_t dou){
 	if (slowpath(dou._do->do_ref_cnt == DISPATCH_OBJECT_GLOBAL_REFCNT)) {
 		return;
 	}
-	// rdar://8181908 explains why we need to do an internal retain at every
-	// suspension.
-	(void)dispatch_atomic_add2o(dou._do, do_suspend_cnt,
-			DISPATCH_OBJECT_SUSPEND_INTERVAL);
+	
+	//do_suspend_cnt = do_suspend_cnt + DISPATCH_OBJECT_SUSPEND_INTERVAL
+	(void)dispatch_atomic_add2o(dou._do, do_suspend_cnt,DISPATCH_OBJECT_SUSPEND_INTERVAL);
 	_dispatch_retain(dou._do);
 }
 
@@ -107,6 +111,10 @@ static void _dispatch_resume_slow(dispatch_object_t dou){
 	_dispatch_release(dou._do);
 }
 
+/* 恢复指定的 dispatch_object
+* @note 全局队列不受影响
+* @note 正在执行的 dispatch_block 不受影响
+*/
 void dispatch_resume(dispatch_object_t dou){
 	/* 全局对象不能被挂起或恢复。
 	 * 这还具有使对象的挂起计数饱和并防止由于溢出而恢复的副作用。
@@ -117,12 +125,13 @@ void dispatch_resume(dispatch_object_t dou){
 	
 	/* 检查 suspend_cnt 的前一个值。如果前一个值是单个挂起间隔，则应该恢复该对象。
 	 * 如果之前的值小于挂起间隔，则该对象已被过度恢复。
+	 * do_suspend_cnt = do_suspend_cnt - DISPATCH_OBJECT_SUSPEND_INTERVAL
+	 * suspend_cnt = do_suspend_cnt + DISPATCH_OBJECT_SUSPEND_INTERVAL
 	 */
 	unsigned int suspend_cnt = dispatch_atomic_sub2o(dou._do, do_suspend_cnt,
 			DISPATCH_OBJECT_SUSPEND_INTERVAL) +
 			DISPATCH_OBJECT_SUSPEND_INTERVAL;
 	if (fastpath(suspend_cnt > DISPATCH_OBJECT_SUSPEND_INTERVAL)) {
-		// Balancing the retain() done in suspend() for rdar://8181908
 		return _dispatch_release(dou._do);
 	}
 	if (fastpath(suspend_cnt == DISPATCH_OBJECT_SUSPEND_INTERVAL)) {

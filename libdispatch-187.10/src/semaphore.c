@@ -37,15 +37,15 @@ const struct dispatch_semaphore_vtable_s _dispatch_semaphore_vtable = {
 	.do_debug = _dispatch_semaphore_debug,
 };
 
-dispatch_semaphore_t
-dispatch_semaphore_create(long value){
+/* 创建一个信号量
+ * @note 如果 value < 0，则返回 NULL
+ */
+dispatch_semaphore_t dispatch_semaphore_create(long value){
 	dispatch_semaphore_t dsema;
 	if (value < 0) {
 		return NULL;
 	}
-	
 	dsema = calloc(1, sizeof(struct dispatch_semaphore_s));
-	
 	if (fastpath(dsema)) {
 		dsema->do_vtable = &_dispatch_semaphore_vtable;
 		dsema->do_next = DISPATCH_OBJECT_LISTLESS;
@@ -163,9 +163,7 @@ _dispatch_semaphore_signal_slow(dispatch_semaphore_t dsema)
 	return 1;
 }
 
-long
-dispatch_semaphore_signal(dispatch_semaphore_t dsema)
-{
+long dispatch_semaphore_signal(dispatch_semaphore_t dsema){
 	dispatch_atomic_release_barrier();
 	long value = dispatch_atomic_inc2o(dsema, dsema_value);
 	if (fastpath(value > 0)) {
@@ -178,16 +176,19 @@ dispatch_semaphore_signal(dispatch_semaphore_t dsema)
 }
 
 DISPATCH_NOINLINE
-static long
-_dispatch_semaphore_wait_slow(dispatch_semaphore_t dsema,
-		dispatch_time_t timeout)
-{
+
+/* 执行等待
+ * 判断信号量：value>0不会阻塞线程、value减1，执行后续任务。如果value=0，当前线程会和 NSCondition 一样进入 waiting 状态，等待其它线程发送信号唤醒此线程去执行后续任务，或者满足截止时间 overTime，也会执行后续任务。
+
+ */
+static long _dispatch_semaphore_wait_slow(dispatch_semaphore_t dsema,
+		dispatch_time_t timeout){
 	long orig;
 
 again:
-	// Mach semaphores appear to sometimes spuriously wake up. Therefore,
-	// we keep a parallel count of the number of times a Mach semaphore is
-	// signaled (6880961).
+	// Mach semaphores appear to sometimes spuriously wake up.
+	// Therefore, we keep a parallel count of the number of times a Mach semaphore is signaled (6880961).
+	//
 	while ((orig = dsema->dsema_sent_ksignals)) {
 		if (dispatch_atomic_cmpxchg2o(dsema, dsema_sent_ksignals, orig,
 				orig - 1)) {
@@ -293,24 +294,20 @@ dispatch_semaphore_wait(dispatch_semaphore_t dsema, dispatch_time_t timeout)
 #pragma mark -
 #pragma mark dispatch_group_t
 
-dispatch_group_t
-dispatch_group_create(void)
-{
+/* 创建一个 dispatch_group_t
+ * 其本质是一个 value = LONG_MAX 的信号量
+ */
+dispatch_group_t dispatch_group_create(void){
 	return (dispatch_group_t)dispatch_semaphore_create(LONG_MAX);
 }
 
-void
-dispatch_group_enter(dispatch_group_t dg)
-{
+void dispatch_group_enter(dispatch_group_t dg){
 	dispatch_semaphore_t dsema = (dispatch_semaphore_t)dg;
-
 	(void)dispatch_semaphore_wait(dsema, DISPATCH_TIME_FOREVER);
 }
 
 DISPATCH_NOINLINE
-static long
-_dispatch_group_wake(dispatch_semaphore_t dsema)
-{
+static long _dispatch_group_wake(dispatch_semaphore_t dsema){
 	struct dispatch_sema_notify_s *next, *head, *tail = NULL;
 	long rval;
 
@@ -353,9 +350,7 @@ _dispatch_group_wake(dispatch_semaphore_t dsema)
 	return 0;
 }
 
-void
-dispatch_group_leave(dispatch_group_t dg)
-{
+void dispatch_group_leave(dispatch_group_t dg){
 	dispatch_semaphore_t dsema = (dispatch_semaphore_t)dg;
 	dispatch_atomic_release_barrier();
 	long value = dispatch_atomic_inc2o(dsema, dsema_value);
@@ -475,11 +470,10 @@ again:
 	goto again;
 }
 
-long
-dispatch_group_wait(dispatch_group_t dg, dispatch_time_t timeout)
-{
+/* 堵塞当前线程，直到 dispatch_group 中的任务执行完毕，当前线程才会接着向下执行；
+ */
+long dispatch_group_wait(dispatch_group_t dg, dispatch_time_t timeout){
 	dispatch_semaphore_t dsema = (dispatch_semaphore_t)dg;
-
 	if (dsema->dsema_value == dsema->dsema_orig) {
 		return 0;
 	}
@@ -495,10 +489,8 @@ dispatch_group_wait(dispatch_group_t dg, dispatch_time_t timeout)
 }
 
 DISPATCH_NOINLINE
-void
-dispatch_group_notify_f(dispatch_group_t dg, dispatch_queue_t dq, void *ctxt,
-		void (*func)(void *))
-{
+void dispatch_group_notify_f(dispatch_group_t dg, dispatch_queue_t dq, void *ctxt,
+		void (*func)(void *)){
 	dispatch_semaphore_t dsema = (dispatch_semaphore_t)dg;
 	struct dispatch_sema_notify_s *dsn, *prev;
 
@@ -525,10 +517,8 @@ dispatch_group_notify_f(dispatch_group_t dg, dispatch_queue_t dq, void *ctxt,
 }
 
 #ifdef __BLOCKS__
-void
-dispatch_group_notify(dispatch_group_t dg, dispatch_queue_t dq,
-		dispatch_block_t db)
-{
+void dispatch_group_notify(dispatch_group_t dg, dispatch_queue_t dq,
+		dispatch_block_t db){
 	dispatch_group_notify_f(dg, dq, _dispatch_Block_copy(db),
 			_dispatch_call_block_and_release);
 }

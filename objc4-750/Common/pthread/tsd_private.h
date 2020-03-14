@@ -244,6 +244,7 @@ extern const struct pthread_layout_offsets_s {
 
 #endif // PTHREAD_LAYOUT_SPI
 
+//模拟器返回 0 ，否则返回 1
 __header_always_inline int
 _pthread_has_direct_tsd(void)
 {
@@ -254,6 +255,9 @@ _pthread_has_direct_tsd(void)
 #endif
 }
 
+/* pthread_getpecific() 和 pthread_setspecific () 提供了在同一个线程中不同函数间共享数据即线程存储的一种方法。
+ *
+ */
 /* To be used with static constant keys only */
 __header_always_inline void *
 _pthread_getspecific_direct(unsigned long slot)

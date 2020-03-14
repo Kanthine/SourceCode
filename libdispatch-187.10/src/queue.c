@@ -872,16 +872,19 @@ static void _dispatch_queue_merge_stats(uint64_t start){
 
 static malloc_zone_t *_dispatch_ccache_zone;
 
+//缓存空间的分配
 static void _dispatch_ccache_init(void *context DISPATCH_UNUSED){
 	_dispatch_ccache_zone = malloc_create_zone(0, 0);
 	dispatch_assert(_dispatch_ccache_zone);
 	malloc_set_zone_name(_dispatch_ccache_zone, "DispatchContinuations");
 }
 
+//缓存的第一个值
 static dispatch_continuation_t _dispatch_continuation_alloc_from_heap(void){
 	static dispatch_once_t pred;
+	dispatch_once_f(&pred, NULL, _dispatch_ccache_init);//缓存空间的分配
+	
 	dispatch_continuation_t dc;
-	dispatch_once_f(&pred, NULL, _dispatch_ccache_init);
 	while (!(dc = fastpath(malloc_zone_calloc(_dispatch_ccache_zone, 1,
 			ROUND_UP_TO_CACHELINE_SIZE(sizeof(*dc)))))) {
 		sleep(1);
@@ -893,8 +896,9 @@ DISPATCH_ALWAYS_INLINE
 static inline dispatch_continuation_t
 _dispatch_continuation_alloc_cacheonly(void){
 	dispatch_continuation_t dc;
-	dc = fastpath(_dispatch_thread_getspecific(dispatch_cache_key));
+	dc = fastpath(_dispatch_thread_getspecific(dispatch_cache_key));//获取缓存
 	if (dc) {
+		//设置新的缓存
 		_dispatch_thread_setspecific(dispatch_cache_key, dc->do_next);
 	}
 	return dc;
@@ -979,7 +983,7 @@ _dispatch_continuation_pop(dispatch_object_t dou){
 DISPATCH_NOINLINE
 static void _dispatch_barrier_async_f_slow(dispatch_queue_t dq, void *ctxt,
 		dispatch_function_t func){
-	dispatch_continuation_t dc = _dispatch_continuation_alloc_from_heap();
+	dispatch_continuation_t dc = _dispatch_continuation_alloc_from_heap();//第一个缓存值
 	dc->do_vtable = (void *)(DISPATCH_OBJ_ASYNC_BIT | DISPATCH_OBJ_BARRIER_BIT);// 0011
 	dc->dc_func = func; //任务
 	dc->dc_ctxt = ctxt;//入参的传递
@@ -1297,8 +1301,8 @@ _dispatch_barrier_sync_f_slow(dispatch_queue_t dq, void *ctxt,
 	}
 	dispatch_atomic_release_barrier();
 	if (fastpath(dq->do_suspend_cnt < 2 * DISPATCH_OBJECT_SUSPEND_INTERVAL)) {
-		// rdar://problem/8290662 "lock transfer"
-		// ensure drain of current barrier sync has finished
+		
+		// 确保当前的 barrier sync 已经完成
 		while (slowpath(dq->dq_running > 2)) {
 			_dispatch_hardware_pause();
 		}
@@ -1785,9 +1789,10 @@ out:
 // 6618342 Contact the team that owns the Instrument DTrace probe before
 //         renaming this symbol
 DISPATCH_NOINLINE
+/* 调用
+ */
 void
-_dispatch_queue_invoke(dispatch_queue_t dq)
-{
+_dispatch_queue_invoke(dispatch_queue_t dq){
 	if (!slowpath(DISPATCH_OBJECT_SUSPENDED(dq)) &&
 			fastpath(dispatch_atomic_cmpxchg2o(dq, dq_running, 0, 1))) {
 		dispatch_atomic_acquire_barrier();
