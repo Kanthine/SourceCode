@@ -1,0 +1,146 @@
+{\rtf1\ansi\ansicpg936\cocoartf2511
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 Menlo-Regular;\f1\fnil\fcharset134 PingFangSC-Regular;}
+{\colortbl;\red255\green255\blue255;\red93\green108\blue121;\red255\green255\blue255;\red0\green0\blue0;
+}
+{\*\expandedcolortbl;;\csgenericrgb\c36526\c42188\c47515;\csgenericrgb\c100000\c100000\c100000;\csgenericrgb\c0\c0\c0\c85000;
+}
+\paperw11900\paperh16840\margl1440\margr1440\vieww18400\viewh11040\viewkind0
+\deftab791
+\pard\tx791\pardeftab791\pardirnatural\partightenfactor0
+
+\f0\fs32 \cf2 \cb3 /*\cf4 \
+\cf2  * 
+\f1 \'ce\'ef\'c0\'ed\'c4\'da\'b4\'e6\'a3\'ba
+\f0 \cf4 \
+\cf2  *    
+\f1 \'b4\'e6\'b4\'a2\'c6\'da\'a3\'ba\'b8\'c3\'c4\'da\'b4\'e6\'c9\'fa\'b4\'e6\'b5\'c4\'ca\'b1\'bc\'e4\'a3\'bb
+\f0 \cf4 \
+\cf2  *        
+\f1 \'be\'b2\'cc\'ac\'b4\'e6\'b4\'a2\'c6\'da\'a3\'ba\'b3\'cc\'d0\'f2\'c6\'f4\'b6\'af\'d6\'c1\'b3\'cc\'d0\'f2\'b9\'d8\'b1\'d5\'a3\'ac\'b3\'cc\'d0\'f2\'d6\'b4\'d0\'d0\'c6\'da\'bc\'e4\'a3\'ac\'d2\'bb\'d6\'b1\'b4\'e6\'d4\'da
+\f0 \cf4 \
+\cf2  *        
+\f1 \'cf\'df\'b3\'cc\'b4\'e6\'b4\'a2\'c6\'da\'a3\'ba\'b4\'d3\'c9\'f9\'c3\'f7\'b5\'bd\'cf\'df\'b3\'cc\'bd\'e1\'ca\'f8
+\f0 \cf4 \
+\cf2  *        
+\f1 \'d7\'d4\'b6\'af\'b4\'e6\'b4\'a2\'c6\'da\'a3\'ba\'bf\'e9\'d7\'f7\'d3\'c3\'d3\'f2\'b5\'c4\'b1\'e4\'c1\'bf\'cd\'a8\'b3\'a3\'be\'df\'d3\'d0\'d7\'d4\'b6\'af\'b4\'e6\'b4\'a2\'c6\'da
+\f0 \cf4 \
+\cf2  *                    
+\f1 \'d7\'d4\'b6\'af\'b1\'e4\'c1\'bf\'d5\'bc\'d3\'c3\'b5\'c4\'c4\'da\'b4\'e6\'ce\'aa\'d2\'bb\'b8\'f6\'bf\'c9\'d6\'d8\'b8\'b4\'ca\'b9\'d3\'c3\'b5\'c4\'d5\'bb\'c7\'f8
+\f0 \cf4 \
+\cf2  *        
+\f1 \'b6\'af\'cc\'ac\'b7\'d6\'c5\'e4\'b4\'e6\'b4\'a2\'c6\'da\'a3\'ba
+\f0 malloc() 
+\f1 \'ba\'cd
+\f0  free()\cf4 \
+\cf2  *    
+\f1 \'b1\'ea\'ca\'b6\'b7\'fb\'a3\'ba\'b7\'c3\'ce\'ca\'d6\'b8\'b6\'a8\'c4\'da\'b4\'e6
+\f0 \cf4 \
+\cf2  *        
+\f1 \'c1\'b4\'bd\'d3\'a3\'ba\'b3\'cc\'d0\'f2\'b5\'c4\'c4\'c4\'b2\'bf\'b7\'d6\'bf\'c9\'d2\'d4\'ca\'b9\'d3\'c3\'b1\'ea\'ca\'b6\'b7\'fb
+\f0 \cf4 \
+\cf2  *            
+\f1 \'ce\'de\'c1\'ac\'bd\'d3\'a3\'ba\'be\'df\'d3\'d0\'bf\'e9\'d7\'f7\'d3\'c3\'d3\'f2\'a1\'a2\'ba\'af\'ca\'fd\'d7\'f7\'d3\'c3\'d3\'f2\'a1\'a2\'ba\'af\'ca\'fd\'d4\'ad\'d0\'cd\'d7\'f7\'d3\'c3\'d3\'f2\'b5\'c4\'b1\'e4\'c1\'bf\'b6\'bc\'ca\'c7\'ce\'de\'c1\'b4\'bd\'d3\'b1\'e4\'c1\'bf
+\f0 \cf4 \
+\cf2  *            
+\f1 \'c4\'da\'b2\'bf\'c1\'b4\'bd\'d3\'a3\'ba\'be\'df\'d3\'d0\'ce\'c4\'bc\'fe\'d7\'f7\'d3\'c3\'d3\'f2\'b5\'c4\'b1\'e4\'c1\'bf
+\f0 \cf4 \
+\cf2  *            
+\f1 \'cd\'e2\'b2\'bf\'c1\'b4\'bd\'d3\'a3\'ba\'be\'df\'d3\'d0\'ce\'c4\'bc\'fe\'d7\'f7\'d3\'c3\'d3\'f2\'b5\'c4\'b1\'e4\'c1\'bf
+\f0 \cf4 \
+\cf2  *        
+\f1 \'d7\'f7\'d3\'c3\'d3\'f2\'a3\'ba\'b3\'cc\'d0\'f2\'d6\'d0\'bf\'c9\'b7\'c3\'ce\'ca\'b1\'ea\'ca\'b6\'b7\'fb\'b5\'c4\'c7\'f8\'d3\'f2
+\f0 \cf4 \
+\cf2  *            
+\f1 \'bf\'e9\'d7\'f7\'d3\'c3\'d3\'f2\'a3\'ba\'b4\'d3\'c9\'f9\'c3\'f7\'b5\'bd\'bf\'e9\'c4\'a9\'ce\'b2
+\f0 \cf4 \
+\cf2  *            
+\f1 \'ba\'af\'ca\'fd\'d7\'f7\'d3\'c3\'d3\'f2
+\f0 \cf4 \
+\cf2  *            
+\f1 \'ba\'af\'ca\'fd\'d4\'ad\'d0\'cd\'d7\'f7\'d3\'c3\'d3\'f2
+\f0 \cf4 \
+\cf2  *            
+\f1 \'ce\'c4\'bc\'fe\'d7\'f7\'d3\'c3\'d3\'f2\'a3\'ba\'b4\'d3\'c9\'f9\'c3\'f7\'b5\'bd\'ce\'c4\'bc\'fe\'c4\'a9\'ce\'b2
+\f0 \cf4 \
+\cf2  *\cf4 \
+\cf2  * 
+\f1 \'b4\'e6\'b4\'a2\'c0\'e0\'b1\'f0\'cb\'b5\'c3\'f7\'b7\'fb
+\f0  static 
+\f1 \'a3\'ba\'d6\'b8\'b6\'a8\'d2\'bb\'b8\'f6\'b1\'e4\'c1\'bf\'ca\'c7\'c4\'da\'b2\'bf\'c1\'b4\'bd\'d3\'a3\'ac\'d4\'f2\'cb\'fc\'be\'df\'d3\'d0\'be\'b2\'cc\'ac\'b4\'e6\'b4\'a2\'c6\'f7
+\f0 \cf4 \
+\cf2  * 
+\f1 \'b4\'e6\'b4\'a2\'c0\'e0\'b1\'f0
+\f0 :\cf4 \
+\cf2  *   
+\f1 \'d7\'d4\'b6\'af\'b4\'e6\'b4\'a2\'a3\'ba
+\f0 \cf4 \
+\cf2  *    
+\f1 \'bc\'c4\'b4\'e6\'c6\'f7\'b4\'e6\'b4\'a2\'a3\'ba
+\f0 \cf4 \
+\cf2  *    
+\f1 \'be\'b2\'cc\'ac\'ce\'de\'c1\'b4\'bd\'d3\'b4\'e6\'b4\'a2\'a3\'ba
+\f0 \cf4 \
+\cf2  *    
+\f1 \'be\'b2\'cc\'ac\'c4\'da\'b4\'e6\'c1\'b4\'bd\'d3\'b4\'e6\'b4\'a2\'a3\'ba
+\f0 \cf4 \
+\cf2  *    
+\f1 \'be\'b2\'cc\'ac\'cd\'e2\'b2\'bf\'c1\'b4\'bd\'d3\'b4\'e6\'b4\'a2
+\f0 \cf4 \
+\cf2  *\cf4 \
+\cf2  * 
+\f1 \'b1\'e4\'c1\'bf\'a3\'ba
+\f0 \cf4 \
+\cf2  *    
+\f1 \'d7\'d4\'b6\'af\'b1\'e4\'c1\'bf\'a3\'ba
+\f0 auto\cf4 \
+\cf2  *    
+\f1 \'bc\'c4\'b4\'e6\'c6\'f7\'b1\'e4\'c1\'bf\'a3\'ba
+\f0 register\cf4 \
+\cf2  *    
+\f1 \'be\'b2\'cc\'ac\'b1\'e4\'c1\'bf\'a3\'ba\'d4\'da\'b3\'cc\'d0\'f2\'b1\'e0\'d2\'eb\'ca\'b1\'a3\'ac\'d2\'d1\'be\'ad\'d4\'d8\'c8\'eb\'c4\'da\'b4\'e6
+\f0 \cf4 \
+\cf2  *\cf4 \
+\cf2  * 
+\f1 \'ba\'af\'ca\'fd\'a3\'ba
+\f0 \cf4 \
+\cf2  *   
+\f1 \'c4\'da\'c1\'aa\'ba\'af\'ca\'fd\'a3\'ba
+\f0 \cf4 \
+\cf2  *    
+\f1 \'c4\'da\'b2\'bf\'ba\'af\'ca\'fd\'a3\'ba\'d6\'bb\'c4\'dc\'d3\'c3\'d3\'da\'c6\'e4\'b6\'a8\'d2\'e5\'cb\'f9\'d4\'da\'b5\'c4\'ce\'c4\'bc\'fe
+\f0 \cf4 \
+\cf2  *    
+\f1 \'cd\'e2\'b2\'bf\'ba\'af\'ca\'fd\'a3\'ba\'bf\'c9\'d2\'d4\'d3\'c3\'d3\'da\'b6\'e0\'b8\'f6\'ce\'c4\'bc\'fe
+\f0 \cf4 \
+\cf2  *\cf4 \
+\cf2  * 
+\f1 \'c4\'da\'b4\'e6\'b7\'d6\'c5\'e4\'c7\'f8\'d3\'f2\'a3\'ba\'b3\'cc\'d0\'f2\'b0\'d1\'d7\'d4\'b6\'af\'b1\'e4\'c1\'bf\'a1\'a2\'be\'b2\'cc\'ac\'b1\'e4\'c1\'bf\'a1\'a2\'ba\'cd\'b6\'af\'cc\'ac\'b7\'d6\'c5\'e4\'b1\'e4\'c1\'bf\'a3\'ac\'b7\'d6\'c5\'e4\'d4\'da\'b2\'bb\'cd\'a8\'b5\'c4\'c4\'da\'b4\'e6\'c7\'f8\'d3\'f2\'a3\'ba
+\f0 \cf4 \
+\cf2  *    
+\f1 \'d7\'d4\'b6\'af\'b1\'e4\'c1\'bf\'a3\'ba\'bf\'c9\'d6\'d8\'b8\'b4\'c0\'fb\'d3\'c3\'b5\'c4\'d5\'bb\'c7\'f8
+\f0 \cf4 \
+\cf2  *    
+\f1 \'b6\'af\'cc\'ac\'b7\'d6\'c5\'e4\'b1\'e4\'c1\'bf\'a3\'ba\'c4\'da\'b4\'e6\'d6\'a7\'c0\'eb\'c6\'c6\'cb\'e9\'a3\'ac\'b3\'c9\'ce\'aa\'b6\'d1\'c7\'f8\'a3\'ac\'b1\'c8\'c0\'fb\'d3\'c3\'d5\'bb\'c7\'f8\'d2\'aa\'c2\'fd
+\f0 \cf4 \
+\cf2  *    
+\f1 \'be\'b2\'cc\'ac\'b1\'e4\'c1\'bf\'a3\'ba\'c8\'ab\'be\'d6\'be\'b2\'cc\'ac\'c7\'f8
+\f0 \cf4 \
+\cf2  *\cf4 \
+\cf2  *    
+\f1 \'b6\'d1\'c7\'f8\'a3\'ba\'d3\'d0\'b3\'cc\'d0\'f2\'d4\'b1
+\f0  malloc() 
+\f1 \'ba\'cd
+\f0  free() 
+\f1 \'a3\'ac\'d3\'c3\'d3\'da\'b4\'e6\'b4\'a2\'bd\'f8\'b3\'cc\'d6\'d0\'b6\'af\'cc\'ac\'b7\'d6\'c5\'e4\'b5\'c4\'c4\'da\'b4\'e6\'b6\'ce\'a3\'ac\'b2\'a2\'b2\'bb\'b9\'cc\'b6\'a8\'b4\'f3\'d0\'a1
+\f0 \cf4 \
+\cf2  *    
+\f1 \'d5\'bb\'c7\'f8\'a3\'ba\'d3\'c9\'b1\'e0\'d2\'eb\'c6\'f7\'d7\'d4\'b6\'af\'b7\'d6\'c5\'e4\'ba\'cd\'ca\'cd\'b7\'c5\'a3\'ac\'c1\'d9\'ca\'b1\'b4\'e6\'b4\'a2\'c7\'f8\'d3\'f2\'a3\'bb\'be\'df\'d3\'d0\'bf\'e9\'d7\'f7\'d3\'c3\'d3\'f2\'a3\'ac\'ba\'af\'ca\'fd\'d7\'f7\'d3\'c3\'d3\'f2\'a1\'a2\'ba\'af\'ca\'fd\'d4\'ad\'d0\'cd\'d7\'f7\'d3\'c3\'d3\'f2\'b5\'c4\'be\'d6\'b2\'bf\'b1\'e4\'c1\'bf
+\f0 \cf4 \
+\cf2  *    
+\f1 \'c8\'ab\'be\'d6\'be\'b2\'cc\'ac\'c7\'f8\'a3\'ba\'ca\'fd\'be\'dd\'c7\'f8\'a3\'ba\'d2\'d1\'b3\'f5\'ca\'bc\'bb\'af\'b5\'c4\'be\'b2\'cc\'ac\'b1\'e4\'c1\'bf\'a1\'a2\'c8\'ab\'be\'d6\'b1\'e4\'c1\'bf
+\f0 \cf4 \
+\cf2  *               BBS 
+\f1 \'c7\'f8\'a3\'ba\'ce\'b4\'b3\'f5\'ca\'bc\'bb\'af\'b5\'c4\'c8\'ab\'be\'d6\'b1\'e4\'c1\'bf
+\f0 \cf4 \
+\cf2  */\cf4 \
+}

@@ -1,11 +1,3 @@
-// This source file is part of the Swift.org open source project
-//
-// Copyright (c) 2014 - 2015 Apple Inc. and the Swift project authors
-// Licensed under Apache License v2.0 with Runtime Library Exception
-//
-// See http://swift.org/LICENSE.txt for license information
-// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
-//
 
 
 #ifndef _BLOCK_PRIVATE_H_
@@ -137,8 +129,7 @@ enum {
     BLOCK_LAYOUT_UNUSED_F         = 0xF,  // unspecified, reserved
 };
 
-
-// Runtime support functions used by compiler when generating copy/dispose helpers
+// Runtime 支持使用编译器 copy/dispose 时的函数
 
 // Values for _Block_object_assign() and _Block_object_dispose() parameters
 enum {
@@ -156,11 +147,16 @@ enum {
         BLOCK_FIELD_IS_WEAK | BLOCK_BYREF_CALLER
 };
 
+/* 将一个对象的值复制给另一个对象
+* @param destAddr 目的对象：接收值
+* @param object 源对象：
+*/
 // Runtime entry point called by compiler when assigning objects inside copy helper routines
 BLOCK_EXPORT void _Block_object_assign(void *destAddr, const void *object, const int flags);
     // BLOCK_FIELD_IS_BYREF is only used from within block copy helpers
 
-
+/* 销毁一个对象
+*/
 // runtime entry point called by the compiler when disposing of objects inside dispose helper routine
 BLOCK_EXPORT void _Block_object_dispose(const void *object, const int flags);
 
