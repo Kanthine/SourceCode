@@ -1,26 +1,3 @@
-/*
- * Copyright (c) 2010-2012 Apple Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- *
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- *
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- *
- * @APPLE_LICENSE_HEADER_END@
- */
-
 #include "objc-private.h"
 #include "NSObject.h"
 
@@ -1664,11 +1641,8 @@ _objc_rootRelease(id obj)
 }
 
 
-id
-_objc_rootAllocWithZone(Class cls, malloc_zone_t *zone)
-{
+id _objc_rootAllocWithZone(Class cls, malloc_zone_t *zone){
     id obj;
-    
 #if __OBJC2__
     // allocWithZone under __OBJC2__ ignores the zone parameter
     (void)zone;
@@ -1686,12 +1660,11 @@ _objc_rootAllocWithZone(Class cls, malloc_zone_t *zone)
     return obj;
 }
 
-
-// Call [cls alloc] or [cls allocWithZone:nil], with appropriate
-// shortcutting optimizations.
-static ALWAYS_INLINE id
-callAlloc(Class cls, bool checkNil, bool allocWithZone=false)
-{
+/* 调用 +alloc 或者 +allocWithZone: 方法，使用该函数
+ * @param cls 不能为 nil ，否则返回 nil
+ * @param checkNil 若为 false ，则返回 nil
+ */
+static ALWAYS_INLINE id callAlloc(Class cls, bool checkNil, bool allocWithZone=false){
     if (slowpath(checkNil && !cls)) return nil;
     
 #if __OBJC2__
@@ -1706,8 +1679,7 @@ callAlloc(Class cls, bool checkNil, bool allocWithZone=false)
             if (slowpath(!obj)) return callBadAllocHandler(cls);
             obj->initInstanceIsa(cls, dtor);
             return obj;
-        }
-        else {
+        }else {
             // Has ctor or raw isa or something. Use the slower path.
             id obj = class_createInstance(cls, 0);
             if (slowpath(!obj)) return callBadAllocHandler(cls);
@@ -1721,12 +1693,11 @@ callAlloc(Class cls, bool checkNil, bool allocWithZone=false)
     return [cls alloc];
 }
 
-
-// Base class implementation of +alloc. cls is not nil.
+/* 基类调用 +alloc
+ * @param cls 不能为 nil
+ */
 // Calls [cls allocWithZone:nil].
-id
-_objc_rootAlloc(Class cls)
-{
+id _objc_rootAlloc(Class cls){
     return callAlloc(cls, false/*checkNil*/, true/*allocWithZone*/);
 }
 

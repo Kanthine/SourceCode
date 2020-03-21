@@ -5,331 +5,469 @@
       location = "group:CF-1153.18"
       name = "CF-1153.18">
       <FileRef
-         location = "group:CFUUID.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFUniCharPriv.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFBundle.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFBigNumber.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFXMLInputStream.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFNumber.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFError.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFBundle_Internal.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFURL.inc.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFPropertyList.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFBag.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFStringEncodingConverterPriv.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFRuntime.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFPreferences.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFConcreteStreams.c">
-      </FileRef>
-      <FileRef
-         location = "group:CoreFoundation_Prefix.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFAvailability.h">
-      </FileRef>
-      <FileRef
-         location = "group:SymbolAliases">
-      </FileRef>
-      <FileRef
-         location = "group:CFUserNotification.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFTimeZone.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFVersion.c">
-      </FileRef>
-      <FileRef
-         location = "group:ForFoundationOnly.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFBinaryPList.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFXMLNode.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFBundle_Resources.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFStreamAbstract.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFString.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFBasicHash.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFArray.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFBundle_InfoPlist.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFXMLParser.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFBitVector.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFStream.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFRunLoop.c">
-      </FileRef>
-      <FileRef
-         location = "group:CoreFoundation.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFBundle_BinaryTypes.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFSocket.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFDictionary.h">
-      </FileRef>
-      <FileRef
          location = "group:APPLE_LICENSE">
-      </FileRef>
-      <FileRef
-         location = "group:CFURL.c">
       </FileRef>
       <FileRef
          location = "group:CFApplicationPreferences.c">
       </FileRef>
       <FileRef
-         location = "group:CFCharacterSet.h">
+         location = "group:CFArray.c">
       </FileRef>
       <FileRef
-         location = "group:CFBasicHashFindBucket.m">
+         location = "group:CFArray.h">
       </FileRef>
       <FileRef
-         location = "group:CFStorage.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFStringEncodingDatabase.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFSystemDirectories.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFUnicodeData-B.mapping">
-      </FileRef>
-      <FileRef
-         location = "group:CFCalendar.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFOldStylePList.c">
-      </FileRef>
-      <FileRef
-         location = "group:Makefile">
-      </FileRef>
-      <FileRef
-         location = "group:CFDateFormatter.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFPlugIn_Factory.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFICUConverters.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFSet.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFBase.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFTree.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFSortFunctions.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFBinaryHeap.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFMessagePort.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFUtilities.c">
-      </FileRef>
-      <FileRef
-         location = "group:MakefileVersion">
-      </FileRef>
-      <FileRef
-         location = "group:CFUnicodePrecomposition.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFMachPort.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFICULogging.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFPlugInCOM.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFPlugIn.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFFileUtilities.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFBundle_Locale.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFLocaleKeys.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFUnicodeDecomposition.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFDate.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFBundle_Strings.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFBurstTrie.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFStringEncodingConverter.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFStreamInternal.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFStringEncodingConverterExt.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFLocale.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFData.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFUniChar.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFNumberFormatter.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFURLAccess.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFLocaleInternal.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFStreamPriv.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFLogUtilities.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFRuntime.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFPreferences.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFUserNotification.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFTimeZone.h">
-      </FileRef>
-      <FileRef
-         location = "group:TargetConditionals.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFXMLPreferencesDomain.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFError.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFNumber.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFBundlePriv.h">
-      </FileRef>
-      <FileRef
-         location = "group:README_CFLITE">
-      </FileRef>
-      <FileRef
-         location = "group:CFCharacterSetBitmaps.bitmap">
-      </FileRef>
-      <FileRef
-         location = "group:CFXMLInputStream.c">
+         location = "group:CFAvailability.h">
       </FileRef>
       <FileRef
          location = "group:CFBag.c">
       </FileRef>
       <FileRef
-         location = "group:CFPropertyList.h">
+         location = "group:CFBag.h">
       </FileRef>
       <FileRef
-         location = "group:CFBundle.c">
+         location = "group:CFBase.c">
       </FileRef>
       <FileRef
-         location = "group:CFSocketStream.c">
+         location = "group:CFBase.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFBasicHash.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFBasicHash.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFBasicHashFindBucket.m">
       </FileRef>
       <FileRef
          location = "group:CFBigNumber.c">
       </FileRef>
       <FileRef
-         location = "group:CFUUID.c">
+         location = "group:CFBigNumber.h">
       </FileRef>
       <FileRef
-         location = "group:PropertyList.dtd">
+         location = "group:CFBinaryHeap.c">
       </FileRef>
       <FileRef
-         location = "group:CFBundle_Binary.c">
+         location = "group:CFBinaryHeap.h">
       </FileRef>
       <FileRef
-         location = "group:CFPlugIn_Instance.c">
+         location = "group:CFBinaryPList.c">
       </FileRef>
       <FileRef
-         location = "group:CFPriv.h">
+         location = "group:CFBitVector.c">
       </FileRef>
       <FileRef
-         location = "group:CFByteOrder.h">
+         location = "group:CFBitVector.h">
       </FileRef>
       <FileRef
          location = "group:CFBuiltinConverters.c">
       </FileRef>
       <FileRef
+         location = "group:CFBundle_Binary.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFBundle_BinaryTypes.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFBundle_Grok.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFBundle_InfoPlist.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFBundle_Internal.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFBundle_Locale.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFBundle_Resources.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFBundle_Strings.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFBundle.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFBundle.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFBundlePriv.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFBurstTrie.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFBurstTrie.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFByteOrder.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFCalendar.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFCalendar.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFCharacterSet.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFCharacterSet.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFCharacterSetBitmaps.bitmap">
+      </FileRef>
+      <FileRef
+         location = "group:CFCharacterSetPriv.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFConcreteStreams.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFData.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFData.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFDate.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFDate.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFDateFormatter.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFDateFormatter.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFDictionary.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFDictionary.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFError_Private.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFError.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFError.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFFileUtilities.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFICUConverters.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFICUConverters.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFICULogging.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFInternal.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFLocale.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFLocale.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFLocaleIdentifier.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFLocaleInternal.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFLocaleKeys.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFLogUtilities.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFMachPort.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFMachPort.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFMessagePort.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFMessagePort.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFNumber.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFNumber.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFNumberFormatter.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFNumberFormatter.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFOldStylePList.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFPlatform.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFPlatformConverters.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFPlugIn_Factory.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFPlugIn_Factory.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFPlugIn_Instance.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFPlugIn_PlugIn.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFPlugIn.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFPlugIn.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFPlugInCOM.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFPreferences.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFPreferences.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFPriv.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFPropertyList.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFPropertyList.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFRunLoop.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFRunLoop.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFRuntime.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFRuntime.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFSet.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFSet.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFSocket.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFSocket.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFSocketStream.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFSortFunctions.c">
+      </FileRef>
+      <FileRef
          location = "group:CFStorage.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFStorage.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFStream.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFStream.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFStreamAbstract.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFStreamInternal.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFStreamPriv.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFString.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFString.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFStringDefaultEncoding.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFStringEncodingConverter.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFStringEncodingConverter.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFStringEncodingConverterExt.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFStringEncodingConverterPriv.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFStringEncodingDatabase.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFStringEncodingDatabase.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFStringEncodingExt.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFStringEncodings.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFStringScanner.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFStringUtilities.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFSystemDirectories.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFTimeZone.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFTimeZone.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFTree.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFTree.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFUniChar.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFUniChar.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFUniCharPriv.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFUniCharPropertyDatabase.data">
+      </FileRef>
+      <FileRef
+         location = "group:CFUnicodeData-B.mapping">
+      </FileRef>
+      <FileRef
+         location = "group:CFUnicodeData-L.mapping">
+      </FileRef>
+      <FileRef
+         location = "group:CFUnicodeDecomposition.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFUnicodeDecomposition.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFUnicodePrecomposition.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFUnicodePrecomposition.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFURL.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFURL.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFURL.inc.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFURLAccess.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFURLAccess.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFURLPriv.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFUserNotification.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFUserNotification.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFUtilities.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFUtilities.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFUUID.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFUUID.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFVersion.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFWindowsUtilities.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFXMLInputStream.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFXMLInputStream.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFXMLNode.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFXMLNode.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFXMLParser.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFXMLParser.h">
+      </FileRef>
+      <FileRef
+         location = "group:CFXMLPreferencesDomain.c">
+      </FileRef>
+      <FileRef
+         location = "group:CFXMLTree.c">
+      </FileRef>
+      <FileRef
+         location = "group:CoreFoundation_Prefix.h">
+      </FileRef>
+      <FileRef
+         location = "group:CoreFoundation.h">
       </FileRef>
       <Group
          location = "group:Examples"
@@ -339,172 +477,34 @@
          </FileRef>
       </Group>
       <FileRef
-         location = "group:CFCharacterSet.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFDictionary.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFSocket.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFURL.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFInternal.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFBitVector.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFXMLParser.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFXMLTree.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFRunLoop.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFStream.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFLocaleIdentifier.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFXMLNode.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFArray.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFBasicHash.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFString.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFPlatform.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFStringScanner.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFMachPort.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFUnicodePrecomposition.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFBinaryHeap.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFMessagePort.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFTree.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFBase.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFURLPriv.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFSet.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFUnicodeData-L.mapping">
-      </FileRef>
-      <FileRef
-         location = "group:CFPlatformConverters.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFUtilities.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFPlugIn_Factory.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFDateFormatter.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFICUConverters.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFUniCharPropertyDatabase.data">
-      </FileRef>
-      <FileRef
-         location = "group:MakefileLinux">
-      </FileRef>
-      <FileRef
-         location = "group:CFStringUtilities.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFStringEncodingDatabase.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFStringDefaultEncoding.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFCalendar.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFError_Private.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFWindowsUtilities.c">
-      </FileRef>
-      <FileRef
-         location = "group:plconvert.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFURLAccess.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFBundle_Grok.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFNumberFormatter.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFStringEncodings.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFLocale.c">
-      </FileRef>
-      <FileRef
-         location = "group:CFStringEncodingExt.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFUniChar.h">
-      </FileRef>
-      <FileRef
-         location = "group:CFCharacterSetPriv.h">
+         location = "group:ForFoundationOnly.h">
       </FileRef>
       <FileRef
          location = "group:Info.plist">
       </FileRef>
       <FileRef
-         location = "group:CFData.c">
+         location = "group:Makefile">
       </FileRef>
       <FileRef
-         location = "group:CFStringEncodingConverter.c">
+         location = "group:MakefileLinux">
       </FileRef>
       <FileRef
-         location = "group:CFBurstTrie.c">
+         location = "group:MakefileVersion">
       </FileRef>
       <FileRef
-         location = "group:CFDate.c">
+         location = "group:plconvert.c">
       </FileRef>
       <FileRef
-         location = "group:CFUnicodeDecomposition.c">
+         location = "group:PropertyList.dtd">
       </FileRef>
       <FileRef
-         location = "group:CFPlugIn_PlugIn.c">
+         location = "group:README_CFLITE">
       </FileRef>
       <FileRef
-         location = "group:CFPlugIn.c">
+         location = "group:SymbolAliases">
+      </FileRef>
+      <FileRef
+         location = "group:TargetConditionals.h">
       </FileRef>
    </Group>
    <FileRef

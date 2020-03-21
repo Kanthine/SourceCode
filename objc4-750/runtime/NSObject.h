@@ -1,7 +1,3 @@
-/*	NSObject.h
-	Copyright (c) 1994-2012, Apple Inc. All rights reserved.
-*/
-
 #ifndef _OBJC_NSOBJECT_H_
 #define _OBJC_NSOBJECT_H_
 

@@ -12,12 +12,18 @@
 CF_IMPLICIT_BRIDGING_ENABLED
 CF_EXTERN_C_BEGIN
 
+/*
+ * RunLoop关键类 主要包含一下几个类.
+ * 1、CFRunLoopRef:
+ * 2、CFRunLoopModeRef //runLoop的运行
+ * 3、CFRunLoopSourceRef //runLoop对应的事件
+ * 4、CFRunLoopTimerRef  基于时间的触发器
+ * 5、CFRunLoopObserverRef //runLoop状态监测者
+ */
+
 typedef struct __CFRunLoop * CFRunLoopRef;
-
 typedef struct __CFRunLoopSource * CFRunLoopSourceRef;
-
 typedef struct __CFRunLoopObserver * CFRunLoopObserverRef;
-
 typedef struct CF_BRIDGED_MUTABLE_TYPE(NSTimer) __CFRunLoopTimer * CFRunLoopTimerRef;
 
 /* Reasons for CFRunLoopRunInMode() to Return */
@@ -28,24 +34,31 @@ enum {
     kCFRunLoopRunHandledSource = 4
 };
 
-/* Run Loop Observer Activities */
+/* CFRunLoopObserverRef 主要作用就是监视 RunLoop 的生命周期和活动变化,
+ * RunLoop的创建 -> 运行 -> 挂起 -> 唤醒 -> .... -> 死亡。
+ * RunLoop 在每次运行循环中把自己的状态变化通过注册回调指针告诉对应的 observer,
+ * 这样它的每一次状态变化时,observer 都能通过回调指针获取它对应的状态,进行相关的处理。
+ * 以下枚举是runLoop的活动变化，观察的时间点。
+*/
 typedef CF_OPTIONS(CFOptionFlags, CFRunLoopActivity) {
-    kCFRunLoopEntry = (1UL << 0),
-    kCFRunLoopBeforeTimers = (1UL << 1),
-    kCFRunLoopBeforeSources = (1UL << 2),
-    kCFRunLoopBeforeWaiting = (1UL << 5),
-    kCFRunLoopAfterWaiting = (1UL << 6),
-    kCFRunLoopExit = (1UL << 7),
-    kCFRunLoopAllActivities = 0x0FFFFFFFU
+    kCFRunLoopEntry = (1UL << 0),           // 即将进入Loop
+    kCFRunLoopBeforeTimers = (1UL << 1),    // 即将处理 Timer
+    kCFRunLoopBeforeSources = (1UL << 2),   // 即将处理 Source
+    kCFRunLoopBeforeWaiting = (1UL << 5),   // 即将进入休眠
+    kCFRunLoopAfterWaiting = (1UL << 6),    // 刚从休眠中唤醒
+    kCFRunLoopExit = (1UL << 7),            // 即将退出Loop
+    kCFRunLoopAllActivities = 0x0FFFFFFFU   //监听RunLoop的全部状态
 };
 
+/* 一个 RunLoop 包含若干的Mode,常用的有NSDefaultRunLoopMode,UITrackingRunLoopMode；
+*/
 CF_EXPORT const CFStringRef kCFRunLoopDefaultMode;
 CF_EXPORT const CFStringRef kCFRunLoopCommonModes;
 
 CF_EXPORT CFTypeID CFRunLoopGetTypeID(void);
 
-CF_EXPORT CFRunLoopRef CFRunLoopGetCurrent(void);
-CF_EXPORT CFRunLoopRef CFRunLoopGetMain(void);
+CF_EXPORT CFRunLoopRef CFRunLoopGetCurrent(void);//获取当前线程对应的 RunLoop
+CF_EXPORT CFRunLoopRef CFRunLoopGetMain(void);//获取主线程对应的 RunLoop
 
 CF_EXPORT CFStringRef CFRunLoopCopyCurrentMode(CFRunLoopRef rl);
 
@@ -55,10 +68,24 @@ CF_EXPORT void CFRunLoopAddCommonMode(CFRunLoopRef rl, CFStringRef mode);
 
 CF_EXPORT CFAbsoluteTime CFRunLoopGetNextTimerFireDate(CFRunLoopRef rl, CFStringRef mode);
 
+/* 程序启动时指定的 RunLoop ，方法内部用 DefaultMode 启动
+ **/
 CF_EXPORT void CFRunLoopRun(void);
+
+/* 用指定的Mode启动，允许设置RunLoop超时时间
+ */
 CF_EXPORT SInt32 CFRunLoopRunInMode(CFStringRef mode, CFTimeInterval seconds, Boolean returnAfterSourceHandled);
+
+/* RunLoop 是否在等待
+*/
 CF_EXPORT Boolean CFRunLoopIsWaiting(CFRunLoopRef rl);
+
+/* 唤醒runLoop
+ */
 CF_EXPORT void CFRunLoopWakeUp(CFRunLoopRef rl);
+
+/* 停止runLoop
+ */
 CF_EXPORT void CFRunLoopStop(CFRunLoopRef rl);
 
 #if __BLOCKS__
