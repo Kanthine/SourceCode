@@ -1,30 +1,3 @@
-/*
- * Copyright (c) 1999-2007 Apple Inc.  All Rights Reserved.
- * 
- * @APPLE_LICENSE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
-	Object.m
-	Copyright 1988-1996 NeXT Software, Inc.
-*/
-
 #include "objc-private.h"
 
 #undef id
@@ -37,45 +10,36 @@ typedef struct objc_object *id;
 
 @implementation Object
 
-+ (id)initialize
-{
++ (id)initialize{
     return self; 
 }
 
-+ (id)class
-{
++ (id)class{
     return self;
 }
 
--(id) retain
-{
+-(id)retain{
     return _objc_rootRetain(self);
 }
 
--(void) release
-{
+-(void)release{
     _objc_rootRelease(self);
 }
 
--(id) autorelease
-{
+-(id) autorelease{
     return _objc_rootAutorelease(self);
 }
 
-+(id) retain
-{
++(id)retain{
     return self;
 }
 
-+(void) release
-{
++(void)release{
 }
 
-+(id) autorelease
-{
++(id) autorelease{
     return self;
 }
-
 
 @end
 
@@ -106,23 +70,19 @@ static const char
 @implementation Object
 
 
-+ (id)initialize
-{
++ (id)initialize{
 	return self; 
 }
 
-- (id)awake
-{
+- (id)awake{
 	return self; 
 }
 
-+ (id)poseAs: aFactory
-{ 
++ (id)poseAs: aFactory{
 	return class_poseAs(self, aFactory); 
 }
 
-+ (id)new
-{
++ (id)new{
 	id newObject = (*_alloc)((Class)self, 0);
 	Class metaClass = self->ISA();
 	if (class_getVersion(metaClass) > 1)
@@ -131,96 +91,78 @@ static const char
 	    return newObject;
 }
 
-+ (id)alloc
-{
++ (id)alloc{
 	return (*_zoneAlloc)((Class)self, 0, malloc_default_zone()); 
 }
 
-+ (id)allocFromZone:(void *) z
-{
++ (id)allocFromZone:(void *) z{
 	return (*_zoneAlloc)((Class)self, 0, z); 
 }
 
-- (id)init
-{
+- (id)init{
     return self;
 }
 
-- (const char *)name
-{
+- (const char *)name{
 	return class_getName(isa); 
 }
 
-+ (const char *)name
-{
++ (const char *)name{
 	return class_getName((Class)self); 
 }
 
-- (unsigned)hash
-{
+- (unsigned)hash{
 	return (unsigned)(((uintptr_t)self) >> 2);
 }
 
-- (BOOL)isEqual:anObject
-{
+- (BOOL)isEqual:anObject{
 	return anObject == self; 
 }
 
-- (id)free
-{ 
+- (id)free{
 	return (*_dealloc)(self); 
 }
 
-+ (id)free
-{
++ (id)free{
 	return nil; 
 }
 
-- (id)self
-{
+- (id)self{
 	return self; 
 }
 
 
--(id)class
-{
+-(id)class{
 	return (id)isa; 
 }
 
-+ (id)class
-{
++ (id)class{
 	return self;
 }
 
-- (void *)zone
-{
+- (void *)zone{
 	void *z = malloc_zone_from_ptr(self);
 	return z ? z : malloc_default_zone();
 }
 
-+ (id)superclass
-{ 
++ (id)superclass{
 	return self->superclass; 
 }
 
-- (id)superclass
-{ 
+- (id)superclass{
 	return isa->superclass; 
 }
 
-+ (int) version
-{
++ (int) version{
 	return class_getVersion((Class)self);
 }
 
-+ (id)setVersion: (int) aVersion
-{
-        class_setVersion((Class)self, aVersion);
++ (id)setVersion: (int) aVersion{
+    class_setVersion((Class)self, aVersion);
 	return self;
 }
 
-- (BOOL)isKindOf:aClass
-{
+- (BOOL)isKindOf:aClass{
 	Class cls;
 	for (cls = isa; cls; cls = cls->superclass) 
 		if (cls == (Class)aClass)

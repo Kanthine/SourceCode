@@ -404,12 +404,15 @@ static struct {
 //    uint8_t padding[64 - sizeof(CFBasicHashRef) - sizeof(CFLock_t)];
 } __NSRetainCounters[NUM_EXTERN_TABLES];
 
+
+/*  采用哈希表管理引用计数
+ */
 CF_EXPORT uintptr_t __CFDoExternRefOperation(uintptr_t op, id obj) {
     if (nil == obj) HALT;
     uintptr_t idx = EXTERN_TABLE_IDX(obj);
     uintptr_t disguised = DISGUISE(obj);
     CFLock_t *lock = &__NSRetainCounters[idx].lock;
-    CFBasicHashRef table = __NSRetainCounters[idx].table;
+    CFBasicHashRef table = __NSRetainCounters[idx].table;//取得对象对应的散列表
     uintptr_t count;
     switch (op) {
     case 300:   // increment
@@ -422,12 +425,12 @@ CF_EXPORT uintptr_t __CFDoExternRefOperation(uintptr_t op, id obj) {
     case 400:   // decrement
         if (__CFOASafe) __CFRecordAllocationEvent(__kCFObjectReleasedEvent, obj, 0, 0, NULL);
     case 450:   // decrement, no event
-        __CFLock(lock);
+        __CFLock(lock);// -release，释放对象所有权
         count = (uintptr_t)CFBasicHashRemoveValue(table, disguised);
         __CFUnlock(lock);
         return 0 == count;
     case 500:
-        __CFLock(lock);
+        __CFLock(lock);// retainCount  获取引用计数
         count = (uintptr_t)CFBasicHashGetCountOfKey(table, disguised);
         __CFUnlock(lock);
         return count;
