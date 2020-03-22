@@ -534,6 +534,11 @@ namespace {
     };
     
     /* 自动释放池
+     * 1、自动释放池是由 AutoreleasePoolPage 以双向链表的方式实现的
+     * 2、当对象调用 -autorelease 方法时，会将对象加入 AutoreleasePoolPage 的栈中
+     * 3、调用 AutoreleasePoolPage::pop 方法会向栈中的对象发送 release 消息
+     * 4、新建线程会第一个autorelease对象时候，新建AutoreleasePool，线程销毁AutoreleasePool释放对象且销毁
+     * 5、每个AutoreleasePoolPage对象大小为4096， 对象本身信息占 56 个字节, 所以 begin() 需要排除这 56 个字节, 真正用于存储 autorelease 对象地址的内存量为 end() - begin(), 共有 4040 个字节, 可存储 505 个 autorelease 变量（一个对象8个字节）.
      */
     class AutoreleasePoolPage{
         // EMPTY_POOL_PLACEHOLDER is stored in TLS when exactly one pool is pushed and it has never contained any objects.
@@ -552,13 +557,15 @@ namespace {
 #endif
         static size_t const COUNT = SIZE / sizeof(id);
         
-        magic_t const magic;
-        id *next;
-        pthread_t const thread;
-        AutoreleasePoolPage * const parent;
-        AutoreleasePoolPage *child;
-        uint32_t const depth;
-        uint32_t hiwat;
+        magic_t const magic;//检查 AutoreleasePoolPage 的内存没有被修改的，放在第一个也就是这个原因，防止前面地址有内容溢过来。
+        id *next;// 存放下一个 autorelease 对象指针
+        pthread_t const thread;//自动释放池对应的线程
+        
+        // AutoreleasePoolPage 就是一个双向链表，毕竟一个 AutoreleasePoolPage 能存放的对象是有限的。
+        AutoreleasePoolPage * const parent;// 用来保存前一个 AutoreleasePoolPage
+        AutoreleasePoolPage *child;// 用来保存后一个 AutoreleasePoolPage
+        uint32_t const depth;//这个链表有多深
+        uint32_t hiwat;//最高有记录过多少对象
         
         // SIZE-sizeof(*this) bytes of contents follow
         
@@ -633,8 +640,7 @@ namespace {
             }
         }
         
-        void fastcheck(bool die = true)
-        {
+        void fastcheck(bool die = true){
 #if CHECK_AUTORELEASEPOOL
             check(die);
 #else
@@ -653,11 +659,11 @@ namespace {
             return (id *) ((uint8_t *)this+SIZE);
         }
         
-        bool empty() {
+        bool empty() {//链表是否为空
             return next == begin();
         }
         
-        bool full() {
+        bool full() {//链表是否存储满
             return next == end();
         }
         
@@ -665,7 +671,7 @@ namespace {
             return (next - begin() < (end() - begin()) / 2);
         }
         
-        id *add(id obj){//将对象追加到内部数组中
+        id *add(id obj){//将 obj 存入栈
             assert(!full());
             unprotect();
             id *ret = next;  // faster than `return next-1` because of aliasing
@@ -791,8 +797,7 @@ namespace {
             return result;
         }
         
-        static inline void setHotPage(AutoreleasePoolPage *page)
-        {
+        static inline void setHotPage(AutoreleasePoolPage *page){
             if (page) page->fastcheck();
             tls_set_direct(key, (void *)page);
         }
@@ -837,11 +842,11 @@ namespace {
             return page->add(obj);
         }
         
-        static __attribute__((noinline))
-        id *autoreleaseNoPage(id obj)
-        {
-            // "No page" could mean no pool has been pushed
-            // or an empty placeholder pool has been pushed and has no contents yet
+        static __attribute__((noinline)) id *autoreleaseNoPage(id obj){
+            /* No page 可能意味着没有 pool，或者已经推送了一个空占位 pool ，但还没有内容
+             * "No page" could mean no pool has been pushed
+             * or an empty placeholder pool has been pushed and has no contents yet
+             */
             assert(!hotPage());
             
             bool pushExtraBoundary = false;
@@ -851,8 +856,7 @@ namespace {
                 // Before doing that, push a pool boundary on behalf of the pool
                 // that is currently represented by the empty placeholder.
                 pushExtraBoundary = true;
-            }
-            else if (obj != POOL_BOUNDARY  &&  DebugMissingPools) {
+            }else if (obj != POOL_BOUNDARY  &&  DebugMissingPools) {
                 // We are pushing an object with no pool in place,
                 // and no-pool debugging was requested by environment.
                 _objc_inform("MISSING POOLS: (%p) Object %p of class %s "
@@ -862,8 +866,7 @@ namespace {
                              pthread_self(), (void*)obj, object_getClassName(obj));
                 objc_autoreleaseNoPool(obj);
                 return nil;
-            }
-            else if (obj == POOL_BOUNDARY  &&  !DebugPoolAllocation) {
+            }else if (obj == POOL_BOUNDARY  &&  !DebugPoolAllocation) {
                 // We are pushing a pool with no pool in place,
                 // and alloc-per-pool debugging was not requested.
                 // Install and return the empty pool placeholder.
@@ -886,9 +889,7 @@ namespace {
         }
         
         
-        static __attribute__((noinline))
-        id *autoreleaseNewPage(id obj)
-        {
+        static __attribute__((noinline)) id *autoreleaseNewPage(id obj){
             AutoreleasePoolPage *page = hotPage();
             if (page) return autoreleaseFullPage(obj, page);
             else return autoreleaseNoPage(obj);
