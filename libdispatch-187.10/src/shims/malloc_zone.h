@@ -12,23 +12,19 @@
 #if !HAVE_MALLOC_CREATE_ZONE
 typedef void * malloc_zone_t;
 
-static inline malloc_zone_t *
-malloc_create_zone(size_t start_size, unsigned flags){
+static inline malloc_zone_t * malloc_create_zone(size_t start_size, unsigned flags){
 	return ((void *)(-1));
 }
 
-static inline void
-malloc_destroy_zone(malloc_zone_t *zone){
+static inline void malloc_destroy_zone(malloc_zone_t *zone){
 
 }
 
-static inline malloc_zone_t *
-malloc_default_zone(void){
+static inline malloc_zone_t * malloc_default_zone(void){
 	return ((void *)(-1));
 }
 
-static inline malloc_zone_t *
-malloc_zone_from_ptr(const void *ptr){
+static inline malloc_zone_t * malloc_zone_from_ptr(const void *ptr){
 	return ((void *)(-1));
 }
 

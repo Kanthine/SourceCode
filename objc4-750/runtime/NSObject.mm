@@ -61,10 +61,24 @@ namespace {
     enum HaveOld { DontHaveOld = false, DoHaveOld = true };
     enum HaveNew { DontHaveNew = false, DoHaveNew = true };
     
+
+
+
+
+    /* 散列表 SideTable
+     * 在 runtime 内存空间中，SideTables 是一个 hash 数组，里面存储了 SideTable。
+     * SideTables 的 hash 键值就是一个对象 obj 的address。
+     * 因此可以说，一个 obj，对应了一个 SideTable；但是一个 SideTable，会对应多个 obj。因为 SideTable 的数量有限，所以会有很多 obj 共用同一个 SideTable。
+     *
+     * @疑问？为什么不直接用一张SideTable，而是用 SideTables 去管理多个 SideTable？
+     * SideTable里有一个自旋锁，如果把所有的类都放在同一个SideTable，有任何一个类有改动都会对整个table做操作，并且在操作一个类的同时，操作别的类会被锁住等待，这样会导致操作效率和查询效率都很低。而有多个SideTable的话，操作的都是单个Table，并不会影响其他的table，这就是分离锁。
+     * 继续SideTables,来看一下散列表的数据结构（数组+链表），举个例子，我们需要把小于100的放到第1个Table，大于900的放到第6个Table：
+     *
+     */
     struct SideTable {
-        spinlock_t slock;
-        RefcountMap refcnts;
-        weak_table_t weak_table;
+        spinlock_t slock;// 自旋锁
+        RefcountMap refcnts;//引用计数的Map表 key-value
+        weak_table_t weak_table; //弱引用表
         
         SideTable() {
             memset(&weak_table, 0, sizeof(weak_table));
@@ -519,13 +533,12 @@ namespace {
 #   undef M1
     };
     
-    
-    class AutoreleasePoolPage
-    {
-        // EMPTY_POOL_PLACEHOLDER is stored in TLS when exactly one pool is
-        // pushed and it has never contained any objects. This saves memory
-        // when the top level (i.e. libdispatch) pushes and pops pools but
-        // never uses them.
+    /* 自动释放池
+     */
+    class AutoreleasePoolPage{
+        // EMPTY_POOL_PLACEHOLDER is stored in TLS when exactly one pool is pushed and it has never contained any objects.
+        // This saves memory when the top level (i.e. libdispatch) pushes and pops pools but never uses them.
+
 #   define EMPTY_POOL_PLACEHOLDER ((id*)1)
         
 #   define POOL_BOUNDARY nil
@@ -652,8 +665,7 @@ namespace {
             return (next - begin() < (end() - begin()) / 2);
         }
         
-        id *add(id obj)
-        {
+        id *add(id obj){//将对象追加到内部数组中
             assert(!full());
             unprotect();
             id *ret = next;  // faster than `return next-1` because of aliasing
@@ -662,13 +674,11 @@ namespace {
             return ret;
         }
         
-        void releaseAll()
-        {
+        void releaseAll(){ //调用内部数组中对象的 -release 方法
             releaseUntil(begin());
         }
         
-        void releaseUntil(id *stop)
-        {
+        void releaseUntil(id *stop){
             // Not recursive: we don't want to blow out the stack
             // if a thread accumulates a stupendous amount of garbage
             
@@ -689,7 +699,7 @@ namespace {
                 page->protect();
                 
                 if (obj != POOL_BOUNDARY) {
-                    objc_release(obj);
+                    objc_release(obj);//调用 release
                 }
             }
             
@@ -703,8 +713,7 @@ namespace {
 #endif
         }
         
-        void kill()
-        {
+        void kill(){
             // Not recursive: we don't want to blow out the stack
             // if a thread accumulates a stupendous amount of garbage
             AutoreleasePoolPage *page = this;
@@ -723,8 +732,7 @@ namespace {
             } while (deathptr != this);
         }
         
-        static void tls_dealloc(void *p)
-        {
+        static void tls_dealloc(void *p){
             if (p == (void*)EMPTY_POOL_PLACEHOLDER) {
                 // No objects or pool pages to clean up here.
                 return;
@@ -746,13 +754,11 @@ namespace {
             setHotPage(nil);
         }
         
-        static AutoreleasePoolPage *pageForPointer(const void *p)
-        {
+        static AutoreleasePoolPage *pageForPointer(const void *p){
             return pageForPointer((uintptr_t)p);
         }
         
-        static AutoreleasePoolPage *pageForPointer(uintptr_t p)
-        {
+        static AutoreleasePoolPage *pageForPointer(uintptr_t p){
             AutoreleasePoolPage *result;
             uintptr_t offset = p % SIZE;
             
@@ -765,14 +771,12 @@ namespace {
         }
         
         
-        static inline bool haveEmptyPoolPlaceholder()
-        {
+        static inline bool haveEmptyPoolPlaceholder(){
             id *tls = (id *)tls_get_direct(key);
             return (tls == EMPTY_POOL_PLACEHOLDER);
         }
         
-        static inline id* setEmptyPoolPlaceholder()
-        {
+        static inline id* setEmptyPoolPlaceholder(){
             assert(tls_get_direct(key) == nil);
             tls_set_direct(key, (void *)EMPTY_POOL_PLACEHOLDER);
             return EMPTY_POOL_PLACEHOLDER;
@@ -806,21 +810,18 @@ namespace {
         }
         
         
-        static inline id *autoreleaseFast(id obj)
-        {
+        static inline id *autoreleaseFast(id obj){
             AutoreleasePoolPage *page = hotPage();
-            if (page && !page->full()) {
+            if (page && !page->full()) {//如果自动释放池存在且没有满
                 return page->add(obj);
-            } else if (page) {
+            } else if (page) {//如果自动释放池已满
                 return autoreleaseFullPage(obj, page);
-            } else {
+            } else {//如果自动释放池不存在
                 return autoreleaseNoPage(obj);
             }
         }
         
-        static __attribute__((noinline))
-        id *autoreleaseFullPage(id obj, AutoreleasePoolPage *page)
-        {
+        static __attribute__((noinline)) id *autoreleaseFullPage(id obj, AutoreleasePoolPage *page){
             // The hot page is full.
             // Step to the next non-full page, adding a new page if necessary.
             // Then add the object to that page.
@@ -894,8 +895,7 @@ namespace {
         }
         
     public:
-        static inline id autorelease(id obj)
-        {
+        static inline id autorelease(id obj){//相当于 NSAutoreleasePool 类的 addObject 类方法
             assert(obj);
             assert(!obj->isTaggedPointer());
             id *dest __unused = autoreleaseFast(obj);
@@ -904,8 +904,7 @@ namespace {
         }
         
         
-        static inline void *push()
-        {
+        static inline void *push(){//相当于生成或持有 NSAutoreleasePool 类对象
             id *dest;
             if (DebugPoolAllocation) {
                 // Each autorelease pool starts on a new pool page.
@@ -942,11 +941,9 @@ namespace {
             objc_autoreleasePoolInvalid(token);
         }
         
-        static inline void pop(void *token)
-        {
+        static inline void pop(void *token){//相当于生成或持有 NSAutoreleasePool 类对象
             AutoreleasePoolPage *page;
             id *stop;
-            
             if (token == (void*)EMPTY_POOL_PLACEHOLDER) {
                 // Popping the top-level placeholder pool.
                 if (hotPage()) {
@@ -1517,8 +1514,8 @@ static ALWAYS_INLINE id callAlloc(Class cls, bool checkNil, bool allocWithZone=f
 #if __OBJC2__
     if (fastpath(!cls->ISA()->hasCustomAWZ())) {
         // No alloc/allocWithZone implementation. Go straight to the allocator.
-        // fixme store hasCustomAWZ in the non-meta class and
-        // add it to canAllocFast's summary
+        // fixme store hasCustomAWZ in the non-meta class and add it to canAllocFast's summary
+        //
         if (fastpath(cls->canAllocFast())) {
             // No ctors, raw isa, etc. Go straight to the metal.
             bool dtor = cls->hasCxxDtor();
@@ -1944,7 +1941,6 @@ void arr_init(void) {
     return [self description];
 }
 
-
 + (id)new {
     return [callAlloc(self, false/*checkNil*/) init];
 }
@@ -2012,6 +2008,16 @@ void arr_init(void) {
     return ULONG_MAX;
 }
 
+/* retainCount 看似有用，实则无用！
+ * 因为任何时间点上的绝对保留技术都无法反映对象声明期的全貌
+ * 在 ARC 下该方法作废，调用会导致编译器报错
+ * @note tagged 指针就无用
+ *      while([oject retainCount]){
+ *          [oject release];
+ *      }
+ *  1、如果 oject 在自动释放池，则程序很容易崩溃
+ *  2、retainCount可能永不会返回 0
+ */
 - (NSUInteger)retainCount {
     return ((id)self)->rootRetainCount();
 }
@@ -2035,8 +2041,7 @@ void arr_init(void) {
 }
 
 // Replaced by CF (throws an NSException)
-+ (void)dealloc {
-}
++ (void)dealloc {}
 
 // Replaced by NSZombies
 - (void)dealloc {

@@ -5605,7 +5605,10 @@ Class look_up_class(const char *name,bool includeUnconnected __attribute__((unus
     return result;
 }
 
-
+/* objc_duplicateClass()
+ * @note 用途之一：创建新类
+ *   启用僵尸调试功能，系统会为每个变成僵尸的类创建一个对应的新类，这样，僵尸对象发送消息之后，系统可以知道该对象原来所属的类。假如把僵尸对象都归到 _NSZombie_ 类里，那原来的类名就丢了！该函数会把整个 _NSZombie_ 类拷贝一份，并赋予其新的名字。
+ */
 /***********************************************************************
  * objc_duplicateClass
  * fixme

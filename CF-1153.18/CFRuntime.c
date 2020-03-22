@@ -1060,7 +1060,7 @@ void __CFInitialize(void) {
 
 
 #if defined(DEBUG) || defined(ENABLE_ZOMBIES)
-        const char *value = __CFgetenv("NSZombieEnabled");
+        const char *value = __CFgetenv("NSZombieEnabled");//僵尸对象的调试
         if (value && (*value == 'Y' || *value == 'y')) _CFEnableZombies();
         value = __CFgetenv("NSDeallocateZombies");
         if (value && (*value == 'Y' || *value == 'y')) __CFDeallocateZombies = 0xff;

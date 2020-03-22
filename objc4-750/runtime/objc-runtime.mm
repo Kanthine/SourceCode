@@ -253,6 +253,7 @@ void environ_init(void) {
     for (char **p = *_NSGetEnviron(); *p != nil; p++) {
         if (0 == strncmp(*p, "Malloc", 6)  ||  0 == strncmp(*p, "DYLD", 4)  ||  
             0 == strncmp(*p, "NSZombiesEnabled", 16)){
+            // NSZombiesEnabled 僵尸对象调试
             maybeMallocDebugging = true;
         }
 

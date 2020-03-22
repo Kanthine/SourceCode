@@ -29,6 +29,5 @@ int main(int argc, char * argv[]) {
         NSLog(@"-------- %lx",0x000000010000B9A8 -  0x0000000100000000 + 0x00000000);//0xB9A8
         NSLog(@"-------- %lx",0xDA83000001000000  -  0x0000000100000000 + 0x00000000);//0xda82ffff01000000
 
-        return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
     }
 }

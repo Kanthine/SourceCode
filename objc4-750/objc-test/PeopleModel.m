@@ -18,6 +18,14 @@
 + (void)load{
     printf("=========  ManModel ========= +load \n");
     
+
+    
+
+    
+    //自己生成并持有的对象
+    NSObject *object = [[NSObject alloc] init];
+    
+    
     [ManModel losdaf];
     
 }

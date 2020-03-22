@@ -725,6 +725,7 @@ class TimeLogger {
 
 enum { CacheLineSize = 64 };
 
+
 // StripedMap<T> is a map of void* -> T, sized appropriately 
 // for cache-friendly lock striping. 
 // For example, this may be used as StripedMap<spinlock_t>
@@ -732,9 +733,9 @@ enum { CacheLineSize = 64 };
 template<typename T>
 class StripedMap {
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
-    enum { StripeCount = 8 };
+    enum { StripeCount = 8 };// iPhone时这个值为8
 #else
-    enum { StripeCount = 64 };
+    enum { StripeCount = 64 };//否则为64
 #endif
 
     struct PaddedT {
@@ -744,13 +745,15 @@ class StripedMap {
     PaddedT array[StripeCount];
 
     static unsigned int indexForPointer(const void *p) {
-        uintptr_t addr = reinterpret_cast<uintptr_t>(p);
-        return ((addr >> 4) ^ (addr >> 9)) % StripeCount;
+        uintptr_t addr = reinterpret_cast<uintptr_t>(p); //这里是做类型转换
+        return ((addr >> 4) ^ (addr >> 9)) % StripeCount;//这就是哈希算法了
     }
 
  public:
-    T& operator[] (const void *p) { 
-        return array[indexForPointer(p)].value; 
+    T& operator[] (const void *p) {
+        //可以看到，在对StripeCount取余后，所得到的值根据机器不同，会在0-7或者0-63之间，这就是通过哈希函数来获取到了sideTable的下标，然后再根据value取到所需的sideTable。
+
+        return array[indexForPointer(p)].value; //返回sideTable
     }
     const T& operator[] (const void *p) const { 
         return const_cast<StripedMap<T>>(this)[p]; 
