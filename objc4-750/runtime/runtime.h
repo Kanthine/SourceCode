@@ -78,22 +78,22 @@ struct objc_class {
 typedef struct objc_object Protocol;
 #endif
 
-/// Defines a method
+/// 方法
 struct objc_method_description {
-    SEL _Nullable name;               /**< The name of the method */
-    char * _Nullable types;           /**< The types of the method arguments */
+    SEL _Nullable name; //方法名字
+    char * _Nullable types; //参数的类型
 };
 
-/// Defines a property attribute
+///属性
 typedef struct {
-    const char * _Nonnull name;           /**< The name of the attribute */
-    const char * _Nonnull value;          /**< The value of the attribute (usually empty) */
+    const char * _Nonnull name;//属性名字
+    const char * _Nonnull value; //属性值
 } objc_property_attribute_t;
 
 
 /* Functions */
 
-/* Working with Instances */
+/* 用于实例 */
 
 /** 
  * Returns a copy of a given object.
@@ -119,17 +119,14 @@ object_dispose(id _Nullable obj)
     OBJC_AVAILABLE(10.0, 2.0, 9.0, 1.0, 2.0)
     OBJC_ARC_UNAVAILABLE;
 
-/** 
- * Returns the class of an object.
- * 
- * @param obj The object you want to inspect.
- * 
- * @return The class object of which \e object is an instance, 
- *  or \c Nil if \e object is \c nil.
- */
-OBJC_EXPORT Class _Nullable
-object_getClass(id _Nullable obj) 
-    OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
+
+/* 获取 obj 的 isa 指针
+* @param obj 指定对象
+*        如果是实例对象，那么该实例对象的 isa 指向其所属的类；
+*        如果是一个类，那么该类的 isa 指向其所属的元类；
+* @note  如果 obj 为 nil ，则返回 nil
+*/
+OBJC_EXPORT Class _Nullable object_getClass(id _Nullable obj) OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
 /** 
  * Sets the class of an object.
@@ -139,21 +136,14 @@ object_getClass(id _Nullable obj)
  * 
  * @return The previous value of \e object's class, or \c Nil if \e object is \c nil.
  */
-OBJC_EXPORT Class _Nullable
-object_setClass(id _Nullable obj, Class _Nonnull cls) 
-    OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
+OBJC_EXPORT Class _Nullable object_setClass(id _Nullable obj, Class _Nonnull cls) OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
 
-/** 
- * Returns whether an object is a class object.
- * 
- * @param obj An Objective-C object.
- * 
- * @return true if the object is a class or metaclass, false otherwise.
- */
-OBJC_EXPORT BOOL
-object_isClass(id _Nullable obj)
-    OBJC_AVAILABLE(10.10, 8.0, 9.0, 1.0, 2.0);
+/* 判断指定的对象是否是一个 Objective—C 类
+* @note 本质还是判断 obj->isa 是否指向元类，如果指向元类，则是 Objective—C 类，否则不是 Objective—C 类；
+* @note 如果是 Tagged Pointer 对象，则不是一个类；
+*/
+OBJC_EXPORT BOOL object_isClass(id _Nullable obj) OBJC_AVAILABLE(10.10, 8.0, 9.0, 1.0, 2.0);
 
 
 /** 
@@ -167,8 +157,7 @@ object_isClass(id _Nullable obj)
  * @note \c object_getIvar is faster than \c object_getInstanceVariable if the Ivar
  *  for the instance variable is already known.
  */
-OBJC_EXPORT id _Nullable
-object_getIvar(id _Nullable obj, Ivar _Nonnull ivar) 
+OBJC_EXPORT id _Nullable object_getIvar(id _Nullable obj, Ivar _Nonnull ivar)
     OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
 /** 
@@ -356,19 +345,9 @@ OBJC_EXPORT BOOL
 class_isMetaClass(Class _Nullable cls) 
     OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
-/** 
- * Returns the superclass of a class.
- * 
- * @param cls A class object.
- * 
- * @return The superclass of the class, or \c Nil if
- *  \e cls is a root class, or \c Nil if \e cls is \c Nil.
- *
- * @note You should usually use \c NSObject's \c superclass method instead of this function.
- */
-OBJC_EXPORT Class _Nullable
-class_getSuperclass(Class _Nullable cls) 
-    OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
+/*  获取指定类的父类
+*/
+OBJC_EXPORT Class _Nullable class_getSuperclass(Class _Nullable cls) OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
 /** 
  * Sets the superclass of a given class.
@@ -660,17 +639,21 @@ OBJC_EXPORT const uint8_t * _Nullable
 class_getWeakIvarLayout(Class _Nullable cls)
     OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
-/* 向指定类添加新方法
- * @param cls 要添加方法的类。
- * @param name 指定要添加方法的选择器 SEL。
- * @param imp 函数指针，该函数必须具有至少两个参数 self 和 _cmd 。
- * @param types 描述方法参数类型的字符数组。
- * @return 如果方法添加成功，则为YES；否则为 NO，如添加该类已实现的方法则失败
- * @note 该函数将重写父类的方法，但不会替换该类中的现有方法。要更改现有的实现，使用 method_setImplementation() 函数。
- */
+
+/* Runtime 库提供的 C 语言函数：为一个指定类添加方法
+* @param cls 指定的类
+* @param name 选择器
+* @param imp 函数指针，该函数必须具有至少两个参数 self 和 _cmd 。
+* @param types 描述方法参数类型的字符数组
+*
+* 说明：参数 name 、imp、types 是方法Method的结构体objc_method 的三个成员
+* 该函数将添加超类实现的重写，但不会替换该类中的现有实现。
+* 也就是说：如果该类没有实现选择器指定的方法，则添加成功，返回YES;
+*         如果该类已经实现选择器指定的方法，则添加失败，返回 NO;
+* 需要更改现有的实现，使用 method_setImplementation()函数。
+*/
 OBJC_EXPORT BOOL
-class_addMethod(Class _Nullable cls, SEL _Nonnull name, IMP _Nonnull imp, 
-                const char * _Nullable types) 
+class_addMethod(Class _Nullable cls, SEL _Nonnull name, IMP _Nonnull imp, const char * _Nullable types)
     OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
 /** 

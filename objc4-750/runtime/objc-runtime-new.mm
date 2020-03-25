@@ -5386,14 +5386,18 @@ static SEL *addMethods(Class cls, const SEL *names, const IMP *imps, const char 
 }
 
 
-/* 向指定类添加新方法
- * @param cls 要添加方法的类。
- * @param name 指定要添加方法的选择器 SEL。
- * @param imp 函数指针，该函数必须具有至少两个参数 self 和 _cmd 。
- * @param types 描述方法参数类型的字符数组。
- * @return 如果方法添加成功，则为YES；否则为 NO，如添加该类已实现的方法则失败
- * @note 该函数将重写父类的方法，但不会替换该类中的现有方法。要更改现有的实现，使用 method_setImplementation() 函数。
- */
+/* Runtime 库提供的 C 语言函数：为一个指定类添加方法
+* @param cls 指定的类
+* @param name 选择器
+* @param imp 函数指针，该函数必须具有至少两个参数 self 和 _cmd 。
+* @param types 描述方法参数类型的字符数组
+*
+* 说明：参数 name 、imp、types 是方法Method的结构体objc_method 的三个成员
+* 该函数将添加超类实现的重写，但不会替换该类中的现有实现。
+* 也就是说：如果该类没有实现选择器指定的方法，则添加成功，返回YES;
+*         如果该类已经实现选择器指定的方法，则添加失败，返回 NO;
+* 需要更改现有的实现，使用 method_setImplementation()函数。
+*/
 BOOL class_addMethod(Class cls, SEL name, IMP imp, const char *types){
     if (!cls) return NO;
     mutex_locker_t lock(runtimeLock);

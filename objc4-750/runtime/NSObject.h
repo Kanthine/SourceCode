@@ -81,7 +81,12 @@ OBJC_EXPORT
 + (IMP)instanceMethodForSelector:(SEL)aSelector;
 - (void)doesNotRecognizeSelector:(SEL)aSelector;
 
+/* 快速转发:将无法识别的方法转发给其它对象
+ */
 - (id)forwardingTargetForSelector:(SEL)aSelector OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
+
+/* 完整转发:
+ */
 - (void)forwardInvocation:(NSInvocation *)anInvocation OBJC_SWIFT_UNAVAILABLE("");
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector OBJC_SWIFT_UNAVAILABLE("");
 
@@ -92,6 +97,9 @@ OBJC_EXPORT
 
 + (BOOL)isSubclassOfClass:(Class)aClass;
 
+/* 以动态方式实现由选择器指定的实例和类方法。
+ * 如果动态方法决议成功，则执行IMP指向的函数；
+ */
 + (BOOL)resolveClassMethod:(SEL)sel OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 + (BOOL)resolveInstanceMethod:(SEL)sel OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 

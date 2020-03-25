@@ -288,9 +288,7 @@ static void weak_entry_remove(weak_table_t *weak_table, weak_entry_t *entry)
     // remove entry
     if (entry->out_of_line()) free(entry->referrers);
     bzero(entry, sizeof(*entry));
-
     weak_table->num_entries--;
-
     weak_compact_maybe(weak_table);
 }
 

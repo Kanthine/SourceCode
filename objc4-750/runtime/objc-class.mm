@@ -134,8 +134,12 @@
 
 
 
-/* 获取一个对象所属的类
- */
+/* 获取 obj 的 isa 指针
+* @param obj 指定对象
+*        如果是实例对象，那么该实例对象的 isa 指向其所属的类；
+*        如果是一个类，那么该类的 isa 指向其所属的元类；
+* @note  如果 obj 为 nil ，则返回 nil
+*/
 Class object_getClass(id obj){
     if (obj) return obj->getIsa();
     else return Nil;
@@ -322,16 +326,12 @@ void object_setIvarWithStrongDefault(id obj, Ivar ivar, id value)
 }
 
 
-id object_getIvar(id obj, Ivar ivar)
-{
+id object_getIvar(id obj, Ivar ivar){
     if (!obj  ||  !ivar  ||  obj->isTaggedPointer()) return nil;
-
     ptrdiff_t offset;
     objc_ivar_memory_management_t memoryManagement;
     _class_lookUpIvar(obj->ISA(), ivar, offset, memoryManagement);
-
     id *location = (id *)((char *)obj + offset);
-
     if (memoryManagement == objc_ivar_memoryWeak) {
         return objc_loadWeak(location);
     } else {
@@ -340,10 +340,8 @@ id object_getIvar(id obj, Ivar ivar)
 }
 
 
-static ALWAYS_INLINE 
-Ivar _object_setInstanceVariable(id obj, const char *name, void *value, 
-                                 bool assumeStrong)
-{
+static ALWAYS_INLINE  Ivar _object_setInstanceVariable(id obj, const char *name, void *value,
+                                 bool assumeStrong){
     Ivar ivar = nil;
 
     if (obj  &&  name  &&  !obj->isTaggedPointer()) {
@@ -820,8 +818,9 @@ Class _calloc_class(size_t size)
     return (Class) calloc(1, size);
 }
 
-Class class_getSuperclass(Class cls)
-{
+/*  获取指定类的父类
+ */
+Class class_getSuperclass(Class cls){
     if (!cls) return nil;
     return cls->superclass;
 }

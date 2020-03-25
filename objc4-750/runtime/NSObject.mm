@@ -43,9 +43,10 @@ void _objc_setBadAllocHandler(id(*newHandler)(Class)){
 }
 
 
-namespace {
+// 匿名的命名空间
+namespace{
     
-    // 这些位的顺序很重要
+// 这些位的顺序很重要
 #define SIDE_TABLE_WEAKLY_REFERENCED (1UL<<0)
 #define SIDE_TABLE_DEALLOCATING      (1UL<<1)  // MSB-ward of 弱引用位
 #define SIDE_TABLE_RC_ONE            (1UL<<2)  // MSB-ward of 回收位
@@ -62,12 +63,9 @@ namespace {
     enum HaveNew { DontHaveNew = false, DoHaveNew = true };
     
 
-
-
-
     /* 散列表 SideTable
      * 在 runtime 内存空间中，SideTables 是一个 hash 数组，里面存储了 SideTable。
-     * SideTables 的 hash 键值就是一个对象 obj 的address。
+     * SideTables 的 hash 键值就是一个对象 obj 的地址。
      * 因此可以说，一个 obj，对应了一个 SideTable；但是一个 SideTable，会对应多个 obj。因为 SideTable 的数量有限，所以会有很多 obj 共用同一个 SideTable。
      *
      * @疑问？为什么不直接用一张SideTable，而是用 SideTables 去管理多个 SideTable？
@@ -122,9 +120,8 @@ namespace {
         lock2->unlock();
     }
     
-    // 我们不能使用c++静态初始化器来初始化SideTables，因为libc在c++初始化器运行之前调用我们。由于额外的间接性，我们也不希望有一个指向此结构的全局指针。 用困难的方法来做。
-    alignas(StripedMap<SideTable>) static uint8_t
-    SideTableBuf[sizeof(StripedMap<SideTable>)];
+    // 我们不能使用c++静态初始化器来初始化SideTables，因为libc在c++初始化器运行之前调用我们。由于额外的间接性，我们也不希望有一个指向此结构的全局指针。
+    alignas(StripedMap<SideTable>) static uint8_t SideTableBuf[sizeof(StripedMap<SideTable>)];
     
     static void SideTableInit() {
         new (SideTableBuf) StripedMap<SideTable>();
@@ -133,8 +130,6 @@ namespace {
     static StripedMap<SideTable>& SideTables() {
         return *reinterpret_cast<StripedMap<SideTable>*>(SideTableBuf);
     }
-    
-    // 匿名的命名空间
 };
 
 void SideTableLockAll() {
@@ -203,16 +198,16 @@ void objc_storeStrong(id *location, id obj){
 }
 
 
-/* 更新弱变量:
- * 如果 HaveOld 为 true ，则该变量有一个需要清理的现有值。这个值可能是nil。
- * 如果 HaveOld 为 true ，则需要为变量分配一个新值。这个值可能是nil。
- * 如果 crashifdeallocate 为true，则当newObj正在释放或newObj的类不支持弱引用时，进程将停止。
- * 如果 crashifdeallocate 为false，则存储nil。
- */
 enum CrashIfDeallocating {
     DontCrashIfDeallocating = false, DoCrashIfDeallocating = true
 };
 
+/* 更新弱变量:
+* 如果 HaveOld 为 true ，则该变量有一个需要清理的现有值。这个值可能是nil。
+* 如果 HaveOld 为 true ，则需要为变量分配一个新值。这个值可能是nil。
+* 如果 crashifdeallocate 为true，则当newObj正在释放或newObj的类不支持弱引用时，进程将停止。
+* 如果 crashifdeallocate 为false，则存储nil。
+*/
 template <HaveOld haveOld, HaveNew haveNew,CrashIfDeallocating crashIfDeallocating>
 static id storeWeak(id *location, objc_object *newObj){
     assert(haveOld  ||  haveNew);

@@ -1,30 +1,3 @@
-/*
- * Copyright (c) 1999-2007 Apple Inc.  All Rights Reserved.
- * 
- * @APPLE_LICENSE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
- *	objc.h
- *	Copyright 1988-1996, NeXT Software, Inc.
- */
-
 #ifndef _OBJC_OBJC_H_
 #define _OBJC_OBJC_H_
 
@@ -34,15 +7,15 @@
 #include <stdbool.h>
 
 #if !OBJC_TYPES_DEFINED
-/// An opaque type that represents an Objective-C class.
+//Class 是一个 objc_class 类型的结构指针：
 typedef struct objc_class *Class;
 
-/// Represents an instance of a class.
+//类的实例
 struct objc_object {
     Class _Nonnull isa  OBJC_ISA_AVAILABILITY;
 };
 
-/// A pointer to an instance of a class.
+// id 指针指向类实例
 typedef struct objc_object *id;
 #endif
 
@@ -214,8 +187,7 @@ OBJC_EXPORT SEL _Nonnull sel_getUid(const char * _Nonnull str)
 typedef const void* objc_objectptr_t;
 
 
-// Obsolete ARC conversions.
-
+// 过时的 ARC 转换
 OBJC_EXPORT id _Nullable objc_retainedObject(objc_objectptr_t _Nullable obj)
 #if !OBJC_DECLARE_SYMBOLS
     OBJC_UNAVAILABLE("use CFBridgingRelease() or a (__bridge_transfer id) cast instead")

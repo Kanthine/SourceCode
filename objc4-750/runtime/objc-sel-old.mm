@@ -68,15 +68,11 @@ const char *sel_getName(SEL sel) {
 }
 
 
-BOOL sel_isMapped(SEL name) 
-{
+BOOL sel_isMapped(SEL name) {
     SEL sel;
-    
     if (!name) return NO;
-
     sel = _objc_search_builtins((const char *)name);
     if (sel) return YES;
-
     mutex_locker_t lock(selLock);
     if (_objc_selectors) {
         sel = __objc_sel_set_get(_objc_selectors, name);
@@ -84,10 +80,8 @@ BOOL sel_isMapped(SEL name)
     return bool(sel);
 }
 
-static SEL __sel_registerName(const char *name, bool shouldLock, bool copy) 
-{
+static SEL __sel_registerName(const char *name, bool shouldLock, bool copy) {
     SEL result = 0;
-
     if (shouldLock) selLock.assertUnlocked();
     else selLock.assertLocked();
 
