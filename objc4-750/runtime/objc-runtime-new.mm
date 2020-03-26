@@ -2755,11 +2755,11 @@ const char * method_getTypeEncoding(Method m){
 }
 
 
-/***********************************************************************
- * method_setImplementation
- * Sets this method's implementation to imp.
- * The previous implementation is returned.
- **********************************************************************/
+/* 设置方法的函数指针IMP
+ * @param m 指定的方法
+ * @param imp 新的待替换的 IMP
+ * @return 返回先前的 IMP 指针
+*/
 static IMP _method_setImplementation(Class cls, method_t *m, IMP imp){
     runtimeLock.assertLocked();
     
@@ -2787,10 +2787,11 @@ IMP method_setImplementation(Method m, IMP imp){
     return _method_setImplementation(Nil, m, imp);
 }
 
-
+/* 交换两个方法的函数指针IMP
+ * @param m1、m2 都不能为 nil ，否则不做操作
+*/
 void method_exchangeImplementations(Method m1, Method m2){
-    if (!m1  ||  !m2) return;
-    
+    if (!m1 || !m2) return;
     mutex_locker_t lock(runtimeLock);
     
     IMP m1_imp = m1->imp;
@@ -4322,8 +4323,7 @@ static method_t *findMethodInSortedMethodList(SEL key, const method_list_t *list
  * fixme
  * Locking: runtimeLock must be read- or write-locked by the caller
  **********************************************************************/
-static method_t *search_method_list(const method_list_t *mlist, SEL sel)
-{
+static method_t *search_method_list(const method_list_t *mlist, SEL sel){
     int methodListIsFixedUp = mlist->isFixedUp();
     int methodListHasExpectedSize = mlist->entsize() == sizeof(method_t);
     
@@ -4350,22 +4350,19 @@ static method_t *search_method_list(const method_list_t *mlist, SEL sel)
     return nil;
 }
 
+/* 遍历 method_list 查找 method_t
+ */
 static method_t *getMethodNoSuper_nolock(Class cls, SEL sel){
     runtimeLock.assertLocked();
     
     assert(cls->isRealized());
-    // fixme nil cls?
-    // fixme nil sel?
-    
     for (auto mlists = cls->data()->methods.beginLists(),
          end = cls->data()->methods.endLists();
          mlists != end;
-         ++mlists)
-    {
+         ++mlists){
         method_t *m = search_method_list(*mlists, sel);
         if (m) return m;
     }
-    
     return nil;
 }
 
@@ -4377,18 +4374,13 @@ static method_t *getMethodNoSuper_nolock(Class cls, SEL sel){
  **********************************************************************/
 static method_t *getMethod_nolock(Class cls, SEL sel){
     method_t *m = nil;
-    
     runtimeLock.assertLocked();
-    
     // fixme nil cls?
     // fixme nil sel?
-    
     assert(cls->isRealized());
-    
     while (cls  &&  ((m = getMethodNoSuper_nolock(cls, sel))) == nil) {
         cls = cls->superclass;
     }
-    
     return m;
 }
 
@@ -4408,21 +4400,16 @@ static Method _class_getMethod(Class cls, SEL sel){
  * class_getInstanceMethod.  Return the instance method for the
  * specified class and selector.
  **********************************************************************/
-Method class_getInstanceMethod(Class cls, SEL sel)
-{
+Method class_getInstanceMethod(Class cls, SEL sel){
     if (!cls  ||  !sel) return nil;
-    
     // This deliberately avoids +initialize because it historically did so.
-    
     // This implementation is a bit weird because it's the only place that
     // wants a Method instead of an IMP.
     
 #warning fixme build and search caches
     
     // Search method lists, try method resolver, etc.
-    lookUpImpOrNil(cls, sel, nil,
-                   NO/*initialize*/, NO/*cache*/, YES/*resolver*/);
-    
+    lookUpImpOrNil(cls, sel, nil, NO/*initialize*/, NO/*cache*/, YES/*resolver*/);
 #warning fixme build and search caches
     
     return _class_getMethod(cls, sel);
@@ -5265,47 +5252,41 @@ BOOL class_conformsToProtocol(Class cls, Protocol *proto_gen)
 }
 
 
-/*
- * addMethod
- * fixme
- * Locking: runtimeLock must be held by the caller
- */
+/* 为指定类添加方法
+* @param imp 函数指针，该函数必须具有至少两个参数 self 和 _cmd 。
+* @param types 描述方法参数类型的字符数组
+* @param replace 是否替代原有方法
+*
+* 也就是说：如果该类没有实现SEL方法，则将方法添加到 method_list_t ，返回 nil
+*         如果该类已经实现SEL方法，replace=YES，替换 IMP ，返回旧有的  IMP
+*                              replace=NO，不替换IMP ， 返回旧有的  IMP
+*/
 static IMP addMethod(Class cls, SEL name, IMP imp, const char *types, bool replace){
     IMP result = nil;
-    
     runtimeLock.assertLocked();
-    
     checkIsKnownClass(cls);
-    
     assert(types);
     assert(cls->isRealized());
-    
     method_t *m;
-    if ((m = getMethodNoSuper_nolock(cls, name))) {
-        // already exists
-        if (!replace) {
-            result = m->imp;
+    if ((m = getMethodNoSuper_nolock(cls, name))) {// method_t 在该类实现
+        if (!replace) {//不替换原有方法
+            result = m->imp;//返回原有的 IMP
         } else {
-            result = _method_setImplementation(cls, m, imp);
+            result = _method_setImplementation(cls, m, imp);//返回旧有的 IMP
         }
-    } else {
-        // fixme optimize
-        method_list_t *newlist;
+    } else {// method_t 没有在该类实现：将 method 添加到该类
+        method_list_t *newlist;//创建一个方法列表
         newlist = (method_list_t *)calloc(sizeof(*newlist), 1);
-        newlist->entsizeAndFlags =
-        (uint32_t)sizeof(method_t) | fixed_up_method_list;
+        newlist->entsizeAndFlags = (uint32_t)sizeof(method_t) | fixed_up_method_list;
         newlist->count = 1;
         newlist->first.name = name;
         newlist->first.types = strdupIfMutable(types);
         newlist->first.imp = imp;
-        
         prepareMethodLists(cls, &newlist, 1, NO, NO);
         cls->data()->methods.attachLists(&newlist, 1);
         flushCaches(cls);
-        
         result = nil;
     }
-    
     return result;
 }
 
@@ -5386,32 +5367,34 @@ static SEL *addMethods(Class cls, const SEL *names, const IMP *imps, const char 
 }
 
 
-/* Runtime 库提供的 C 语言函数：为一个指定类添加方法
-* @param cls 指定的类
-* @param name 选择器
+
+/* 为某个类添加方法
 * @param imp 函数指针，该函数必须具有至少两个参数 self 和 _cmd 。
 * @param types 描述方法参数类型的字符数组
 *
-* 说明：参数 name 、imp、types 是方法Method的结构体objc_method 的三个成员
-* 该函数将添加超类实现的重写，但不会替换该类中的现有实现。
-* 也就是说：如果该类没有实现选择器指定的方法，则添加成功，返回YES;
-*         如果该类已经实现选择器指定的方法，则添加失败，返回 NO;
-* 需要更改现有的实现，使用 method_setImplementation()函数。
+* @note 如果该类没有实现SEL方法，则将方法添加到 method_list_t ，返回 YES ，表示添加成功
+*       如果该类已经实现SEL方法，则不再添加，返回 NO ，
 */
 BOOL class_addMethod(Class cls, SEL name, IMP imp, const char *types){
     if (!cls) return NO;
     mutex_locker_t lock(runtimeLock);
-    return ! addMethod(cls, name, imp, types ?: "", NO);
+    return !addMethod(cls, name, imp, types ?: "", NO);
 }
 
-
+/* 替换某个类的方法的具体实现。
+* @param cls 指定的类
+* @param name 新的方法的选择器
+* @param imp 新的函数指针
+* @param types 描述方法参数类型的字符数组
+*
+* @note 如果该类没有实现SEL方法，则将方法添加到 method_list_t ，返回 nil
+*       如果该类已经实现SEL方法，替换 IMP，返回旧有的 IMP
+*/
 IMP class_replaceMethod(Class cls, SEL name, IMP imp, const char *types){
     if (!cls) return nil;
-    
     mutex_locker_t lock(runtimeLock);
     return addMethod(cls, name, imp, types ?: "", YES);
 }
-
 
 SEL *class_addMethodsBulk(Class cls, const SEL *names, const IMP *imps,
                      const char **types, uint32_t count,uint32_t *outFailedCount){

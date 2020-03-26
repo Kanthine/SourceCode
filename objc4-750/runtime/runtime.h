@@ -452,21 +452,12 @@ OBJC_EXPORT Ivar _Nonnull * _Nullable
 class_copyIvarList(Class _Nullable cls, unsigned int * _Nullable outCount) 
     OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
-/** 
- * Returns a specified instance method for a given class.
- * 
- * @param cls The class you want to inspect.
- * @param name The selector of the method you want to retrieve.
- * 
- * @return The method that corresponds to the implementation of the selector specified by 
- *  \e name for the class specified by \e cls, or \c NULL if the specified class or its 
- *  superclasses do not contain an instance method with the specified selector.
- *
- * @note This function searches superclasses for implementations, whereas \c class_copyMethodList does not.
- */
-OBJC_EXPORT Method _Nullable
-class_getInstanceMethod(Class _Nullable cls, SEL _Nonnull name)
-    OBJC_AVAILABLE(10.0, 2.0, 9.0, 1.0, 2.0);
+
+/* Runtime 库提供的 C 语言函数：根据指定的 SEL，获取指定类的实例方法
+* @param name 指定的选择器
+* @note 如果该类的 methodLists 中没有该方法，则去父类的方法链表查询；直到根类也找不到，就返回 NULL
+*/
+OBJC_EXPORT Method _Nullable class_getInstanceMethod(Class _Nullable cls, SEL _Nonnull name) OBJC_AVAILABLE(10.0, 2.0, 9.0, 1.0, 2.0);
 
 /** 
  * Returns a pointer to the data structure describing a given class method for a given class.
@@ -640,40 +631,27 @@ class_getWeakIvarLayout(Class _Nullable cls)
     OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
 
-/* Runtime 库提供的 C 语言函数：为一个指定类添加方法
-* @param cls 指定的类
-* @param name 选择器
+/* 为某个类添加方法
 * @param imp 函数指针，该函数必须具有至少两个参数 self 和 _cmd 。
 * @param types 描述方法参数类型的字符数组
 *
-* 说明：参数 name 、imp、types 是方法Method的结构体objc_method 的三个成员
-* 该函数将添加超类实现的重写，但不会替换该类中的现有实现。
-* 也就是说：如果该类没有实现选择器指定的方法，则添加成功，返回YES;
-*         如果该类已经实现选择器指定的方法，则添加失败，返回 NO;
-* 需要更改现有的实现，使用 method_setImplementation()函数。
+* @note 如果该类没有实现SEL方法，则将方法添加到 method_list_t ，返回 YES ，表示添加成功
+*       如果该类已经实现SEL方法，则不再添加，返回 NO ，
 */
 OBJC_EXPORT BOOL
 class_addMethod(Class _Nullable cls, SEL _Nonnull name, IMP _Nonnull imp, const char * _Nullable types)
     OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
-/** 
- * Replaces the implementation of a method for a given class.
- * 
- * @param cls The class you want to modify.
- * @param name A selector that identifies the method whose implementation you want to replace.
- * @param imp The new implementation for the method identified by name for the class identified by cls.
- * @param types An array of characters that describe the types of the arguments to the method. 
- *  Since the function must take at least two arguments—self and _cmd, the second and third characters
- *  must be “@:” (the first character is the return type).
- * 
- * @return The previous implementation of the method identified by \e name for the class identified by \e cls.
- * 
- * @note This function behaves in two different ways:
- *  - If the method identified by \e name does not yet exist, it is added as if \c class_addMethod were called. 
- *    The type encoding specified by \e types is used as given.
- *  - If the method identified by \e name does exist, its \c IMP is replaced as if \c method_setImplementation were called.
- *    The type encoding specified by \e types is ignored.
- */
+
+/* 替换某个类的方法的具体实现。
+* @param cls 指定的类
+* @param name 新的方法的选择器
+* @param imp 新的函数指针
+* @param types 描述方法参数类型的字符数组
+*
+* @note 如果该类没有实现SEL方法，则将方法添加到 method_list_t ，返回 nil
+*       如果该类已经实现SEL方法，替换 IMP，返回旧有的 IMP
+*/
 OBJC_EXPORT IMP _Nullable
 class_replaceMethod(Class _Nullable cls, SEL _Nonnull name, IMP _Nonnull imp, 
                     const char * _Nullable types) 
@@ -1003,22 +981,10 @@ OBJC_EXPORT IMP _Nonnull
 method_setImplementation(Method _Nonnull m, IMP _Nonnull imp) 
     OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
-/** 
- * Exchanges the implementations of two methods.
- * 
- * @param m1 Method to exchange with second method.
- * @param m2 Method to exchange with first method.
- * 
- * @note This is an atomic version of the following:
- *  \code 
- *  IMP imp1 = method_getImplementation(m1);
- *  IMP imp2 = method_getImplementation(m2);
- *  method_setImplementation(m1, imp2);
- *  method_setImplementation(m2, imp1);
- *  \endcode
+
+/* 交换两个方法的函数指针IMP
  */
-OBJC_EXPORT void
-method_exchangeImplementations(Method _Nonnull m1, Method _Nonnull m2) 
+OBJC_EXPORT void method_exchangeImplementations(Method _Nonnull m1, Method _Nonnull m2)
     OBJC_AVAILABLE(10.5, 2.0, 9.0, 1.0, 2.0);
 
 
