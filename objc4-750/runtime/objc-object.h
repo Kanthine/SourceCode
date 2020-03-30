@@ -301,21 +301,27 @@ inline bool objc_object::isWeaklyReferenced(){
     else return sidetable_isWeaklyReferenced();
 }
     
-    
+/** 保存对象的弱引用标记
+ * 1、判断是否支持nonpointer,若不支持则直接在sidetable中保存弱引用标记；否则继续执行.
+ * 2、若支持 nonpointer 且已经被标记为存在弱引用指针,则直接返回；否则继续执行.
+ * 3、在isa中保存弱引用标记;
+ * 4、进行 newisa 保存.
+ */
 inline void objc_object::setWeaklyReferenced_nolock(){
 retry:
     isa_t oldisa = LoadExclusive(&isa.bits);
     isa_t newisa = oldisa;
-    if (slowpath(!newisa.nonpointer)) {
+    if (slowpath(!newisa.nonpointer)) {//若当前对象不支持nonpointe
         ClearExclusive(&isa.bits);
-        sidetable_setWeaklyReferenced_nolock();
+        sidetable_setWeaklyReferenced_nolock();//在弱引用表中存储弱引用标志
         return;
     }
-    if (newisa.weakly_referenced) {
+    if (newisa.weakly_referenced) {//当前对象支持nonpointer且已经被标识为弱引用
         ClearExclusive(&isa.bits);
         return;
     }
-    newisa.weakly_referenced = true;
+    newisa.weakly_referenced = true;//当前对象支持nonpointer，则添加弱引用标记
+    //保存弱引用标记
     if (!StoreExclusive(&isa.bits, oldisa.bits, newisa.bits)) goto retry;
 }
     
@@ -333,11 +339,11 @@ inline bool objc_object::rootIsDeallocating(){
     
     
 inline void objc_object::clearDeallocating(){
-    if (slowpath(!isa.nonpointer)) {
+    if (slowpath(!isa.nonpointer)) {//若果不支持nonpointer技术,则直接释放
         // Slow path for raw pointer isa.
         sidetable_clearDeallocating();
-    }
-    else if (slowpath(isa.weakly_referenced  ||  isa.has_sidetable_rc)) {
+    }else if (slowpath(isa.weakly_referenced  ||  isa.has_sidetable_rc)) {
+        //支持nonpointer&有弱引用指针&(弱引用指针 || 引用计数存储在弱引用表中)
         // Slow path for non-pointer isa with weak refs and/or side table data.
         clearDeallocating_slow();
     }

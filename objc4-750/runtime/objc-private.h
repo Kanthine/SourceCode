@@ -726,12 +726,20 @@ class TimeLogger {
 enum { CacheLineSize = 64 };
 
 
+/**
+ * 1、reinterpret_cast<new_type> (expression) 是C++中用来处理无关类型转化的一个运算符,
+ *    它会产生一个新的值，这个值会有与原始参数有完全相同的比特位.
+ *    在该实现中用于将一个证书类型转化为指针类型,可以理解为生成一个开辟置顶大小空间的指针；
+ * 2、全局维护了一个StripedMap变量，其内部实现是一个静态数组.
+ *      在 TARGET_OS_IPHONE 非模拟器上数组元素的最大个数为8，否则数组元素的最大个数为64.
+ * 3、通过将被引用对象的地址做 indexForPointer() 运算使得每个被引用对象运算之后的结果在 [0, StripeCount) 之间；
+ * 4、存储的值是抽象的 PaddedT ,在弱引用管理中存储的是结构体 SideTable 的实例.
+ */
 // StripedMap<T> is a map of void* -> T, sized appropriately 
 // for cache-friendly lock striping. 
 // For example, this may be used as StripedMap<spinlock_t>
 // or as StripedMap<SomeStruct> where SomeStruct stores a spin lock.
-template<typename T>
-class StripedMap {
+template<typename T> class StripedMap {
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
     enum { StripeCount = 8 };// iPhone时这个值为8
 #else
@@ -749,7 +757,7 @@ class StripedMap {
         return ((addr >> 4) ^ (addr >> 9)) % StripeCount;//这就是哈希算法了
     }
 
- public:
+public:
     T& operator[] (const void *p) {
         //可以看到，在对StripeCount取余后，所得到的值根据机器不同，会在0-7或者0-63之间，这就是通过哈希函数来获取到了sideTable的下标，然后再根据value取到所需的sideTable。
 
@@ -906,23 +914,20 @@ public:
 };
 
 
-// Pointer hash function.
-// This is not a terrific hash, but it is fast 
-// and not outrageously flawed for our purposes.
+//哈希函数的指针
+//这不是一个非常棒的散列，但它速度很快，而且对于我们的目的来说也没有严重的缺陷。
 
 // Based on principles from http://locklessinc.com/articles/fast_hash/
 // and evaluation ideas from http://floodyberry.com/noncryptohashzoo/
 #if __LP64__
-static inline uint32_t ptr_hash(uint64_t key)
-{
+static inline uint32_t ptr_hash(uint64_t key){
     key ^= key >> 4;
     key *= 0x8a970be7488fda55;
     key ^= __builtin_bswap64(key);
     return (uint32_t)key;
 }
 #else
-static inline uint32_t ptr_hash(uint32_t key)
-{
+static inline uint32_t ptr_hash(uint32_t key){
     key ^= key >> 4;
     key *= 0x5052acdb;
     key ^= __builtin_bswap32(key);

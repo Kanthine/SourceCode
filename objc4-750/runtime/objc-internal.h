@@ -285,7 +285,7 @@ typedef enum objc_tag_index_t objc_tag_index_t;
  */
 static inline bool _objc_taggedPointersEnabled(void);
 
-/*  设置用于指定 TaggedPointer 索引的类：
+/* 设置用于指定 TaggedPointer 索引的类：
  * @param tag 存储在数组的位置；
  * @param cls 要注册 TaggedPointer 的类；
  * @note 如果标记超出范围，或者该标记已经被其他类使用，则异常终止。

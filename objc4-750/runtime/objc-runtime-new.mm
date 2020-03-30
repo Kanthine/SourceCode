@@ -6284,7 +6284,7 @@ unsigned  objc_debug_taggedpointer_ext_payload_rshift = _OBJC_TAG_EXT_PAYLOAD_RS
 
 //禁用 Tagged Pointer 指针
 static void disableTaggedPointers(){
-    objc_debug_taggedpointer_mask = 0;
+    objc_debug_taggedpointer_mask = 0;//Tagged Pointer 能否使用
     objc_debug_taggedpointer_slot_shift = 0;
     objc_debug_taggedpointer_slot_mask = 0;
     objc_debug_taggedpointer_payload_lshift = 0;

@@ -1097,6 +1097,12 @@ struct objc_class : objc_object {
     }
     //表明该类是否自定义了release和retain方法,在ARC下是不允许使用release和retain的
     bool hasCustomRR() {
+         /* 查看是否有自定义的RR方法,RR方法包括：
+             retain、release、autorelease、retainCount、tryRetain
+             SEL_retainWeakReference
+             isDeallocating
+             allowsWeakReference);
+             */
         return ! bits.hasDefaultRR();
     }
     void setHasDefaultRR() {
