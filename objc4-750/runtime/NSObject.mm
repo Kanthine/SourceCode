@@ -210,7 +210,7 @@ enum CrashIfDeallocating {
 */
 template <HaveOld haveOld, HaveNew haveNew,CrashIfDeallocating crashIfDeallocating>
 static id storeWeak(id *location, objc_object *newObj){
-    //断言在模板参数中新值和旧值至少有一个是存在:这个参数只是表明我觉得很大可能是有(新值/旧值)或者没有(新值/旧值),实际上有或者没有还是要做具体判断
+    //断言在模板参数中新值和旧值至少有一个是存在,实际上有或者没有还是要做具体判断
     assert(haveOld  ||  haveNew);
     if (!haveNew) assert(newObj == nil);
     
@@ -220,9 +220,8 @@ static id storeWeak(id *location, objc_object *newObj){
     SideTable *oldTable;
     SideTable *newTable;
     
-    // 获取新旧值的锁。
-    // Order by lock address to prevent lock ordering problems.
-    // 如果下面的旧值发生变化，请重试。
+
+    //如果下面的旧值发生变化，请重试。
 retry:
     if (haveOld) {
         oldObj = *location;//获取弱引用指针的旧指向
@@ -236,19 +235,17 @@ retry:
         newTable = nil;
     }
     
-    SideTable::lockTwo<haveOld, haveNew>(oldTable, newTable);
+    SideTable::lockTwo<haveOld, haveNew>(oldTable, newTable);//上锁
     
-    if (haveOld  &&  *location != oldObj) {//location存在弱引用指向
+    if (haveOld && *location != oldObj) {// location存在弱引用指向
         SideTable::unlockTwo<haveOld, haveNew>(oldTable, newTable);
         goto retry;
     }
 
-    //主要防止在自定义的+initialize方法未完成时,调用storeWeak方法形成死锁(例如在+initialize添加弱引用)
+    //主要防止在自定义的 +initialize 方法未完成时,调用storeWeak方法形成死锁(例如在+initialize添加弱引用)
     if (haveNew  &&  newObj) {
         Class cls = newObj->getIsa();
-        if (cls != previouslyInitializedClass  &&
-            !((objc_class *)cls)->isInitialized())
-        {
+        if (cls != previouslyInitializedClass  && !((objc_class *)cls)->isInitialized()){
             SideTable::unlockTwo<haveOld, haveNew>(oldTable, newTable);
             _class_initialize(_class_getNonMetaClass(cls, (id)newObj));
             
@@ -317,17 +314,10 @@ id objc_storeWeakOrNil(id *location, id newObj){
 }
 
 
-/** 初始化一个新的weak指针指向对象的地址
- * 它用于如下代码:
- *
- * (The nil case)
- * __weak id weakPtr;
- * (The non-nil case)
- * NSObject *o = ...;
- * __weak id weakPtr = o;
+/** 初始化一个新的 weak 指针指向对象的地址
  *
  * @param location 弱指针地址
- * @param newObj 对象
+ * @param newObj 对象，如果为 nil。 则返回 nil
  * @note 该函数不是线程安全的
  */
 id objc_initWeak(id *location, id newObj){
@@ -335,6 +325,8 @@ id objc_initWeak(id *location, id newObj){
         *location = nil;
         return nil;
     }
+    printf("objc_initWeak  ==== start : %p \n",newObj);
+
     // 这里传递了三个 bool 数值
     // 使用 template 进行常量参数传递是为了优化性能,预判了大概率会发生的事情处理优先
     //调用 objc_storeWeak() 函数，更新指针指向，创建对应的弱引用表
@@ -368,7 +360,10 @@ void objc_destroyWeak(id *location){
 
 
 /*
- * 曾几何时，如果我们看到对象正在释放，我们会急切地清除 *location。这会混淆像NSPointerFunctions这样试图预先存储原始存储，并假设存储为零那么弱系统就会干扰的代码。这是错误的：弱系统仍然会检查并稍后清除存储。这可能会导致objc_weak_error投诉和崩溃。 因此，在释放完成之前，不去碰存储
+ * 曾几何时，如果我们看到对象正在释放，我们会急切地清除 *location。
+ 这会混淆像NSPointerFunctions这样试图预先存储原始存储，并假设存储为零那么弱系统就会干扰的代码。
+ 这是错误的：弱系统仍然会检查并稍后清除存储
+ 。这可能会导致objc_weak_error投诉和崩溃。 因此，在释放完成之前，不去碰存储
  */
 id objc_loadWeakRetained(id *location){
     id obj;
@@ -401,25 +396,21 @@ retry:
         if (! obj->rootTryRetain()) {
             result = nil;
         }
-    }
-    else {
+    }else {
         // 缓慢的情况。我们必须检查 +initialize 并在必要时在锁外部调用它，以避免死锁。
         if (cls->isInitialized() || _thisThreadIsInitializingClass(cls)) {
             BOOL (*tryRetain)(id, SEL) = (BOOL(*)(id, SEL))class_getMethodImplementation(cls, SEL_retainWeakReference);
             if ((IMP)tryRetain == _objc_msgForward) {
                 result = nil;
-            }
-            else if (! (*tryRetain)(obj, SEL_retainWeakReference)) {
+            }else if (! (*tryRetain)(obj, SEL_retainWeakReference)) {
                 result = nil;
             }
-        }
-        else {
+        }else {
             table->unlock();
             _class_initialize(cls);
             goto retry;
         }
     }
-    
     table->unlock();
     return result;
 }
@@ -1511,7 +1502,8 @@ id _objc_rootAllocWithZone(Class cls, malloc_zone_t *zone){
  * @param cls 不能为 nil ，否则返回 nil
  * @param checkNil 若为 false ，则返回 nil
  */
-static ALWAYS_INLINE id callAlloc(Class cls, bool checkNil, bool allocWithZone=false){
+static ALWAYS_INLINE id
+callAlloc(Class cls, bool checkNil, bool allocWithZone=false){
     if (slowpath(checkNil && !cls)) return nil;
     
 #if __OBJC2__
@@ -1535,8 +1527,11 @@ static ALWAYS_INLINE id callAlloc(Class cls, bool checkNil, bool allocWithZone=f
     }
 #endif
     // No shortcuts available.
-    if (allocWithZone) return [cls allocWithZone:nil];
-    return [cls alloc];
+    if (allocWithZone) {
+        return ((id(*)(id, SEL, struct _NSZone *))objc_msgSend)(cls, @selector(allocWithZone:), nil);
+    }
+    
+    return ((id(*)(id, SEL))objc_msgSend)(cls, @selector(alloc));
 }
 
 /* 基类调用 +alloc

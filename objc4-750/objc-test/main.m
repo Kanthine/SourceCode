@@ -14,14 +14,12 @@ int main(int argc, const char * argv[]) {
     @autoreleasepool {
         
         printf("\n\n objc-test ----- main \n");
-        
-
-        
+                
         MyModel *model = [[MyModel alloc] init];
-        model.name = @"Hello Word!";
-        [model logName];
-        printf("model === %p \n",model);
-
+        __weak MyModel *weakModel = model;
+        weakModel.name = @"Hello Word!";
+        [weakModel logName];
+        printf("model === %p \n",weakModel);
     }
     return 0;
 }

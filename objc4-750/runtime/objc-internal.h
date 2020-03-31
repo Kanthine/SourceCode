@@ -721,9 +721,7 @@ OBJC_EXPORT id _Nullable
 objc_loadWeakRetained(id _Nullable * _Nonnull location)
     OBJC_AVAILABLE(10.7, 5.0, 9.0, 1.0, 2.0);
 
-OBJC_EXPORT id _Nullable 
-objc_initWeak(id _Nullable * _Nonnull location, id _Nullable val)
-    OBJC_AVAILABLE(10.7, 5.0, 9.0, 1.0, 2.0);
+OBJC_EXPORT id _Nullable  objc_initWeak(id _Nullable * _Nonnull location, id _Nullable val) OBJC_AVAILABLE(10.7, 5.0, 9.0, 1.0, 2.0);
 
 /* 类似于 objc_storeWeak() 函数，但如果新对象正在释放或新对象的类不支持弱引用，则存储 nil。
  * 返回存储的值(新对象或nil)。

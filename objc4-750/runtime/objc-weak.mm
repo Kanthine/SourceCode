@@ -177,6 +177,29 @@ static void remove_referrer(weak_entry_t *entry, objc_object **old_referrer){
 }
 
 #pragma mark - 哈希表的 扩增 与 缩减
+/** 将 new_entry 添加到弱引用表中
+ * @note 不会检查引用是否已经在表中
+ */
+static void weak_entry_insert(weak_table_t *weak_table, weak_entry_t *new_entry){
+    weak_entry_t *weak_entries = weak_table->weak_entries;
+    assert(weak_entries != nil);
+    size_t begin = hash_pointer(new_entry->referent) & (weak_table->mask);//获取起始索引
+    size_t index = begin;
+    size_t hash_displacement = 0;
+    while (weak_entries[index].referent != nil) {//循环查找weak_entries中为空的位置
+        index = (index+1) & weak_table->mask;
+        if (index == begin) bad_weak_table(weak_entries);
+        hash_displacement++;
+    }
+    // 在index位置保存new_entry并num_entries进行自增;
+    weak_entries[index] = *new_entry;
+    weak_table->num_entries++;
+    
+    //保存哈希碰撞最大的尝试次数,在查找时可以减少搜索次数.
+    if (hash_displacement > weak_table->max_hash_displacement) {
+        weak_table->max_hash_displacement = hash_displacement;
+    }
+}
 
 /* 调整弱引用表中的大小
  * @param new_size 新的大小
@@ -231,30 +254,6 @@ static void weak_compact_maybe(weak_table_t *weak_table){
 }
 
 #pragma mark - 哈希表的 插入、删除、查询
-
-/** 将 new_entry 添加到弱引用表中
- * @note 不会检查引用是否已经在表中
- */
-static void weak_entry_insert(weak_table_t *weak_table, weak_entry_t *new_entry){
-    weak_entry_t *weak_entries = weak_table->weak_entries;
-    assert(weak_entries != nil);
-    size_t begin = hash_pointer(new_entry->referent) & (weak_table->mask);//获取起始索引
-    size_t index = begin;
-    size_t hash_displacement = 0;
-    while (weak_entries[index].referent != nil) {//循环查找weak_entries中为空的位置
-        index = (index+1) & weak_table->mask;
-        if (index == begin) bad_weak_table(weak_entries);
-        hash_displacement++;
-    }
-    // 在index位置保存new_entry并num_entries进行自增;
-    weak_entries[index] = *new_entry;
-    weak_table->num_entries++;
-    
-    //保存哈希碰撞最大的尝试次数,在查找时可以减少搜索次数.
-    if (hash_displacement > weak_table->max_hash_displacement) {
-        weak_table->max_hash_displacement = hash_displacement;
-    }
-}
 
 /** 从弱引用表移除弱引用 weak_entry_t
  */

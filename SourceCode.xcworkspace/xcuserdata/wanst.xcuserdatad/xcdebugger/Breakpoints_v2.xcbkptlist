@@ -7,102 +7,16 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "A36EF838-2788-4F9F-A5AE-1150DF468B1B"
+            uuid = "22D6350B-A9C8-48BD-A9C7-D4997FAB9528"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "objc4-750/runtime/objc-runtime-new.mm"
-            timestampString = "570592835.552426"
+            filePath = "objc4-750/runtime/NSObject.mm"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "2085"
-            endingLineNumber = "2085"
-            landmarkName = "readClass(cls, headerIsBundle, headerIsPreoptimized)"
-            landmarkType = "9">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "E49CBF6E-7BD7-4CF9-88A2-A5B77A8BF388"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "objc4-750/runtime/objc-runtime-new.mm"
-            timestampString = "570592835.553286"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1146"
-            endingLineNumber = "1146"
-            landmarkName = "popFutureNamedClass(name)"
-            landmarkType = "9">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "30517A4A-3B72-4C83-B758-433F67982F57"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "objc4-750/runtime/objc-runtime-new.mm"
-            timestampString = "570592835.553864"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "2371"
-            endingLineNumber = "2371"
-            landmarkName = "_read_images(hList, hCount, totalClasses, unoptimizedTotalClasses)"
-            landmarkType = "9">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "6734DE0C-9139-4D0C-ADF5-6855EC316601"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "objc4-750/runtime/objc-runtime-new.mm"
-            timestampString = "570592835.5544569"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "2404"
-            endingLineNumber = "2404"
-            landmarkName = "_read_images(hList, hCount, totalClasses, unoptimizedTotalClasses)"
-            landmarkType = "9">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "37FCB118-9A8B-4E3C-8F3E-1D82225AA6F9"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "objc4-750/runtime/objc-runtime-new.mm"
-            timestampString = "570592835.555319"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "2443"
-            endingLineNumber = "2443"
-            landmarkName = "_read_images(hList, hCount, totalClasses, unoptimizedTotalClasses)"
-            landmarkType = "9">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "379DFC20-0849-42FB-978C-6DA16CA1EF85"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "objc4-750/runtime/objc-runtime-new.mm"
-            timestampString = "570592835.555933"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "2506"
-            endingLineNumber = "2506"
-            landmarkName = "_read_images(hList, hCount, totalClasses, unoptimizedTotalClasses)"
+            startingLineNumber = "324"
+            endingLineNumber = "324"
+            landmarkName = "objc_initWeak(location, newObj)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
