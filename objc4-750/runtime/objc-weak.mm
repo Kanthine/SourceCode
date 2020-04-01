@@ -36,13 +36,13 @@ static inline uintptr_t w_hash_pointer(objc_object **key) {
     return ptr_hash((uintptr_t)key);
 }
 
-/** 扩容并增加新的弱引用指针,最终的存储还是依靠append_referrer完成
+/** 扩容并增加新的弱引用指针,最终的存储还是依靠append_referrer() 函数完成
  */
 __attribute__((noinline, used)) static void grow_refs_and_insert(weak_entry_t *entry,objc_object **new_referrer){
     assert(entry->out_of_line());
     size_t old_size = TABLE_SIZE(entry);//获取当前的entry容量
     size_t new_size = old_size ? old_size * 2 : 8;//如果当前容量为0则置 new_size = 8;否则new_size=2*old_size;
-
+    
     size_t num_refs = entry->num_refs;
     weak_referrer_t *old_refs = entry->referrers;
     entry->mask = new_size - 1;//重置entry->mask
@@ -63,55 +63,44 @@ __attribute__((noinline, used)) static void grow_refs_and_insert(weak_entry_t *e
 }
 
 /**  在 weak_entry_t 中添加新的弱引用指针
- * 1、 当前没有使用离线存储,遍历内部静态数组 inline_referrers,有空余的位置则直接保存new_referrer;
- *      否则开辟新的空间指针new_referrers，并将原始静态数组的元素复制到新开辟空间中的对应位置,
- *      然后重置entry相关属性(此时entry->num_refs=WEAK_INLINE_COUNT是大于TABLE_SIZE(entry) * 3/4).
- *
- * 2、判断离线存储的实际使用量(num_refs)是否大于空间总量的(TABLESIZE(entry))，
- *     如果为真则需要扩容并添加新的弱引用指针,直接返回grow_refs_and_insert；否则正常存储.
-
- *  不执行重复检查(b/c弱指针从不两次添加到集合中)。
- *
- * @param entry 包含弱指针集的项。
+ * 1、当前没有使用离线存储，将 new_referrer 保存至数组 inline_referrers的空余位置；
+ *    如果没有空余位置，将数组 new_referrer 的元素拷至数组 referrers ，并设置为离线存储；
+ * 2、如果数组 new_referrer 当前已经使用了总量的3/4 ，则需要扩充容量，并将指针 new_referrer 存储至 weak_entry_t
+ * 3、如果数组 new_referrer 当前还未超出总量的3/4 ，则直接将指针 new_referrer 存储至 weak_entry_t
+ * @param entry 存储指定对象的所有弱指针。
  * @param new_referrer 要添加的新弱指针。
- * @param entry The entry holding the set of weak pointers. 
- * @param new_referrer The new weak pointer to be added.
  */
 static void append_referrer(weak_entry_t *entry, objc_object **new_referrer){
     //在增加新的弱引用指针之前使用非离线存储弱引用指针：使用静态数组inline_referrers来进行存储
     if (!entry->out_of_line()) {
-        // Try to insert inline.
-        for (size_t i = 0; i < WEAK_INLINE_COUNT; i++) {//遍历inline_referrers查看是否存在空的位置
-            if (entry->inline_referrers[i] == nil) {//存在则直接将新的弱引用指针存储在该位置,并返回
+        for (size_t i = 0; i < WEAK_INLINE_COUNT; i++) {//遍历数组inline_referrers，是否存在空位置
+            if (entry->inline_referrers[i] == nil) {//将新的弱引用指针存储在该数组空位置上,并返回
                 entry->inline_referrers[i] = new_referrer;
                 return;
             }
         }
-
+        
         // 在静态数组中没有可用的存储位置，需要开辟离线空间
         weak_referrer_t *new_referrers = (weak_referrer_t *)calloc(WEAK_INLINE_COUNT, sizeof(weak_referrer_t));
-
-        //将之前使用静态数组进行存储的元素复制到新的 new_referrers 中，虽然目前来讲这部分操作并没开辟足够的空间存储新的 new_referrer，
-        // 但是不用紧张会在grow_refs_and_inser进行修复并对元素进行哈希
+        
+        //将之前inline_referrers数组的元素复制到数组 new_referrers 中
         for (size_t i = 0; i < WEAK_INLINE_COUNT; i++) {
             new_referrers[i] = entry->inline_referrers[i];
         }
         entry->referrers = new_referrers;
         entry->num_refs = WEAK_INLINE_COUNT;
         entry->out_of_line_ness = REFERRERS_OUT_OF_LINE;
-        entry->mask = WEAK_INLINE_COUNT-1;//entry->mask永远是最大容量-1
+        entry->mask = WEAK_INLINE_COUNT-1;
         entry->max_hash_displacement = 0;
     }
-
-    //断言：代码执行到这个位置时 entry 应该是离线存储，即 entry->out_of_line() = true
-    assert(entry->out_of_line());
-
+    assert(entry->out_of_line());//断言：代码执行到这个位置时 entry 应该是离线存储
+    
     if (entry->num_refs >= TABLE_SIZE(entry) * 3/4) {//如果当前已经使用了总量的3/4,则扩容并添加新的引用,并返回
         return grow_refs_and_insert(entry, new_referrer);
     }
     
     //如果当前已经使用量小于总量的3/4,则直接添加
-    size_t begin = w_hash_pointer(new_referrer) & (entry->mask);//hash new_referrer并与entry->mask作&运算得到起始索引
+    size_t begin = w_hash_pointer(new_referrer) & (entry->mask);
     size_t index = begin;
     size_t hash_displacement = 0;
     while (entry->referrers[index] != nil) {//发生hash碰撞
@@ -128,20 +117,17 @@ static void append_referrer(weak_entry_t *entry, objc_object **new_referrer){
     entry->num_refs++;
 }
 
-/** 从当前weak_entry_t实例中移除弱引用指针
- * 1、判断是否是弱引用是否是离线存储:如果使用非离线存储,则遍历inline_referrers查找old_referrer,查找到则置空，否则只需执行;
- * 2、使用离线存储机制：使用 w_hash_pointer(old_referrer) & (entry->mask)获取起始索引,
+/** 从指定 weak_entry_t 实例中的数组移出某个弱引用指针
+ * 1、如果使用非离线存储,则遍历静态数组 inline_referrers,找到 old_referrer 则移出数组，否则继续执行;
+ * 2、如果使用离线存储：使用 w_hash_pointer(old_referrer) & (entry->mask)获取起始索引,
  *                  遍历entry->referrers，找到之后置空，并entry->num_refs自减.
- *
- * @param entry 持有弱引用指针的结构
- * @param old_referrer 带移除的弱引用指针
  */
 static void remove_referrer(weak_entry_t *entry, objc_object **old_referrer){
-    //如果entry没有使用离线机制存储:对象弱引用个数不大于WEAK_INLINE_COUNT
+    //如果 entry 没有使用离线机制存储
     if (!entry->out_of_line()) {
         for (size_t i = 0; i < WEAK_INLINE_COUNT; i++) {
             if (entry->inline_referrers[i] == old_referrer) {
-                entry->inline_referrers[i] = nil;//置空对应的弱引用指针
+                entry->inline_referrers[i] = nil;//old_referrer 移出数组
                 return;
             }
         }
@@ -172,11 +158,12 @@ static void remove_referrer(weak_entry_t *entry, objc_object **old_referrer){
             return;
         }
     }
-    entry->referrers[index] = nil;//将index对应的referrer置空
+    entry->referrers[index] = nil;//old_referrer 移出数组
     entry->num_refs--;//弱引用计数-1
 }
 
 #pragma mark - 哈希表的 扩增 与 缩减
+
 /** 将 new_entry 添加到弱引用表中
  * @note 不会检查引用是否已经在表中
  */
@@ -191,7 +178,7 @@ static void weak_entry_insert(weak_table_t *weak_table, weak_entry_t *new_entry)
         if (index == begin) bad_weak_table(weak_entries);
         hash_displacement++;
     }
-    // 在index位置保存new_entry并num_entries进行自增;
+    //在index位置保存new_entry并num_entries进行自增;
     weak_entries[index] = *new_entry;
     weak_table->num_entries++;
     
@@ -265,9 +252,9 @@ static void weak_entry_remove(weak_table_t *weak_table, weak_entry_t *entry){
     weak_compact_maybe(weak_table);
 }
 
-/** 在弱引用表查询指定的弱引用
- * @param referent 指定的弱引用，不能为空
- * @return 如果弱引用表没有 referent 指定的 weak_entry_t ，则返回 NULL
+/** 在弱引用表查询指定对象的 weak_entry_t
+ * @param referent 指定对象，不能为 nil
+ * @return 如果弱引用表没有该对象的 weak_entry_t ，则返回 NULL
  */
 static weak_entry_t *weak_entry_for_referent(weak_table_t *weak_table, objc_object *referent){
     assert(referent);
@@ -300,13 +287,14 @@ static weak_entry_t *weak_entry_for_referent(weak_table_t *weak_table, objc_obje
  *
  */
 /** 移除指定的弱引用指针：
- * 1、在weak_table中查找对应的entry;
- * 2、从entry中移除referrer，并判断移除之后entry是否为空;
- * 3、若移除之后当前entry为空,则从weak_table中移除entry.
+ * 该函数主要由三个功能：
+ *    1、在 weak_table 中查找对应的 weak_entry_t；
+ *    2、从 weak_entry_t 的数组中移除referrer指针；
+ *    3、判断 weak_entry_t 的数组是否为空，若不再存储弱引用指针,则从弱引用表中移除 weak_entry_t；
  *
  * @param weak_table 全局弱引用表
- * @param referent 待移除的对象
- * @param *referrer 弱引用指针
+ * @param referent 指定的对象
+ * @param *referrer 带移除的弱引用指针
  */
 void weak_unregister_no_lock(weak_table_t *weak_table, id referent_id,id *referrer_id){
     objc_object *referent = (objc_object *)referent_id;
@@ -314,12 +302,11 @@ void weak_unregister_no_lock(weak_table_t *weak_table, id referent_id,id *referr
     weak_entry_t *entry;
     if (!referent) return;
 
-    ///从weak_table中根据key（referent）找到entry（指向对象弱引用列表的指针）
+    //在弱引用表查询指定对象的 weak_entry_t
     if ((entry = weak_entry_for_referent(weak_table, referent))) {
-        //如果弱引用指针存在,则从entry移除referrer
-        remove_referrer(entry, referrer);
+        remove_referrer(entry, referrer);//从表中移出该指针
         
-        bool empty = true;//判断移除referrer之后entry是否为空
+        bool empty = true;//判断移除指针之后entry数组是否为空
         if (entry->out_of_line()  &&  entry->num_refs != 0) {
             empty = false;
         }else {
@@ -330,9 +317,7 @@ void weak_unregister_no_lock(weak_table_t *weak_table, id referent_id,id *referr
                 }
             }
         }
-
-        if (empty) {
-            //如果移除referrer之后entry为空则从表中移除entry
+        if (empty) {//如果移出指针之后entry数组为空，则从弱引用表中移除entry
             weak_entry_remove(weak_table, entry);
         }
     }
@@ -342,23 +327,19 @@ void weak_unregister_no_lock(weak_table_t *weak_table, id referent_id,id *referr
 }
 
 /** 向弱引用表里添加新的弱应用指针
- * @param weak_table 弱引用表
- * @param referent 添加的对象，不能为空、不能是 TaggedPointer
- * @param *referrer 弱引用指针
- * @param crashIfDeallocating 判断当前对象是否正在释放。如果当前对象正在释放：
- *          当crashIfDeallocating=true时抛出异常；
- *          当crashIfDeallocating=false时直接返回nil；
- * @note 在自定义的 -dealloc 中,不允许增加新的弱引用指针,否则会报错.
+ * 1、如果被引用对象正在释放，则不能再添加弱应用指针
+ * 2、在弱引用表查询指定对象的 weak_entry_t
+ *    2.1、如果查到 weak_entry_t ，则将弱引用指针存储至 weak_entry_t
+ *    2.2、如果没有查到 weak_entry_t，新建一个 weak_entry_t 并存储弱指针，将 weak_entry_t 存储在弱引用表
+ * @param referent 被引用对象，不能为空、不能是TaggedPointer
+ * @note 在 -dealloc 方法中,不能增加新的弱引用指针,否则会报错.
  */
 id  weak_register_no_lock(weak_table_t *weak_table, id referent_id, id *referrer_id, bool crashIfDeallocating){
     objc_object *referent = (objc_object *)referent_id;//获取被引用对象
     objc_object **referrer = (objc_object **)referrer_id;//强转referrer_id为二级指针
-
-    //如果被引用对象不存在或者被引用对象为TaggedPointer(标签指针),直接返回被引用对象的指针
     if (!referent||referent->isTaggedPointer()) return referent_id;
     
-    // 确保所引用的对象是可行的
-    bool deallocating;
+    bool deallocating;//确保被引用对象是可行的
     if (!referent->ISA()->hasCustomRR()) {
         deallocating = referent->rootIsDeallocating();
     }else {
@@ -369,7 +350,6 @@ id  weak_register_no_lock(weak_table_t *weak_table, id referent_id, id *referrer
         }
         deallocating = !(*allowsWeakReference)(referent, SEL_allowsWeakReference);
     }
-
     if (deallocating) {//如果对象正在释放,不能增加新的弱引用指针
         if (crashIfDeallocating) {
             _objc_fatal("Cannot form weak reference to instance (%p) of "
@@ -380,9 +360,9 @@ id  weak_register_no_lock(weak_table_t *weak_table, id referent_id, id *referrer
             return nil;
         }
     }
-
+    
     weak_entry_t *entry;
-    if ((entry = weak_entry_for_referent(weak_table, referent))) {//判断弱引用表是否存在对象referent
+    if ((entry = weak_entry_for_referent(weak_table, referent))) {//在弱引用表查询指定对象的 weak_entry_t
         append_referrer(entry, referrer);//把弱引用指针 referrer 加入到对象 referent 已经存在的引用列表中
     } else {//在weak_table中未找到referent对应的weak_entry_t
         weak_entry_t new_entry(referent, referrer);//给对象referent创建一个新的引用列表
