@@ -110,8 +110,8 @@ void weak_unregister_no_lock(weak_table_t *weak_table, id referent, id *referrer
 bool weak_is_registered_no_lock(weak_table_t *weak_table, id referent);
 #endif
 
-/** 弱引用表中的对象 referent 被销毁，把所有指向它的弱引用指针全部置为 nil
- */
+/** 当对象调用 -dealloc 方法时，从弱引用表清空某个对象的所有弱引用指针
+*/
 void weak_clear_no_lock(weak_table_t *weak_table, id referent);
 
 __END_DECLS

@@ -6061,8 +6061,7 @@ id _class_createInstanceFromZone(Class cls, size_t extraBytes, void *zone,
         obj = (id)calloc(1, size);
         if (!obj) return nil;
         obj->initInstanceIsa(cls, hasCxxDtor);
-    }
-    else {
+    }else {
         if (zone) {
             obj = (id)malloc_zone_calloc ((malloc_zone_t *)zone, 1, size);
         } else {
@@ -6189,7 +6188,7 @@ void *objc_destructInstance(id obj)
 
 /*销毁指定的对象
  */
-id  object_dispose(id obj){
+id object_dispose(id obj){
     if (!obj) return nil;
     objc_destructInstance(obj);
     free(obj);

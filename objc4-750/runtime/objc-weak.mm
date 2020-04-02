@@ -334,7 +334,7 @@ void weak_unregister_no_lock(weak_table_t *weak_table, id referent_id,id *referr
  * @param referent 被引用对象，不能为空、不能是TaggedPointer
  * @note 在 -dealloc 方法中,不能增加新的弱引用指针,否则会报错.
  */
-id  weak_register_no_lock(weak_table_t *weak_table, id referent_id, id *referrer_id, bool crashIfDeallocating){
+id weak_register_no_lock(weak_table_t *weak_table, id referent_id, id *referrer_id, bool crashIfDeallocating){
     objc_object *referent = (objc_object *)referent_id;//获取被引用对象
     objc_object **referrer = (objc_object **)referrer_id;//强转referrer_id为二级指针
     if (!referent||referent->isTaggedPointer()) return referent_id;
@@ -382,24 +382,18 @@ bool weak_is_registered_no_lock(weak_table_t *weak_table, id referent_id){
 #endif
 
 
-/** 从弱引用表 清空某个对象的所有的 weak指针
- * 当对象被销毁的时候调用 -dealloc 方法，在这个方法里面把所有指向这个对象的弱引用指针全部置为 nil，最后从弱引用表中移除该对象和它的弱引用列表。
- * @param referent 正在调用 -dealloc 方法 的对象
+/** 当对象调用 -dealloc 方法时，从弱引用表清空某个对象的所有弱引用指针
  */
 void  weak_clear_no_lock(weak_table_t *weak_table, id referent_id){
     objc_object *referent = (objc_object *)referent_id;
 
     weak_entry_t *entry = weak_entry_for_referent(weak_table, referent);
     if (entry == nil) {//若entry为空则证明当前对象不存在弱引用指针.
-        /// XXX shouldn't happen, but does with mismatched CF/objc
-        //printf("XXX no entry for clear deallocating %p\n", referent);
         return;
     }
-
-    // zero out references
-    weak_referrer_t *referrers;
-    size_t count;
     
+    weak_referrer_t *referrers;//声明一个数组用来存储所有指向该对象的弱引用指针
+    size_t count;//数组容量
     if (entry->out_of_line()) {//使用离线存储弱引用指针
         referrers = entry->referrers;
         count = TABLE_SIZE(entry);
@@ -408,7 +402,7 @@ void  weak_clear_no_lock(weak_table_t *weak_table, id referent_id){
         count = WEAK_INLINE_COUNT;
     }
     
-    //遍历弱引用数组逐个置空指向referent的弱引用指针
+    //遍历数组，将所有指向该对象的弱引用指针全部指向 nil
     for (size_t i = 0; i < count; ++i) {
         objc_object **referrer = referrers[i];
         if (referrer) {
@@ -424,8 +418,7 @@ void  weak_clear_no_lock(weak_table_t *weak_table, id referent_id){
             }
         }
     }
-    //从weak_table中移除entry
-    weak_entry_remove(weak_table, entry);
+    weak_entry_remove(weak_table, entry); //从weak_table中移除entry
 }
 
 //https://blog.csdn.net/WangErice/article/details/104950156

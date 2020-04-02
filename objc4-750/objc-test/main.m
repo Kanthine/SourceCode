@@ -15,14 +15,20 @@ int main(int argc, const char * argv[]) {
         
         printf("\n\n objc-test ----- main \n");
                 
-        __weak MyModel *weakModel = [[MyModel alloc] init];
+        
+        MyModel *model = [[MyModel alloc] init];
+        printf("model === %p \n",model);
+        printf("model === %p \n",&model);
+
+         MyModel *weakModel = [[MyModel alloc] init];
+        printf("weakModel === %p \n",weakModel);
+        printf("weakModel === %p \n",&weakModel);
         
 //        weakModel = [[MyModel alloc] init];
         weakModel.name = @"Hello Word!";
         [weakModel logName];
-        printf("model === %p \n",weakModel);
         
-        weakModel = nil;
+//        weakModel = nil;
     }
     return 0;
 }

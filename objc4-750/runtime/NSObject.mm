@@ -275,7 +275,7 @@ retry:
 }
 
 
-/** 将弱引用指针指向别的变量时，将调用该函数替代 objc_initWeak() 函数
+/** 将已经被注册的弱引用指针再次指向别的变量
  * @param location 弱引用指针的内存地址
  * @param newObj 弱指针指向的新对象
  * @return 新变量
@@ -293,12 +293,10 @@ id objc_storeWeakOrNil(id *location, id newObj){
     return storeWeak<DoHaveOld, DoHaveNew, DontCrashIfDeallocating>(location, (objc_object *)newObj);
 }
 
-/** 初始化一个新的 weak 指针指向对象的地址
- *
+/** 注册一个新的 weak 指针指向对象的地址
  * @param location 弱引用指针的内存地址
  * @param newObj 弱指针指向的新对象
  * @note 该函数不是线程安全的
- * @note 函数有一个前提条件：就是object必须是一个没有被注册为__weak对象的有效指针
  */
 id objc_initWeak(id *location, id newObj){
     if (!newObj) {//判断原始引用对象是否为空
@@ -314,26 +312,19 @@ id objc_initWeakOrNil(id *location, id newObj){
         *location = nil;
         return nil;
     }
-    return storeWeak<DontHaveOld, DoHaveNew, DontCrashIfDeallocating>
-    (location, (objc_object*)newObj);
+    return storeWeak<DontHaveOld, DoHaveNew, DontCrashIfDeallocating>(location, (objc_object*)newObj);
 }
 
-
-/**
- * Destroys the relationship between a weak pointer
- * and the object it is referencing in the internal weak
- * table. If the weak pointer is not referencing anything,
- * there is no need to edit the weak table.
- *
- * This function IS NOT thread-safe with respect to concurrent
- * modifications to the weak variable. (Concurrent weak clear is safe.)
- *
- * @param location The weak pointer address.
+/** 解除弱引用表中弱引用指针与被引用对象之间的关系
+ * @param location 弱引用指针
+ * 以下三种情况都会调用该函数
+ *    @case_1 : __weak MyModel *weakModel;
+ *    @case_2 : __weak MyModel *weakModel = nil;
+ *    @case_3 : weakModel = nil;
  */
 void objc_destroyWeak(id *location){
     (void)storeWeak<DoHaveOld, DontHaveNew, DontCrashIfDeallocating>(location, nil);
 }
-
 
 /*
  * 曾几何时，如果我们看到对象正在释放，我们会急切地清除 *location。
@@ -1506,7 +1497,6 @@ callAlloc(Class cls, bool checkNil, bool allocWithZone=false){
     if (allocWithZone) {
         return ((id(*)(id, SEL, struct _NSZone *))objc_msgSend)(cls, @selector(allocWithZone:), nil);
     }
-    
     return ((id(*)(id, SEL))objc_msgSend)(cls, @selector(alloc));
 }
 

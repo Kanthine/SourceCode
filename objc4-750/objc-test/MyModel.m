@@ -13,6 +13,10 @@
     printf("=========  MyModel ========= +initialize \n");
 }
 
+- (void)dealloc{
+    printf("%s : %p \n",__func__,self);
+}
+
 - (void)logName{
     printf("%s:%s \n",__func__,self.name);
 }
