@@ -66,23 +66,20 @@ namespace{
 #define SIDE_TABLE_FLAG_MASK (SIDE_TABLE_RC_ONE-1)
     
     //模板类 DenseMap
-    //RefcountMap隐藏了它的指针，因为我们不希望 table 充当“leaks”的根。
     typedef objc::DenseMap<DisguisedPtr<objc_object>,size_t,true> RefcountMap;
-    
     //模板参数
     enum HaveOld { DontHaveOld = false, DoHaveOld = true };
     enum HaveNew { DontHaveNew = false, DoHaveNew = true };
     
-
-    /* 散列表 SideTable ：主要用于辅助管理对象的 引用计数 和 弱引用依赖
-     * 在 runtime 内存空间中，SideTables 是一个 hash 数组，里面存储了 SideTable。
-     * SideTables 的 hash 键值就是一个对象 obj 的地址。
-     * 因此可以说，一个 obj，对应了一个 SideTable；但是一个 SideTable，会对应多个 obj。因为 SideTable 的数量有限，所以会有很多 obj 共用同一个 SideTable。
+    
+    /** 散列表 SideTable ：主要用于辅助管理对象的 引用计数 和 弱引用依赖
+     * SideTables 是一个 hash 数组，里面存储了多个 SideTable；SideTables 的 hash 键值就是一个对象 obj 的地址。
+     * 因此可以说，一个对象对应了一个 SideTable；但是一个 SideTable对应多个对象。因为 SideTable 的数量有限，所以会有很多 obj 共用同一个 SideTable。
      *
      * @疑问？为什么不直接用一张SideTable，而是用 SideTables 去管理多个 SideTable？
-     * SideTable里有一个自旋锁，如果把所有的类都放在同一个SideTable，有任何一个类有改动都会对整个table做操作，并且在操作一个类的同时，操作别的类会被锁住等待，这样会导致操作效率和查询效率都很低。而有多个SideTable的话，操作的都是单个Table，并不会影响其他的table，这就是分离锁。
-     * 继续SideTables,来看一下散列表的数据结构（数组+链表），举个例子，我们需要把小于100的放到第1个Table，大于900的放到第6个Table：
-     *
+     * SideTable 有一个自旋锁，如果把所有的类都放在同一个 SideTable，任何一个类的改动都会对整个table做操作，
+     * 并且在操作一个类的同时，SideTable 会被锁住等待，这样会导致操作效率和查询效率都很低。
+     * 而有多个 SideTable 的话，操作的都是单个 Table，并不会影响其他的table，这就是分离锁。
      */
     struct SideTable {
         spinlock_t slock;// 保证操作线程安全的自旋锁;
@@ -394,10 +391,9 @@ retry:
 }
 
 /**
- * This loads the object referenced by a weak pointer and returns it, after
- * retaining and autoreleasing the object to ensure that it stays alive
- * long enough for the caller to use it. This function would be used
- * anywhere a __weak variable is used in an expression.
+ * This loads the object referenced by a weak pointer and returns it, after retaining and autoreleasing the object to ensure that it stays alive long enough for the caller to use it.
+ *
+ * This function would be used anywhere a __weak variable is used in an expression.
  *
  * @param location The weak pointer address
  *
@@ -1094,9 +1090,7 @@ __attribute__((noinline,used)) id objc_object::rootAutorelease2(){
 
 BREAKPOINT_FUNCTION(void objc_overrelease_during_dealloc_error(void));
 
-
-NEVER_INLINE
-bool objc_object::overrelease_error(){
+NEVER_INLINE bool objc_object::overrelease_error(){
     _objc_inform_now_and_on_crash("%s object %p overreleased while already deallocating; break on objc_overrelease_during_dealloc_error to debug", object_getClassName((id)this), this);
     objc_overrelease_during_dealloc_error();
     return false;  // allow rootRelease() to tail-call this

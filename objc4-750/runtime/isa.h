@@ -1,3 +1,48 @@
+/** isa 指针的 64 位上的一些信息
+ * @param nonpointer 是否对isa开启指针优化：true代表非指针型ISA，除了地址外，还包含了类的一些信息、对象的引用计数等。
+ * @param has_assoc：该位表示是否有关联对象
+ * @param has_cxx_dtor：在ARC环境下标记对象是否通过ARC来管理的
+ * @param shiftcls：标记当前对象所属类的指针地址
+ * @param magic：判断当前对象是真的对象还是一段没有初始化的空间
+ * @param weakly_referenced：是否有弱引用指针指向该对象
+ * @param deallocating：对象是否正在进行dealloc操作
+ * @param has_sidetable_rc：标记是否有 sitetable 结构用于存储引用计数
+ * @param extra_rc：标记对象的引用计数：首先会存储在该字段中，当到达上限后，再存入对应的引用计数表中
+ *
+ * @note 非指针型ISA：SUPPORT_NONPOINTER_ISA 64位中存储的内容有：引用计数、析构状态，是否有弱引用指针等等
+ * @note 一个实例少量的引用计数不会直接存放在 SideTables 中，引用计数存放在extra_rc 中，当其被存满时才会存入相应的SideTables 散列表中
+*/
+
+/**
+ * 苹果将ISA设计成了联合体，在ISA中存储了与该对象相关的一些内存信息，因为 并不需要64个二进制全部都用来存储指针
+
+ // x86_64 架构
+ struct {
+     uintptr_t nonpointer        : 1;  // 0:普通指针，1:优化过，使用位域存储更多信息
+     uintptr_t has_assoc         : 1;  // 对象是否含有或曾经含有关联引用
+     uintptr_t has_cxx_dtor      : 1;  // 表示是否有C++析构函数或OC的dealloc
+     uintptr_t shiftcls          : 44; // 存放着 Class、Meta-Class 对象的内存地址信息
+     uintptr_t magic             : 6;  // 用于在调试时分辨对象是否未完成初始化
+     uintptr_t weakly_referenced : 1;  // 是否被弱引用指向
+     uintptr_t deallocating      : 1;  // 对象是否正在释放
+     uintptr_t has_sidetable_rc  : 1;  // 是否需要使用 sidetable 来存储引用计数
+     uintptr_t extra_rc          : 8;  // 引用计数能够用 8 个二进制位存储时，直接存储在这里
+ };
+
+ // arm64 架构
+ struct {
+     uintptr_t nonpointer        : 1;  // 0:普通指针，1:优化过，使用位域存储更多信息
+     uintptr_t has_assoc         : 1;  // 对象是否含有或曾经含有关联引用
+     uintptr_t has_cxx_dtor      : 1;  // 表示是否有C++析构函数或OC的dealloc
+     uintptr_t shiftcls          : 33; // 存放着 Class、Meta-Class 对象的内存地址信息
+     uintptr_t magic             : 6;  // 用于在调试时分辨对象是否未完成初始化
+     uintptr_t weakly_referenced : 1;  // 是否被弱引用指向
+     uintptr_t deallocating      : 1;  // 对象是否正在释放
+     uintptr_t has_sidetable_rc  : 1;  // 是否需要使用 sidetable 来存储引用计数
+     uintptr_t extra_rc          : 19;  // 引用计数能够用 19 个二进制位存储时，直接存储在这里
+ };
+ */
+
 
 #ifndef _OBJC_ISA_H_
 #define _OBJC_ISA_H_
@@ -15,31 +60,6 @@
 
 
 #if SUPPORT_PACKED_ISA
-
-/* ISA
- * @param nonpointer 表示是否对isa开启指针优化 。
- *       false 代表是纯isa指针，
- *       true  代表除了地址外，还包含了类的一些信息、对象的引用计数等。
- * has_assoc：关联对象标志位
- * has_cxx_dtor：该对象是否有 C++ 或 Objc 的析构器，如果有析构函数，则需要做一些析构的逻辑处理，如果没有，则可以更快的释放对象
- * shiftcls：存在类指针的值，开启指针优化的情况下，arm64位中有33位来存储类的指针
- * magic：判断当前对象是真的对象还是一段没有初始化的空间
- * weakly_referenced：表示是否有弱引用指向该对象！如果值为1， 在对象释放的时候需要把所有指向它的弱引用都变成nil，避免野指针
- * deallocating：表示该对象是否正在被释放！1正在释放，0 没有！
- * has_sidetable_rc：当对象引用计数大于10时，则需要进位
- * extra_rc：表示该对象的引用计数值，实际上是引用计数减一。例如：如果引用计数为10，那么extra_rc为9。如果引用计数大于10，则需要使用has_sidetable_rc
-*/
-
-    // extra_rc must be the MSB-most field (so it matches carry/overflow flags)
-    // nonpointer must be the LSB (fixme or get rid of it)
-    // shiftcls must occupy the same bits that a real class pointer would
-    // bits + RC_ONE is equivalent to extra_rc + 1
-    // RC_HALF is the high bit of extra_rc (i.e. half of its range)
-
-    // future expansion:
-    // uintptr_t fast_rr : 1;     // no r/r overrides
-    // uintptr_t lock : 2;        // lock for atomic property, @synch
-    // uintptr_t extraBytes : 1;  // allocated with extra bytes
 
 # if __arm64__
 #   define ISA_MASK        0x0000000ffffffff8ULL

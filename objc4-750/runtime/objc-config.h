@@ -101,7 +101,8 @@
 #   define SUPPORT_PACKED_ISA 1
 #endif
 
-/* SUPPORT_NONPOINTER_ISA 是来标识当前平台是否支持优化的 isa, isa 的内容不再是类的指针了，而是包含了更多信息，比如引用计数，析构状态，被其他 weak 变量引用情况。
+/** 非指针型ISA： SUPPORT_NONPOINTER_ISA 用来标识当前平台是否支持优化的 isa,
+ * isa 的64位中存储的内容有：引用计数、析构状态，是否有弱引用指针 等等
  */
 #if !SUPPORT_INDEXED_ISA  &&  !SUPPORT_PACKED_ISA
 #   define SUPPORT_NONPOINTER_ISA 0

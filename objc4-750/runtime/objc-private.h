@@ -56,7 +56,8 @@ namespace {
 };
 
 #include "isa.h"
-// 联合类型
+/** 苹果将ISA设计成了联合体，在ISA中存储了与该对象相关的一些内存信息，因为 并不需要64个二进制全部都用来存储指针
+ */
 union isa_t {
     isa_t() { }
     isa_t(uintptr_t value) : bits(value) { }
@@ -84,7 +85,7 @@ public:
     void initProtocolIsa(Class cls /*nonpointer=maybe*/);//协议对象
     void initInstanceIsa(Class cls, bool hasCxxDtor);//没有自定义RR/AWZ的对象
     Class changeIsa(Class newCls);//更改现有对象的 isa，如果这是一个新对象，则使用initIsa()来提高性能。
-
+    
     bool hasNonpointerIsa();
     bool isTaggedPointer();//判断是否是 Tagged Pointer 指针
     bool isBasicTaggedPointer();
