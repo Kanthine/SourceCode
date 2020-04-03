@@ -46,19 +46,30 @@ void _objc_setBadAllocHandler(id(*newHandler)(Class)){
 // 匿名的命名空间
 namespace{
     
-// 这些位的顺序很重要
+
+/** 表示是否有弱引用指向该对象! 如果该位值为1，在对象释放的时候需要把所有指向它的弱引用指针都指向nil，避免野指针
+ */
 #define SIDE_TABLE_WEAKLY_REFERENCED (1UL<<0)
+/** 表示对象是否正在被释放! 1 正在释放，0 没有
+*/
 #define SIDE_TABLE_DEALLOCATING      (1UL<<1)  // MSB-ward of 弱引用位
+/** SIDE_TABLE_RC_ 部分才是对象真正的引用计数存储区。
+ *  引用计数加一或者减一，实际上是对整个unsigned long加四或者减四,因为真正的计数是从2^2位开始的。
+ */
 #define SIDE_TABLE_RC_ONE            (1UL<<2)  // MSB-ward of 回收位
-#define SIDE_TABLE_RC_PINNED         (1UL<<(WORD_BITS-1))
+/** WORD_BITS 在32位和64位系统的时候分别等于32和64。
+ *  随着对象的引用计数不断变大，如果这一位都变成 1 了，就表示引用计数已经最大了不能再增加了。
+ */
+#define SIDE_TABLE_RC_PINNED         (1UL<<(WORD_BITS-1)) //最高位
     
 #define SIDE_TABLE_RC_SHIFT 2
 #define SIDE_TABLE_FLAG_MASK (SIDE_TABLE_RC_ONE-1)
     
+    //模板类 DenseMap
     //RefcountMap隐藏了它的指针，因为我们不希望 table 充当“leaks”的根。
     typedef objc::DenseMap<DisguisedPtr<objc_object>,size_t,true> RefcountMap;
     
-    // Template parameters.
+    //模板参数
     enum HaveOld { DontHaveOld = false, DoHaveOld = true };
     enum HaveNew { DontHaveNew = false, DoHaveNew = true };
     
@@ -76,7 +87,7 @@ namespace{
     struct SideTable {
         spinlock_t slock;// 保证操作线程安全的自旋锁;
         RefcountMap refcnts;//引用计数的Map表 key-value：当isa中extra_rc不足以保存时,使用散列表保存refcnts.find(obj)
-        weak_table_t weak_table; //弱引用表
+        weak_table_t weak_table; //弱引用表，使用数组存储弱引用指针
         SideTable() {//默认构造函数
             memset(&weak_table, 0, sizeof(weak_table));
         }
@@ -1211,18 +1222,21 @@ size_t objc_object::sidetable_getExtraRC_nolock(){
 // SUPPORT_NONPOINTER_ISA
 #endif
 
-/* 对象的 -retain 操作
+/** 对象的引用计数 +1 操作
+ * 该函数的主要功能：
+ * 1、通过对象内存地址，在SideTables找到对应的SideTable
+ * 2、通过对象内存地址，在refcnts中取出引用计数
+ * 3、判断引用计数是否增加到最大值，如果没有，则 +4
  */
 id objc_object::sidetable_retain(){
 #if SUPPORT_NONPOINTER_ISA
     assert(!isa.nonpointer);
 #endif
-    SideTable& table = SideTables()[this];
-    
+    SideTable& table = SideTables()[this];//在SideTables找到对应的SideTable
     table.lock();
-    size_t& refcntStorage = table.refcnts[this];
-    if (! (refcntStorage & SIDE_TABLE_RC_PINNED)) {
-        refcntStorage += SIDE_TABLE_RC_ONE;
+    size_t& refcntStorage = table.refcnts[this];//在 RefcountMap 中取出引用计数
+    if (!(refcntStorage & SIDE_TABLE_RC_PINNED)) {
+        refcntStorage += SIDE_TABLE_RC_ONE;// 没有到最大值，1 则+4
     }
     table.unlock();
     return (id)this;
@@ -1316,31 +1330,38 @@ void objc_object::sidetable_setWeaklyReferenced_nolock(){
 }
 
 
-// rdar://20206767
-// return uintptr_t instead of bool so that the various raw-isa
-// -release paths all return zero in eax
+/** 对象的引用计数 -1 操作
+ * 该函数的主要功能：
+ * 1、通过对象内存地址，在 SideTables 找到对应的SideTable
+ * 2、通过对象内存地址，在refcnts中取出引用计数
+ * 3、判断引用计数是否增加到最大值，如果没有，则 +4
+ */
 uintptr_t objc_object::sidetable_release(bool performDealloc){
 #if SUPPORT_NONPOINTER_ISA
     assert(!isa.nonpointer);
 #endif
-    SideTable& table = SideTables()[this];
+    SideTable& table = SideTables()[this];//在 SideTables 找到对应的SideTable
     
     bool do_dealloc = false;
     
     table.lock();
-    RefcountMap::iterator it = table.refcnts.find(this);
+    RefcountMap::iterator it = table.refcnts.find(this);//在refcnts中取出引用计数
     if (it == table.refcnts.end()) {
+        /* table.refcnts.end()表示使用一个iterator迭代器到达了end()状态
+         * end() 状态表示从头开始查找，一直找到最后都没有找到
+         * 该条 if 语句表示查找到最后都没找到引用计数表 RefcountMap
+         */
         do_dealloc = true;
-        table.refcnts[this] = SIDE_TABLE_DEALLOCATING;
+        table.refcnts[this] = SIDE_TABLE_DEALLOCATING;//标记对象为正在释放
     } else if (it->second < SIDE_TABLE_DEALLOCATING) {
-        // SIDE_TABLE_WEAKLY_REFERENCED may be set. Don't change it.
+        //高位的引用计数位都是0,低位的弱引用标记位可能有弱引用为 1、也可能没有弱引用为 0
         do_dealloc = true;
-        it->second |= SIDE_TABLE_DEALLOCATING;
+        it->second |= SIDE_TABLE_DEALLOCATING; //不会影响 弱引用标记位
     } else if (! (it->second & SIDE_TABLE_RC_PINNED)) {
-        it->second -= SIDE_TABLE_RC_ONE;
+        it->second -= SIDE_TABLE_RC_ONE; //引用计数 -1
     }
     table.unlock();
-    if (do_dealloc  &&  performDealloc) {
+    if (do_dealloc  &&  performDealloc) {//如果需要释放对象，则调用dealloc
         ((void(*)(objc_object *, SEL))objc_msgSend)(this, SEL_dealloc);
     }
     return do_dealloc;
@@ -1358,10 +1379,10 @@ void objc_object::sidetable_clearDeallocating(){
     table.lock();//添加线程锁
     RefcountMap::iterator it = table.refcnts.find(this);
     if (it != table.refcnts.end()) {
-        if (it->second & SIDE_TABLE_WEAKLY_REFERENCED) {
-            weak_clear_no_lock(&table.weak_table, (id)this);//清除弱引用表
+        if (it->second & SIDE_TABLE_WEAKLY_REFERENCED) {//如果弱引用位为 1
+            weak_clear_no_lock(&table.weak_table, (id)this);//在对象被销毁时处理所有弱引用指针
         }
-        table.refcnts.erase(it);//清除引用计数
+        table.refcnts.erase(it);//从 refcnts 中删除引用计数器
     }
     table.unlock();
 }
@@ -1465,7 +1486,8 @@ id _objc_rootAllocWithZone(Class cls, malloc_zone_t *zone){
     return obj;
 }
 
-/* 调用 +alloc 或者 +allocWithZone: 方法，使用该函数
+/** 调用 +alloc 或者 +allocWithZone: 方法，使用该函数
+ * 该函数真实地创建实例关键在class_createInstance() 上。其他代码主要是去判断是否自定义alloc等
  * @param cls 不能为 nil ，否则返回 nil
  * @param checkNil 若为 false ，则返回 nil
  */

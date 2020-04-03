@@ -1,30 +1,3 @@
-/*
- * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 2018 Apple Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/********************************************************************
- * 
- *  isa.h - Definitions of isa fields for C and assembly code.
- *
- ********************************************************************/
 
 #ifndef _OBJC_ISA_H_
 #define _OBJC_ISA_H_
@@ -51,8 +24,8 @@
  * has_cxx_dtor：该对象是否有 C++ 或 Objc 的析构器，如果有析构函数，则需要做一些析构的逻辑处理，如果没有，则可以更快的释放对象
  * shiftcls：存在类指针的值，开启指针优化的情况下，arm64位中有33位来存储类的指针
  * magic：判断当前对象是真的对象还是一段没有初始化的空间
- * weakly_referenced：是否被指向或者曾经指向一个ARC的弱变量，没有弱引用的对象释放的更快
- * deallocating：是否正在释放
+ * weakly_referenced：表示是否有弱引用指向该对象！如果值为1， 在对象释放的时候需要把所有指向它的弱引用都变成nil，避免野指针
+ * deallocating：表示该对象是否正在被释放！1正在释放，0 没有！
  * has_sidetable_rc：当对象引用计数大于10时，则需要进位
  * extra_rc：表示该对象的引用计数值，实际上是引用计数减一。例如：如果引用计数为10，那么extra_rc为9。如果引用计数大于10，则需要使用has_sidetable_rc
 */
