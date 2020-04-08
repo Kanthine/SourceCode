@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Workspace
    version = "1.0">
+   <FileRef
+      location = "group:SDWebImage/SDWebImage.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:AFNetworking/AFNetworking.xcodeproj">
+   </FileRef>
    <Group
       location = "group:CF-1153.18"
       name = "CF-1153.18">
