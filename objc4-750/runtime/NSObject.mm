@@ -42,7 +42,6 @@ void _objc_setBadAllocHandler(id(*newHandler)(Class)){
     badAllocHandler = newHandler;
 }
 
-
 // 匿名的命名空间
 namespace{
     
@@ -71,15 +70,12 @@ namespace{
     enum HaveOld { DontHaveOld = false, DoHaveOld = true };
     enum HaveNew { DontHaveNew = false, DoHaveNew = true };
     
-    
-    /** 散列表 SideTable ：主要用于辅助管理对象的 引用计数 和 弱引用依赖
-     * SideTables 是一个 hash 数组，里面存储了多个 SideTable；SideTables 的 hash 键值就是一个对象 obj 的地址。
-     * 因此可以说，一个对象对应了一个 SideTable；但是一个 SideTable对应多个对象。因为 SideTable 的数量有限，所以会有很多 obj 共用同一个 SideTable。
-     *
-     * @疑问？为什么不直接用一张SideTable，而是用 SideTables 去管理多个 SideTable？
-     * SideTable 有一个自旋锁，如果把所有的类都放在同一个 SideTable，任何一个类的改动都会对整个table做操作，
-     * 并且在操作一个类的同时，SideTable 会被锁住等待，这样会导致操作效率和查询效率都很低。
-     * 而有多个 SideTable 的话，操作的都是单个 Table，并不会影响其他的table，这就是分离锁。
+
+        
+    /** 散列表 SideTable ：主要用于辅助管理对象的强引用计数 和 弱引用依赖
+     * @param slock 保证操作线程安全的自旋锁。
+     *       如果把所有的类都放在同一个 SideTable，任何一个类的改动都会对整个表做操作，该表会被上锁等待，这会导致操作效率和查询效率都很低。
+     *       使用 Hash 数组 SideTables 管理多个SideTable，每个SideTable存储一部分对象，操作单个SideTable并不会影响到其它的表！
      */
     struct SideTable {
         spinlock_t slock;// 保证操作线程安全的自旋锁;
@@ -206,16 +202,17 @@ enum CrashIfDeallocating {
     DontCrashIfDeallocating = false, DoCrashIfDeallocating = true
 };
 
+
 /** 更新指针指向，创建对应的弱引用表
  * 该函数主要做了以下几件事：
- *   1、分别获取新、旧值的散列表指针
+ *   1、分别获取新、旧值相关联的 SideTable
  *   2、如果有旧值就调用 weak_unregister_no_lock() 函数，从旧值的 weak_entry_t 数组中移出旧指针
- *   3、如果有新值就调用 weak_register_no_lock() 函数分配新值
+ *   3、如果有新值就调用 weak_register_no_lock() 函数分配新值，并标记新值存在弱引用
  *
  * @template 使用 template 进行常量参数传递是为了优化性能,预判了大概率会发生的事情优先处理；
- *   初始化一个弱引用指针并赋值，该指针没有旧值 ：HaveOld=false,haveNew=true
+ *   初始化一个弱引用指针并赋值，该指针没有旧值：HaveOld=false,haveNew=true
  *   将弱引用指针指向 nil，该指针没有新值：HaveOld=true,haveNew=false
- *   将一个弱引用指针重新赋值，该指针之前指向旧值：HaveOld=true,haveNew=true
+ *   将一个指向其它对象的弱引用指针重新赋值：HaveOld=true,haveNew=true
 *    HaveOld 代表是否有旧的引用，如果为true，则代表有旧的引用需要释放
 *    HaveNew 代表是否有新的引用，如果为true，则代表要存储新的引用
 *   如果crashifdeallocate 为true，则当newObj正在释放或newObj的类不支持弱引用时，进程将停止。
@@ -226,32 +223,30 @@ static id storeWeak(id *location, objc_object *newObj){
     assert(haveOld  ||  haveNew);//断言新值和旧值至少有一个是存在
     if (!haveNew) assert(newObj == nil);
     
-    //在类没有完成 +initialized 方法之前调用 weakStore 时,作为初始化的标识
+    //在类没有完成 +initialized 方法之前调用 weakStore() 时,作为初始化的标识
     Class previouslyInitializedClass = nil;
     id oldObj;
     SideTable *oldTable;
     SideTable *newTable;
         
 retry:
-    // 分别获取新旧值相关联的引用表
+    /******************* 分别获取新旧值相关联的引用表 *****************/
     if (haveOld) {
         oldObj = *location;//获取弱引用指针的旧指向
-        oldTable = &SideTables()[oldObj];//获取oldObj对应的弱引用表
+        oldTable = &SideTables()[oldObj];//获取oldObj对应的SideTable
     } else {
         oldTable = nil;
     }
     if (haveNew) {
-        newTable = &SideTables()[newObj];//获取newObj对应的弱引用表
+        newTable = &SideTables()[newObj];//获取newObj对应的SideTable
     } else {
         newTable = nil;
     }
     SideTable::lockTwo<haveOld, haveNew>(oldTable, newTable);//上锁
-    
     if (haveOld && *location != oldObj) {//如果旧值改变就重新获取旧值相关联的表
         SideTable::unlockTwo<haveOld, haveNew>(oldTable, newTable);
         goto retry;
     }
-    
     // 如果有新值，判断新值所属的类是否已经初始化，如果没有初始化，则先执行初始化，防止+initialize内部调用 storeWeak() 产生死锁
     if (haveNew  &&  newObj) {
         Class cls = newObj->getIsa();
@@ -264,20 +259,20 @@ retry:
             goto retry;
         }
     }
-    if (haveOld) {//如果旧值存在，则从旧值的 weak_entry_t 数组中移出旧指针
+    /*********** 如果旧值存在，则从旧值的 weak_entry_t 数组中移出旧指针 **********/
+    if (haveOld) {
         weak_unregister_no_lock(&oldTable->weak_table, oldObj, location);
     }
-    
-    if (haveNew) {//绑定新值
+    /*********** 如果有新值，绑定新值与弱引用指针 **********/
+    if (haveNew) {
         newObj = (objc_object *)weak_register_no_lock(&newTable->weak_table, (id)newObj, location,crashIfDeallocating);
         if (newObj  &&  !newObj->isTaggedPointer()) {
-            newObj->setWeaklyReferenced_nolock();// 如果存储成功则设置SideTable中弱引用标志位
+            newObj->setWeaklyReferenced_nolock();//标记新值存在弱引用
         }
         *location = (id)newObj;//不要在其他地方设置 *location。那会引起数据竞争。
     }else {
-        // 没有新值。存储没有更改。
+        // 没有新值，存储没有更改。
     }
-    
     SideTable::unlockTwo<haveOld, haveNew>(oldTable, newTable);
     return (id)newObj;
 }
@@ -1060,20 +1055,14 @@ NEVER_INLINE bool objc_object::rootRelease_underflow(bool performDealloc){
     return rootRelease(performDealloc, true);
 }
 
-
-// Slow path of clearDeallocating()
-// for objects with nonpointer isa
-// that were ever weakly referenced
-// or whose retain count ever overflowed to the side table.
-/** 当前对象支持nonpointer时，清除弱引用指针以及引用计数:
- *      此时是否存在弱引用的标志存储在 isa 的 weakly_referenced 位域中.
+/** 当前对象支持 nonpointer 时，清除弱引用指针以及引用计数:
  */
 NEVER_INLINE void objc_object::clearDeallocating_slow(){
     assert(isa.nonpointer  &&  (isa.weakly_referenced || isa.has_sidetable_rc));
     SideTable& table = SideTables()[this];
     table.lock();//添加线程锁
-    if (isa.weakly_referenced) {//清除弱引用表
-        weak_clear_no_lock(&table.weak_table, (id)this);
+    if (isa.weakly_referenced) {//isa 的 weakly_referenced 位域指示是否使用弱引用
+        weak_clear_no_lock(&table.weak_table, (id)this);//清除弱引用表
     }
     if (isa.has_sidetable_rc) {
         table.refcnts.erase(this);//清除引用计数

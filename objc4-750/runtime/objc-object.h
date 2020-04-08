@@ -397,6 +397,7 @@ ALWAYS_INLINE bool objc_object::rootTryRetain(){
 ALWAYS_INLINE id objc_object::rootRetain(bool tryRetain, bool handleOverflow){
     if (isTaggedPointer()) return (id)this;
     
+    printf("");
     bool sideTableLocked = false;
     bool transcribeToSideTable = false;
     

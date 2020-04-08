@@ -34,7 +34,7 @@ typedef DisguisedPtr<objc_object *> weak_referrer_t;
 // (disguised nil or 0x80..00) or 0b11 (any other address).
 // Therefore out_of_line_ness == 0b10 is used to mark the out-of-line state.
 #define REFERRERS_OUT_OF_LINE 2
-
+// 
 /** 用来存储具体某一对象的所有弱引用指针
  * @param referent 被弱引用指针指向的对象，
  * @note 该结构使用两种存储方案存储弱引用指针：
@@ -47,7 +47,7 @@ struct weak_entry_t {
         struct {//当弱引用指针个数大于 WEAK_INLINE_COUNT 时,使用二维指针数组进行存储
             weak_referrer_t *referrers;
             uintptr_t        out_of_line_ness : 2;
-            uintptr_t        num_refs : PTR_MINUS_2;
+            uintptr_t        num_refs : PTR_MINUS_2; //指向该对象的弱引用指针的数量
             uintptr_t        mask;
             uintptr_t        max_hash_displacement;
         };
@@ -118,18 +118,3 @@ __END_DECLS
 
 #endif /* _OBJC_WEAK_H_ */
 
-/*
-
- 
- 
-
- 
-1、弱引用表 weak_table_t
-
-####1.1、初始化一个弱引用变量
-
-####1.2、弱引用指针指向它处
-
- 
- 
- */

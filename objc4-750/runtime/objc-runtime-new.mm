@@ -2447,15 +2447,6 @@ hIndex++
     }
     ts.log("IMAGE TIMES: realize future classes");
     
-//    for (EACH_HEADER) {
-//        
-//        if (hi) {
-//            <#statements#>
-//        }
-//        
-//        category_t **catlist = _getObjc2CategoryList(hi, &count);
-//
-//    }
     
     /* 6、遍历hList数组，将实现了+load方法的Category的方法、属性、协议添加到 cat->cls-rw
      */
@@ -2575,7 +2566,6 @@ hIndex++
 #undef EACH_HEADER
     printf("_read_images ------ end \n");
 }
-
 
 /* 准备加载方法：递归调用 cls 和任何未加载的父类的 +load。
  * 调度该镜像中类的 +load方法、其他镜像中的任何未加载的父类和此映像中的任何类别。
