@@ -140,17 +140,13 @@ static void AFNetworkReachabilityReleaseCallback(const void *info) {
     dispatch_once(&onceToken, ^{
         _sharedManager = [self manager];
     });
-    
     return _sharedManager;
 }
 
 + (instancetype)managerForDomain:(NSString *)domain {
     SCNetworkReachabilityRef reachability = SCNetworkReachabilityCreateWithName(kCFAllocatorDefault, [domain UTF8String]);
-    
     AFNetworkReachabilityManager *manager = [[self alloc] initWithReachability:reachability];
-    
     CFRelease(reachability);
-    
     return manager;
 }
 
@@ -184,15 +180,12 @@ static void AFNetworkReachabilityReleaseCallback(const void *info) {
     if (!self) {
         return nil;
     }
-    
     _networkReachability = CFRetain(reachability);
     self.networkReachabilityStatus = AFNetworkReachabilityStatusUnknown;
-    
     return self;
 }
 
-- (instancetype)init
-{
+- (instancetype)init{
     @throw [NSException exceptionWithName:NSGenericException
                                    reason:@"`-init` unavailable. Use `-initWithReachability:` instead"
                                  userInfo:nil];
@@ -201,7 +194,6 @@ static void AFNetworkReachabilityReleaseCallback(const void *info) {
 
 - (void)dealloc {
     [self stopMonitoring];
-    
     if (_networkReachability != NULL) {
         CFRelease(_networkReachability);
     }
@@ -238,7 +230,6 @@ static void AFNetworkReachabilityReleaseCallback(const void *info) {
         if (strongSelf.networkReachabilityStatusBlock) {
             strongSelf.networkReachabilityStatusBlock(status);
         }
-        
     };
     
     //1.我们先新建上下文
@@ -260,7 +251,6 @@ static void AFNetworkReachabilityReleaseCallback(const void *info) {
     if (!self.networkReachability) {
         return;
     }
-    
     SCNetworkReachabilityUnscheduleFromRunLoop(self.networkReachability, CFRunLoopGetMain(), kCFRunLoopCommonModes);
 }
 
@@ -279,13 +269,10 @@ static void AFNetworkReachabilityReleaseCallback(const void *info) {
 #pragma mark - NSKeyValueObserving
 
 //属性依赖
-+ (NSSet *)keyPathsForValuesAffectingValueForKey:(NSString *)key
-{
-    if ([key isEqualToString:@"reachable"] || [key isEqualToString:@"reachableViaWWAN"] || [key isEqualToString:@"reachableViaWiFi"])
-    {
++ (NSSet *)keyPathsForValuesAffectingValueForKey:(NSString *)key{
+    if ([key isEqualToString:@"reachable"] || [key isEqualToString:@"reachableViaWWAN"] || [key isEqualToString:@"reachableViaWiFi"]){
         return [NSSet setWithObject:@"networkReachabilityStatus"];
     }
-    
     return [super keyPathsForValuesAffectingValueForKey:key];
 }
 

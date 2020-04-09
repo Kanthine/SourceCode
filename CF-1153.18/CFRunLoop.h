@@ -12,15 +12,13 @@
 CF_IMPLICIT_BRIDGING_ENABLED
 CF_EXTERN_C_BEGIN
 
-/*
- * RunLoop关键类 主要包含一下几个类.
- * 1、CFRunLoopRef:
- * 2、CFRunLoopModeRef //runLoop的运行
- * 3、CFRunLoopSourceRef //runLoop对应的事件
+/** RunLoop 的几个关键类：
+ * 1、CFRunLoopRef: 每个线程对应唯一的 RunLoop
+ * 2、CFRunLoopModeRef 每个RunLoop中有多个 Mode，负责RunLoop的运行 ；每个 Mode 都包含事件源 Source，时间 Timer ，监听者 Observer
+ * 3、CFRunLoopSourceRef RunLoop对应的事件
  * 4、CFRunLoopTimerRef  基于时间的触发器
- * 5、CFRunLoopObserverRef //runLoop状态监测者
+ * 5、CFRunLoopObserverRef RunLoop状态监测者
  */
-
 typedef struct __CFRunLoop * CFRunLoopRef;
 typedef struct __CFRunLoopSource * CFRunLoopSourceRef;
 typedef struct __CFRunLoopObserver * CFRunLoopObserverRef;
@@ -50,7 +48,7 @@ typedef CF_OPTIONS(CFOptionFlags, CFRunLoopActivity) {
     kCFRunLoopAllActivities = 0x0FFFFFFFU   //监听RunLoop的全部状态
 };
 
-/* 一个 RunLoop 包含若干的Mode,常用的有NSDefaultRunLoopMode,UITrackingRunLoopMode；
+/** 一个 RunLoop 包含若干的Mode,常用的有 NSDefaultRunLoopMode,UITrackingRunLoopMode；
 */
 CF_EXPORT const CFStringRef kCFRunLoopDefaultMode;
 CF_EXPORT const CFStringRef kCFRunLoopCommonModes;
@@ -68,23 +66,23 @@ CF_EXPORT void CFRunLoopAddCommonMode(CFRunLoopRef rl, CFStringRef mode);
 
 CF_EXPORT CFAbsoluteTime CFRunLoopGetNextTimerFireDate(CFRunLoopRef rl, CFStringRef mode);
 
-/* 程序启动时指定的 RunLoop ，方法内部用 DefaultMode 启动
- **/
+/** 程序启动时指定的 RunLoop ，方法内部用 DefaultMode 启动
+ */
 CF_EXPORT void CFRunLoopRun(void);
 
-/* 用指定的Mode启动，允许设置RunLoop超时时间
+/** 用指定的Mode启动，允许设置RunLoop超时时间
  */
 CF_EXPORT SInt32 CFRunLoopRunInMode(CFStringRef mode, CFTimeInterval seconds, Boolean returnAfterSourceHandled);
 
-/* RunLoop 是否在等待
+/** RunLoop 是否休眠
 */
 CF_EXPORT Boolean CFRunLoopIsWaiting(CFRunLoopRef rl);
 
-/* 唤醒runLoop
+/** 唤醒RunLoop
  */
 CF_EXPORT void CFRunLoopWakeUp(CFRunLoopRef rl);
 
-/* 停止runLoop
+/** 停止RunLoop
  */
 CF_EXPORT void CFRunLoopStop(CFRunLoopRef rl);
 

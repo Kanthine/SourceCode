@@ -69,9 +69,7 @@ namespace{
     //模板参数
     enum HaveOld { DontHaveOld = false, DoHaveOld = true };
     enum HaveNew { DontHaveNew = false, DoHaveNew = true };
-    
-
-        
+            
     /** 散列表 SideTable ：主要用于辅助管理对象的强引用计数 和 弱引用依赖
      * @param slock 保证操作线程安全的自旋锁。
      *       如果把所有的类都放在同一个 SideTable，任何一个类的改动都会对整个表做操作，该表会被上锁等待，这会导致操作效率和查询效率都很低。
@@ -488,7 +486,8 @@ namespace {
         
 #   undef M1
     };
-    
+
+//http://blog.sunnyxx.com/2014/10/15/behind-autorelease/
     /* 自动释放池
      * 1、自动释放池是由 AutoreleasePoolPage 以双向链表的方式实现的
      * 2、当对象调用 -autorelease 方法时，会将对象加入 AutoreleasePoolPage 的栈中
@@ -1205,21 +1204,24 @@ size_t objc_object::sidetable_getExtraRC_nolock(){
 // SUPPORT_NONPOINTER_ISA
 #endif
 
-/** 对象的引用计数 +1 操作
- * 该函数的主要功能：
- * 1、通过对象内存地址，在SideTables找到对应的SideTable
- * 2、通过对象内存地址，在refcnts中取出引用计数
- * 3、判断引用计数是否增加到最大值，如果没有，则 +4
+/** 对象的引用计数 +1
+ * 该函数主要做了以下几件事：
+ *  1、通过对象内存地址，在SideTables找到对应的SideTable
+ *  2、通过对象内存地址，在refcnts中取出引用计数
+ *  3、判断引用计数是否增加到最大值，如果没有，则 +4
  */
 id objc_object::sidetable_retain(){
 #if SUPPORT_NONPOINTER_ISA
     assert(!isa.nonpointer);
 #endif
-    SideTable& table = SideTables()[this];//在SideTables找到对应的SideTable
+    /****************** 在SideTables找到对应的SideTable ******************/
+    SideTable& table = SideTables()[this];
     table.lock();
-    size_t& refcntStorage = table.refcnts[this];//在 RefcountMap 中取出引用计数
+    /****************** 在 RefcountMap 中取出引用计数 ******************/
+    size_t& refcntStorage = table.refcnts[this];
     if (!(refcntStorage & SIDE_TABLE_RC_PINNED)) {
-        refcntStorage += SIDE_TABLE_RC_ONE;// 没有到最大值，1 则+4
+        /****************** 没有到最大值，1 则+4 ******************/
+        refcntStorage += SIDE_TABLE_RC_ONE;
     }
     table.unlock();
     return (id)this;
@@ -1313,22 +1315,26 @@ void objc_object::sidetable_setWeaklyReferenced_nolock(){
 }
 
 
-/** 对象的引用计数 -1 操作
- * 该函数的主要功能：
- * 1、通过对象内存地址，在 SideTables 找到对应的SideTable
- * 2、通过对象内存地址，在refcnts中取出引用计数
- * 3、判断引用计数是否增加到最大值，如果没有，则 +4
+/** 对象的引用计数 -1
+ * 该函数主要做了以下几件事：
+ *   1、通过对象内存地址，在 SideTables 找到对应的SideTable
+ *   2、通过对象内存地址，在refcnts中取出引用计数
+ *   3、根据当前引用计数分别做出对应处理:
+ *      3.1、没有引用计数，标记为正在释放状态
+ *      3.2、强引用计数为 0 ，不做操作
+ *      3.3、没有达到最高位，则引用计数 -1
+ *   4、如果需要释放，则调用 -dealloc 方法
  */
 uintptr_t objc_object::sidetable_release(bool performDealloc){
 #if SUPPORT_NONPOINTER_ISA
     assert(!isa.nonpointer);
 #endif
-    SideTable& table = SideTables()[this];//在 SideTables 找到对应的SideTable
-    
+    /****************** 在 SideTables 找到对应的SideTable ******************/
+    SideTable& table = SideTables()[this];
     bool do_dealloc = false;
-    
     table.lock();
-    RefcountMap::iterator it = table.refcnts.find(this);//在refcnts中取出引用计数
+    /****************** 在 RefcountMap 中取出引用计数 ******************/
+    RefcountMap::iterator it = table.refcnts.find(this);
     if (it == table.refcnts.end()) {
         /* table.refcnts.end()表示使用一个iterator迭代器到达了end()状态
          * end() 状态表示从头开始查找，一直找到最后都没有找到
@@ -1340,7 +1346,7 @@ uintptr_t objc_object::sidetable_release(bool performDealloc){
         //高位的引用计数位都是0,低位的弱引用标记位可能有弱引用为 1、也可能没有弱引用为 0
         do_dealloc = true;
         it->second |= SIDE_TABLE_DEALLOCATING; //不会影响 弱引用标记位
-    } else if (! (it->second & SIDE_TABLE_RC_PINNED)) {
+    } else if (!(it->second & SIDE_TABLE_RC_PINNED)) {
         it->second -= SIDE_TABLE_RC_ONE; //引用计数 -1
     }
     table.unlock();
@@ -1352,7 +1358,6 @@ uintptr_t objc_object::sidetable_release(bool performDealloc){
 
 /** 当前对象不支持 nonpointer 时，清除sidetable中的弱引用指针以及引用计数：
 *      此时是否存在弱引用指针的标志存储在 RefcountMap::iterator 中的成员变量 second 中.
-*
 */
 void objc_object::sidetable_clearDeallocating(){
     SideTable& table = SideTables()[this];
@@ -1991,6 +1996,8 @@ void arr_init(void) {
     return ((id)self)->rootRetainCount();
 }
 
+/** alloc 时，并没有操作 SideTable
+ */
 + (id)alloc {
     return _objc_rootAlloc(self);
 }

@@ -66,27 +66,19 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @interface AFNetworkReachabilityManager : NSObject
 
-/**
- The current network reachability status.
- 网络状态
+/** 当前的网络状态
  */
 @property (readonly, nonatomic, assign) AFNetworkReachabilityStatus networkReachabilityStatus;
 
-/**
- Whether or not the network is currently reachable.
- 是否是可达的
+/** 是否联网
  */
 @property (readonly, nonatomic, assign, getter = isReachable) BOOL reachable;
 
-/**
- Whether or not the network is currently reachable via WWAN.
- 当前连接是否是WWAN
+/** 当前是否是流量网
  */
 @property (readonly, nonatomic, assign, getter = isReachableViaWWAN) BOOL reachableViaWWAN;
 
-/**
- Whether or not the network is currently reachable via WiFi.
- 当前连接是够是WiFi
+/** 当前是否是WiFi
  */
 @property (readonly, nonatomic, assign, getter = isReachableViaWiFi) BOOL reachableViaWiFi;
 
@@ -94,9 +86,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// @name Initialization
 ///---------------------
 
-/**
- Returns the shared network reachability manager.
- 返回一个单例类
+/** 获取单例
  */
 + (instancetype)sharedManager;
 
@@ -158,15 +148,11 @@ NS_ASSUME_NONNULL_BEGIN
 /// @name Starting & Stopping Reachability Monitoring
 ///--------------------------------------------------
 
-/**
- Starts monitoring for changes in network reachability status.
- 开始监听
+/** 开始监听
  */
 - (void)startMonitoring;
 
-/**
- Stops monitoring for changes in network reachability status.
- 结束监听
+/** 结束监听
  */
 - (void)stopMonitoring;
 

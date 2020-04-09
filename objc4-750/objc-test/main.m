@@ -18,7 +18,8 @@ int main(int argc, const char * argv[]) {
         MyModel *model = [[MyModel alloc] init];
         printf("model === %p \n",model);
         printf("model === %p \n",&model);
-
+        MyModel *model2 = model;
+        model = nil;
         __weak MyModel *weakModel = [[MyModel alloc] init];
         printf("weakModel === %p \n",weakModel);
         printf("weakModel === %p \n",&weakModel);
