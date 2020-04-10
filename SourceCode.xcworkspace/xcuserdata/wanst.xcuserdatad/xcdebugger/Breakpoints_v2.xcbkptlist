@@ -46,8 +46,8 @@
             filePath = "objc4-750/runtime/NSObject.mm"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1227"
-            endingLineNumber = "1227"
+            startingLineNumber = "1180"
+            endingLineNumber = "1180"
             landmarkName = "objc_object::sidetable_retain()"
             landmarkType = "7">
          </BreakpointContent>
@@ -62,8 +62,8 @@
             filePath = "objc4-750/runtime/NSObject.mm"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "1262"
-            endingLineNumber = "1262"
+            startingLineNumber = "1215"
+            endingLineNumber = "1215"
             landmarkName = "objc_object::sidetable_retainCount()"
             landmarkType = "7">
          </BreakpointContent>

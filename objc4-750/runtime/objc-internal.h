@@ -764,11 +764,14 @@ objc_clear_deallocating(id _Nonnull object)
 
  
 // 现在让 CF 链接
-
+/** 创建自动释放池
+ */
 OBJC_EXPORT void * _Nonnull
 _objc_autoreleasePoolPush(void)
     OBJC_AVAILABLE(10.7, 5.0, 9.0, 1.0, 2.0);
 
+/** 释放自动释放池
+ */
 OBJC_EXPORT void
 _objc_autoreleasePoolPop(void * _Nonnull context)
     OBJC_AVAILABLE(10.7, 5.0, 9.0, 1.0, 2.0);

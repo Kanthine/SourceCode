@@ -488,13 +488,15 @@ namespace {
     };
 
 //http://blog.sunnyxx.com/2014/10/15/behind-autorelease/
-    /* 自动释放池
-     * 1、自动释放池是由 AutoreleasePoolPage 以双向链表的方式实现的
-     * 2、当对象调用 -autorelease 方法时，会将对象加入 AutoreleasePoolPage 的栈中
-     * 3、调用 AutoreleasePoolPage::pop 方法会向栈中的对象发送 release 消息
-     * 4、新建线程会第一个autorelease对象时候，新建AutoreleasePool，线程销毁AutoreleasePool释放对象且销毁
-     * 5、每个AutoreleasePoolPage对象大小为4096， 对象本身信息占 56 个字节, 所以 begin() 需要排除这 56 个字节, 真正用于存储 autorelease 对象地址的内存量为 end() - begin(), 共有 4040 个字节, 可存储 505 个 autorelease 变量（一个对象8个字节）.
-     */
+
+/** 自动释放池AutoreleasePool并没有单独的结构，是由 AutoreleasePoolPage 以双向链表的方式实现的；分别对应结构中的parent指针和child指针；
+ * AutoreleasePool是按线程一一对应的（结构中的thread指针指向当前线程）
+ * 当某个对象调用 -autorelease 方法时，会将该对象加入 AutoreleasePoolPage 的栈中
+ * 调用 AutoreleasePoolPage::pop() 函数会向栈中的对象发送 -release 消息
+ *
+ * 新建线程会第一个autorelease对象时候，新建AutoreleasePool，线程销毁AutoreleasePool释放对象且销毁
+ * 每个AutoreleasePoolPage对象大小为4096字节，对象本身信息占 56 个字节, 所以 begin() 需要排除这 56 个字节, 真正用于存储 autorelease 对象地址的内存量为 end() - begin(), 共有 4040 个字节, 可存储 505 个 autorelease 变量（一个对象8个字节）.
+ */
     class AutoreleasePoolPage{
         // EMPTY_POOL_PLACEHOLDER is stored in TLS when exactly one pool is pushed and it has never contained any objects.
         // This saves memory when the top level (i.e. libdispatch) pushes and pops pools but never uses them.
@@ -513,12 +515,10 @@ namespace {
         static size_t const COUNT = SIZE / sizeof(id);
         
         magic_t const magic;//检查 AutoreleasePoolPage 的内存没有被修改的，放在第一个也就是这个原因，防止前面地址有内容溢过来。
-        id *next;// 存放下一个 autorelease 对象指针
+        id *next;// 存储自动释放的对象
         pthread_t const thread;//自动释放池对应的线程
-        
-        // AutoreleasePoolPage 就是一个双向链表，毕竟一个 AutoreleasePoolPage 能存放的对象是有限的。
-        AutoreleasePoolPage * const parent;// 用来保存前一个 AutoreleasePoolPage
-        AutoreleasePoolPage *child;// 用来保存后一个 AutoreleasePoolPage
+        AutoreleasePoolPage * const parent;// 用来记录前一个 AutoreleasePoolPage 的地址
+        AutoreleasePoolPage *child;// 用来记录后一个 AutoreleasePoolPage 的地址
         uint32_t const depth;//这个链表有多深
         uint32_t hiwat;//最高有记录过多少对象
         
@@ -549,8 +549,7 @@ namespace {
         : magic(), next(begin()), thread(pthread_self()),
         parent(newParent), child(nil),
         depth(parent ? 1+parent->depth : 0),
-        hiwat(parent ? parent->hiwat : 0)
-        {
+        hiwat(parent ? parent->hiwat : 0){
             if (parent) {
                 parent->check();
                 assert(!parent->child);
@@ -560,21 +559,16 @@ namespace {
             }
             protect();
         }
-        
-        ~AutoreleasePoolPage()
-        {
+        ~AutoreleasePoolPage(){
             check();
             unprotect();
             assert(empty());
-            
             // Not recursive: we don't want to blow out the stack
             // if a thread accumulates a stupendous amount of garbage
             assert(!child);
         }
         
-        
-        void busted(bool die = true)
-        {
+        void busted(bool die = true){
             magic_t right;
             (die ? _objc_fatal : _objc_inform)
             ("autorelease pool page %p corrupted\n"
@@ -588,8 +582,7 @@ namespace {
              this->thread, pthread_self());
         }
         
-        void check(bool die = true)
-        {
+        void check(bool die = true){
             if (!magic.check() || !pthread_equal(thread, pthread_self())) {
                 busted(die);
             }
@@ -606,26 +599,21 @@ namespace {
         }
         
         
-        id * begin() {
+        id * begin() {//栈底
             return (id *) ((uint8_t *)this+sizeof(*this));
         }
-        
-        id * end() {
+        id * end() {//栈顶
             return (id *) ((uint8_t *)this+SIZE);
         }
-        
         bool empty() {//链表是否为空
             return next == begin();
         }
-        
         bool full() {//链表是否存储满
             return next == end();
         }
-        
-        bool lessThanHalfFull() {
+        bool lessThanHalfFull() {//少于一半
             return (next - begin() < (end() - begin()) / 2);
         }
-        
         id *add(id obj){//将 obj 存入栈
             assert(!full());
             unprotect();
@@ -634,38 +622,27 @@ namespace {
             protect();
             return ret;
         }
-        
         void releaseAll(){ //调用内部数组中对象的 -release 方法
             releaseUntil(begin());
         }
-        
-        void releaseUntil(id *stop){
-            // Not recursive: we don't want to blow out the stack
-            // if a thread accumulates a stupendous amount of garbage
-            
+        void releaseUntil(id *stop){//池中所有的对象全部释放
             while (this->next != stop) {
                 // Restart from hotPage() every time, in case -release
                 // autoreleased more objects
                 AutoreleasePoolPage *page = hotPage();
-                
-                // fixme I think this `while` can be `if`, but I can't prove it
-                while (page->empty()) {
+                while (page->empty()) {//如果链表为空，则去上一页链表
                     page = page->parent;
                     setHotPage(page);
                 }
-                
                 page->unprotect();
                 id obj = *--page->next;
                 memset((void*)page->next, SCRIBBLE, sizeof(*page->next));
                 page->protect();
-                
                 if (obj != POOL_BOUNDARY) {
-                    objc_release(obj);//调用 release
+                    objc_release(obj);//调用 [obj release]
                 }
             }
-            
             setHotPage(this);
-            
 #if DEBUG
             // we expect any children to be completely empty
             for (AutoreleasePoolPage *page = child; page; page = page->child) {
@@ -675,11 +652,9 @@ namespace {
         }
         
         void kill(){
-            // Not recursive: we don't want to blow out the stack
-            // if a thread accumulates a stupendous amount of garbage
+            //从最后一页释放池开始，释放所有的自动释放池
             AutoreleasePoolPage *page = this;
             while (page->child) page = page->child;
-            
             AutoreleasePoolPage *deathptr;
             do {
                 deathptr = page;
@@ -695,7 +670,6 @@ namespace {
         
         static void tls_dealloc(void *p){
             if (p == (void*)EMPTY_POOL_PLACEHOLDER) {
-                // No objects or pool pages to clean up here.
                 return;
             }
             
@@ -722,15 +696,11 @@ namespace {
         static AutoreleasePoolPage *pageForPointer(uintptr_t p){
             AutoreleasePoolPage *result;
             uintptr_t offset = p % SIZE;
-            
             assert(offset >= sizeof(AutoreleasePoolPage));
-            
             result = (AutoreleasePoolPage *)(p - offset);
             result->fastcheck();
-            
             return result;
         }
-        
         
         static inline bool haveEmptyPoolPlaceholder(){
             id *tls = (id *)tls_get_direct(key);
@@ -743,22 +713,18 @@ namespace {
             return EMPTY_POOL_PLACEHOLDER;
         }
         
-        static inline AutoreleasePoolPage *hotPage()
-        {
-            AutoreleasePoolPage *result = (AutoreleasePoolPage *)
-            tls_get_direct(key);
+        static inline AutoreleasePoolPage *hotPage(){//标记为可用的链表
+            AutoreleasePoolPage *result = (AutoreleasePoolPage *)tls_get_direct(key);
             if ((id *)result == EMPTY_POOL_PLACEHOLDER) return nil;
             if (result) result->fastcheck();
             return result;
         }
-        
         static inline void setHotPage(AutoreleasePoolPage *page){
             if (page) page->fastcheck();
             tls_set_direct(key, (void *)page);
         }
         
-        static inline AutoreleasePoolPage *coldPage()
-        {
+        static inline AutoreleasePoolPage *coldPage(){
             AutoreleasePoolPage *result = hotPage();
             if (result) {
                 while (result->parent) {
@@ -770,7 +736,7 @@ namespace {
         }
         
         
-        static inline id *autoreleaseFast(id obj){
+        static inline id *autoreleaseFast(id obj){//向释放池添加一个对象
             AutoreleasePoolPage *page = hotPage();
             if (page && !page->full()) {//如果自动释放池存在且没有满
                 return page->add(obj);
@@ -851,7 +817,7 @@ namespace {
         }
         
     public:
-        static inline id autorelease(id obj){//相当于 NSAutoreleasePool 类的 addObject 类方法
+        static inline id autorelease(id obj){//向释放池添加一个对象
             assert(obj);
             assert(!obj->isTaggedPointer());
             id *dest __unused = autoreleaseFast(obj);
@@ -859,11 +825,9 @@ namespace {
             return obj;
         }
         
-        
-        static inline void *push(){//相当于生成或持有 NSAutoreleasePool 类对象
+        static inline void *push(){//创建一个自动释放池
             id *dest;
             if (DebugPoolAllocation) {
-                // Each autorelease pool starts on a new pool page.
                 dest = autoreleaseNewPage(POOL_BOUNDARY);
             } else {
                 dest = autoreleaseFast(POOL_BOUNDARY);
@@ -872,17 +836,11 @@ namespace {
             return dest;
         }
         
-        static void badPop(void *token)
-        {
-            // Error. For bincompat purposes this is not
-            // fatal in executables built with old SDKs.
-            
+        static void badPop(void *token){
             if (DebugPoolAllocation || sdkIsAtLeast(10_12, 10_0, 10_0, 3_0, 2_0)) {
                 // OBJC_DEBUG_POOL_ALLOCATION or new SDK. Bad pop is fatal.
-                _objc_fatal
-                ("Invalid or prematurely-freed autorelease pool %p.", token);
+                _objc_fatal("Invalid or prematurely-freed autorelease pool %p.", token);
             }
-            
             // Old SDK. Bad pop is warned once.
             static bool complained = false;
             if (!complained) {
@@ -897,7 +855,7 @@ namespace {
             objc_autoreleasePoolInvalid(token);
         }
         
-        static inline void pop(void *token){//相当于生成或持有 NSAutoreleasePool 类对象
+        static inline void pop(void *token){//释放一个自动释放池
             AutoreleasePoolPage *page;
             id *stop;
             if (token == (void*)EMPTY_POOL_PLACEHOLDER) {
@@ -954,15 +912,12 @@ namespace {
             }
         }
         
-        static void init()
-        {
-            int r __unused = pthread_key_init_np(AutoreleasePoolPage::key,
-                                                 AutoreleasePoolPage::tls_dealloc);
+        static void init(){
+            int r __unused = pthread_key_init_np(AutoreleasePoolPage::key,AutoreleasePoolPage::tls_dealloc);
             assert(r == 0);
         }
         
-        void print()
-        {
+        void print(){
             _objc_inform("[%p]  ................  PAGE %s %s %s", this,
                          full() ? "(full)" : "",
                          this == hotPage() ? "(hot)" : "",
@@ -978,8 +933,7 @@ namespace {
             }
         }
         
-        static void printAll()
-        {
+        static void printAll(){
             _objc_inform("##############");
             _objc_inform("AUTORELEASE POOLS for thread %p", pthread_self());
             
@@ -1005,8 +959,7 @@ namespace {
             _objc_inform("##############");
         }
         
-        static void printHiwat()
-        {
+        static void printHiwat(){
             // Check and propagate high water mark
             // Ignore high water marks under 256 to suppress noise.
             AutoreleasePoolPage *p = hotPage();
@@ -1085,8 +1038,8 @@ NEVER_INLINE bool objc_object::overrelease_error(){
 }
 
 
-/* 散列表的 Retain count
- */
+/**************************** 散列表 sidetable 的 Retain count *************************/
+ 
 
 #if DEBUG
 // Used to assert that an object is not present in the side table.
@@ -1641,7 +1594,6 @@ id objc_unretainedObject(objc_objectptr_t pointer) { return (id)pointer; }
 
 // convert id to objc_objectptr_t, no ownership transfer.
 objc_objectptr_t objc_unretainedPointer(id object) { return object; }
-
 
 // 初始化自动释放池与哈希表
 void arr_init(void) {
