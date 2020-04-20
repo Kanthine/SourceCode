@@ -4406,7 +4406,7 @@ Method class_getInstanceMethod(Class cls, SEL sel){
 }
 
 
-/* 记录和填充缓存
+/** 记录和填充缓存
  * 记录这个方法调用。如果记录器允许，则填充方法缓存。
  * @param cls 缓存到该类
  * @param receiver 接收器：消息的发送目标
@@ -4433,11 +4433,11 @@ IMP _class_lookupMethodAndLoadCache3(id obj, SEL sel, Class cls){
     return lookUpImpOrForward(cls, sel, obj,YES/*initialize*/, NO/*cache*/, YES/*resolver*/);
 }
 
-/* 查找某个类指定选择器的方法实现 IMP （ 标准IMP查找 ）
+/** 查找某个类指定选择器的方法实现 IMP （ 标准IMP查找 ）
  * @param cls 指定的类
  * @param sel 指定的选择器
  * @param inst 类cls的实例或者子类；如果cls未初始化需要初始化，那么 inst 非空时效率更高
- * @param initialize 是否初始化：当没有初始化时 (NO)，避免调用 +initialize (但有时失败)
+ * @param initialize 是否初始化：当没有初始化时 (NO)，避免调用 +initialize
  * @param cache 是否先去缓存中查找
  * @param resolver 是否需要执行动态方法决议；
  * @return 返回 IMP
@@ -4459,17 +4459,9 @@ IMP _class_lookupMethodAndLoadCache3(id obj, SEL sel, Class cls){
 IMP lookUpImpOrForward(Class cls, SEL sel, id inst, bool initialize, bool cache, bool resolver){
     IMP imp = nil;
     bool triedResolver = NO;//是否实行动态决议的标记，指标记防止循环调用 动态方法决议
-    
     runtimeLock.assertUnlocked();
-    
-    
-    if (strcmp("WomanModel", cls->mangledName()) == 0 ||
-        strcmp("ManModel", cls->mangledName()) == 0) {
-        printf("lookUpImpOrForward ==== start ：%s \n",sel_cname(sel));
-    }
-
-    
-    if (cache) {// 先去缓存查找
+    /******************** 1、先去缓存查找 ******************/
+    if (cache) {
         imp = cache_getImp(cls, sel);
         if (imp) return imp;
     }
@@ -4477,99 +4469,75 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst, bool initialize, bool cache,
     // 在 isRealized 和 isInitialized 检查期间持有 runtimeLock，以防并发时数据竞争。
     // 在方法搜索期间持有 runtimeLock，以便对方法添加进行 method-lookup+cache-fill 原子操作。
     // 否则，可以添加分类，但会无限期地忽略它，因为在代表分类的缓存刷新之后，缓存会被旧值重新填充。
-    
     runtimeLock.lock();
-    checkIsKnownClass(cls);//检查指定的类是否已知；如果未知就终止程序
     
+    checkIsKnownClass(cls);//检查该类，如果未知就终止程序
     if (!cls->isRealized()) {
-        realizeClass(cls);
+        realizeClass(cls);//如果未实现，则去实现
     }
-    
     if (initialize  &&  !cls->isInitialized()) {//初始化但还没完成时
         runtimeLock.unlock();
         _class_initialize (_class_getNonMetaClass(cls, inst));
         runtimeLock.lock();
-        
         // 如果 sel == initialize， _class_initialize将发送+initialize，然后在此过程完成后，messenger将再次发送 +initialize。当然，如果这不是由 messenger 调用，那么它就不会发生。2778172
     }
-    
-    
-retry: // 重试
+retry:
     runtimeLock.assertLocked();
-    
-    
-    imp = cache_getImp(cls, sel);//从这个类的缓存中查找
+    /******************** 从该类的缓存中查找 ******************/
+    imp = cache_getImp(cls, sel);
     if (imp) goto done;
-    
-    // 从这个类的方法列表中查找
+    /******************* 从该类的方法列表中查找 *****************/
     {
         Method meth = getMethodNoSuper_nolock(cls, sel);
         if (meth) {
-            log_and_fill_cache(cls, meth->imp, sel, inst, cls);
+            log_and_fill_cache(cls, meth->imp, sel, inst, cls); // 找到并缓存至该类
             imp = meth->imp;
             goto done;
         }
     }
-    
-    // 从这个类的父类缓存和方法列表中查找
+    /******************* 从该类的父类缓存和方法列表中查找 *****************/
     {
         unsigned attempts = unreasonableClassCount();
         for (Class curClass = cls->superclass; curClass != nil; curClass = curClass->superclass){
-            // 如果超类链中存在循环，则停止。
-            if (--attempts == 0) {
+            if (--attempts == 0) {// 如果超类链中存在循环，则停止。
                 _objc_fatal("Memory corruption in class list.");
             }
-            
-            // 父类缓存中查找
-            imp = cache_getImp(curClass, sel);
+            imp = cache_getImp(curClass, sel);// 父类缓存中查找
             if (imp) {
                 if (imp != (IMP)_objc_msgForward_impcache) {
-                    // 在超类中找到该方法；在 cls 中缓存它。
-                    log_and_fill_cache(cls, imp, sel, inst, curClass);
+                    log_and_fill_cache(cls, imp, sel, inst, curClass); //在超类中找到该方法，在 cls 中缓存它。
                     goto done;
-                }
-                else {
-                    // 在超类中找到 forward::entry。
-                    // 停止搜索，但不要缓存;首先调用该类的方法解析器。
+                }else {
                     break;
                 }
             }
-            
-            // 父类方法列表中查找
-            Method meth = getMethodNoSuper_nolock(curClass, sel);
+            Method meth = getMethodNoSuper_nolock(curClass, sel);// 父类方法列表中查找
             if (meth) {
-                // 在超类中找到该方法。在这个类中缓存它。
-                log_and_fill_cache(cls, meth->imp, sel, inst, curClass);
+                log_and_fill_cache(cls, meth->imp, sel, inst, curClass);// 在超类中找到该方法。在这个类中缓存它。
                 imp = meth->imp;
                 goto done;
             }
         }
     }
-    
+    /********************** unrecognized selector 的补救时机 ************************/
     // 如果指定选择器 SEL 对应的方法没有实现，而且没有执行方法决议；第一次解决：尝试动态决议
     if (resolver  &&  !triedResolver) {
         runtimeLock.unlock();
         _class_resolveMethod(cls, sel, inst);
         runtimeLock.lock();
-        // 不要缓存结果; 我们没有锁定所以它可能已经改变了。改为从头开始重新搜索。
         triedResolver = YES;//标记为已经执行动态决议
         goto retry;
     }
-    
     // 没有找到 IMP ，动态决议也没有结果：第二次补救机会：消息转发机制
     imp = (IMP)_objc_msgForward_impcache;
     cache_fill(cls, sel, imp, inst);
-    
 done:
     runtimeLock.unlock();
-    
     return imp;
 }
 
-
-/* 查找某个类指定选择器的方法实现 IMP
- * 内部实现基于 lookUpImpOrForward() 函数，但是与 lookUpImpOrForward() 函数的区别在于：
- * 该函数找不到对应的 IMP 且没有实现动态决议时，不会执行消息转发机制
+/** 根据指定SEL查找某个类的方法实现 IMP
+ * 相比于lookUpImpOrForward() 函数，该函数不会执行消息转发机制
  */
 IMP lookUpImpOrNil(Class cls, SEL sel, id inst,bool initialize, bool cache, bool resolver){
     IMP imp = lookUpImpOrForward(cls, sel, inst, initialize, cache, resolver);

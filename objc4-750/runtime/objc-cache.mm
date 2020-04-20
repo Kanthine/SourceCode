@@ -1,34 +1,10 @@
-/*
- * Copyright (c) 1999-2007 Apple Inc.  All Rights Reserved.
- * 
- * @APPLE_LICENSE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
+/**
+ * 管理被缓存的方法
+ * 缓存刷新：有一些操作会造成缓存数据过期，如在处理过程中加载入更多的代码，或者改变一个类的方法列表，恰当的缓存区会被销毁并且允许再次填充的。
+ * 缓存释放
+ * 缓存工具
+ * https://www.cnblogs.com/zhangyl423/p/4630628.html
  */
-
-/***********************************************************************
-* objc-cache.m
-* Method cache management
-* Cache flushing
-* Cache garbage collection
-* Cache instrumentation
-* Dedicated allocator for large caches
-**********************************************************************/
 
 
 /***********************************************************************
@@ -90,7 +66,7 @@ static int _collecting_in_critical(void);
 static void _garbage_make_room(void);
 
 
-/* OBJC_PRINT_CACHE_SETUP 的缓存统计
+/** OBJC_PRINT_CACHE_SETUP 的缓存统计
  */
 static unsigned int cache_counts[16];
 static size_t cache_allocations;
@@ -111,7 +87,7 @@ static void recordDeadCache(mask_t capacity){
     }
 }
 
-/* 编译类对象使用的指针
+/** 编译类对象使用的指针
  * 它们使用 asm 来避免与编译器的内部声明冲突
  */
 
@@ -231,27 +207,23 @@ ldp(uintptr_t& onep, uintptr_t& twop, const void *srcp)
 // Class points to cache. SEL is key. Cache buckets store SEL+IMP.
 // Caches are never built in the dyld shared cache.
 
-static inline mask_t cache_hash(cache_key_t key, mask_t mask) 
-{
+static inline mask_t cache_hash(cache_key_t key, mask_t mask) {
     return (mask_t)(key & mask);
 }
 
-cache_t *getCache(Class cls) 
-{
+cache_t *getCache(Class cls) {
     assert(cls);
     return &cls->cache;
 }
 
-cache_key_t getKey(SEL sel) 
-{
+cache_key_t getKey(SEL sel) {
     assert(sel);
     return (cache_key_t)sel;
 }
 
 #if __arm64__
 
-void bucket_t::set(cache_key_t newKey, IMP newImp)
-{
+void bucket_t::set(cache_key_t newKey, IMP newImp){
     assert(_key == 0  ||  _key == newKey);
 
     static_assert(offsetof(bucket_t,_imp) == 0 && offsetof(bucket_t,_key) == sizeof(void *),
@@ -273,8 +245,7 @@ void bucket_t::set(cache_key_t newKey, IMP newImp)
 
 #else
 
-void bucket_t::set(cache_key_t newKey, IMP newImp)
-{
+void bucket_t::set(cache_key_t newKey, IMP newImp){
     assert(_key == 0  ||  _key == newKey);
 
     // objc_msgSend uses key and imp with no locks.
@@ -293,8 +264,7 @@ void bucket_t::set(cache_key_t newKey, IMP newImp)
 
 #endif
 
-void cache_t::setBucketsAndMask(struct bucket_t *newBuckets, mask_t newMask)
-{
+void cache_t::setBucketsAndMask(struct bucket_t *newBuckets, mask_t newMask){
     // objc_msgSend uses mask and buckets with no locks.
     // It is safe for objc_msgSend to see new buckets but old mask.
     // (It will get a cache miss but not overrun the buckets' bounds).
@@ -315,55 +285,46 @@ void cache_t::setBucketsAndMask(struct bucket_t *newBuckets, mask_t newMask)
 }
 
 
-struct bucket_t *cache_t::buckets() 
-{
+struct bucket_t *cache_t::buckets() {
     return _buckets; 
 }
 
-mask_t cache_t::mask() 
-{
+mask_t cache_t::mask() {
     return _mask; 
 }
 
-mask_t cache_t::occupied() 
-{
+mask_t cache_t::occupied() {
     return _occupied;
 }
 
-void cache_t::incrementOccupied() 
-{
+void cache_t::incrementOccupied() {
     _occupied++;
 }
 
-void cache_t::initializeToEmpty()
-{
+void cache_t::initializeToEmpty(){
     bzero(this, sizeof(*this));
     _buckets = (bucket_t *)&_objc_empty_cache;
 }
 
 
-mask_t cache_t::capacity() 
-{
+mask_t cache_t::capacity() {
     return mask() ? mask()+1 : 0; 
 }
 
 
 #if CACHE_END_MARKER
 
-size_t cache_t::bytesForCapacity(uint32_t cap) 
-{
+size_t cache_t::bytesForCapacity(uint32_t cap) {
     // fixme put end marker inline when capacity+1 malloc is inefficient
     return sizeof(bucket_t) * (cap + 1);
 }
 
-bucket_t *cache_t::endMarker(struct bucket_t *b, uint32_t cap) 
-{
+bucket_t *cache_t::endMarker(struct bucket_t *b, uint32_t cap) {
     // bytesForCapacity() chooses whether the end marker is inline or not
     return (bucket_t *)((uintptr_t)b + bytesForCapacity(cap)) - 1;
 }
 
-bucket_t *allocateBuckets(mask_t newCapacity)
-{
+bucket_t *allocateBuckets(mask_t newCapacity){
     // Allocate one extra bucket to mark the end of the list.
     // This can't overflow mask_t because newCapacity is a power of 2.
     // fixme instead put the end mark inline when +1 is malloc-inefficient
@@ -390,13 +351,11 @@ bucket_t *allocateBuckets(mask_t newCapacity)
 
 #else
 
-size_t cache_t::bytesForCapacity(uint32_t cap) 
-{
+size_t cache_t::bytesForCapacity(uint32_t cap) {
     return sizeof(bucket_t) * cap;
 }
 
-bucket_t *allocateBuckets(mask_t newCapacity)
-{
+bucket_t *allocateBuckets(mask_t newCapacity){
     if (PrintCaches) recordNewCache(newCapacity);
 
     return (bucket_t *)calloc(cache_t::bytesForCapacity(newCapacity), 1);
@@ -405,8 +364,7 @@ bucket_t *allocateBuckets(mask_t newCapacity)
 #endif
 
 
-bucket_t *emptyBucketsForCapacity(mask_t capacity, bool allocate = true)
-{
+bucket_t *emptyBucketsForCapacity(mask_t capacity, bool allocate = true){
     cacheUpdateLock.assertLocked();
 
     size_t bytes = cache_t::bytesForCapacity(capacity);
@@ -441,26 +399,22 @@ bucket_t *emptyBucketsForCapacity(mask_t capacity, bool allocate = true)
                          newBuckets, (size_t)capacity);
         }
     }
-
     return emptyBucketsList[index];
 }
 
 
-bool cache_t::isConstantEmptyCache()
-{
+bool cache_t::isConstantEmptyCache(){
     return 
         occupied() == 0  &&  
         buckets() == emptyBucketsForCapacity(capacity(), false);
 }
 
-bool cache_t::canBeFreed()
-{
+bool cache_t::canBeFreed(){
     return !isConstantEmptyCache();
 }
 
 
-void cache_t::reallocate(mask_t oldCapacity, mask_t newCapacity)
-{
+void cache_t::reallocate(mask_t oldCapacity, mask_t newCapacity){
     bool freeOld = canBeFreed();
 
     bucket_t *oldBuckets = buckets();
@@ -545,7 +499,7 @@ void cache_t::expand()
     reallocate(oldCapacity, newCapacity);
 }
 
-/* 填充缓存
+/** 填充缓存
  * @param cls 缓存到该类
  * @param receiver 接收器：消息的发送目标
  */
@@ -584,12 +538,11 @@ static void cache_fill_nolock(Class cls, SEL sel, IMP imp, id receiver){
     bucket->set(key, imp);
 }
 
-/* 填充缓存
+/** 填充缓存
  * @param cls 缓存到该类
  * @param receiver 接收器：消息的发送目标
  */
-void cache_fill(Class cls, SEL sel, IMP imp, id receiver)
-{
+void cache_fill(Class cls, SEL sel, IMP imp, id receiver){
 #if !DEBUG_TASK_THREADS
     mutex_locker_t lock(cacheUpdateLock);
     cache_fill_nolock(cls, sel, imp, receiver);
@@ -602,8 +555,7 @@ void cache_fill(Class cls, SEL sel, IMP imp, id receiver)
 
 // Reset this entire cache to the uncached lookup by reallocating it.
 // This must not shrink the cache - that breaks the lock-free scheme.
-void cache_erase_nolock(Class cls)
-{
+void cache_erase_nolock(Class cls){
     cacheUpdateLock.assertLocked();
 
     cache_t *cache = getCache(cls);
@@ -620,8 +572,7 @@ void cache_erase_nolock(Class cls)
 }
 
 
-void cache_delete(Class cls)
-{
+void cache_delete(Class cls){
     mutex_locker_t lock(cacheUpdateLock);
     if (cls->cache.canBeFreed()) {
         if (PrintCaches) recordDeadCache(cls->cache.capacity());
@@ -688,8 +639,7 @@ static uintptr_t _get_pc_for_thread(thread_t thread)
 extern "C" uintptr_t objc_entryPoints[];
 extern "C"  uintptr_t objc_exitPoints[];
 
-static int _collecting_in_critical(void)
-{
+static int _collecting_in_critical(void){
 #if TARGET_OS_WIN32
     return TRUE;
 #else
@@ -703,6 +653,9 @@ static int _collecting_in_critical(void)
 
     // Get a list of all the threads in the current task
 #if !DEBUG_TASK_THREADS
+    /** 获得线程信息的API位于mach层面。
+      * task_threads() 获得了给定任务中所有线程的线程列表，并且这些代码使用它来获得其所在进程中的其他线程。
+     */
     ret = task_threads(mach_task_self(), &threads, &number);
 #else
     ret = objc_task_threads(mach_task_self(), &threads, &number);
@@ -715,8 +668,7 @@ static int _collecting_in_critical(void)
 
     // Check whether any thread is in the cache lookup code
     result = FALSE;
-    for (count = 0; count < number; count++)
-    {
+    for (count = 0; count < number; count++){//遍历包含thread_t值的threads数组
         int region;
         uintptr_t pc;
 
@@ -725,21 +677,18 @@ static int _collecting_in_critical(void)
             continue;
 
         // Find out where thread is executing
-        pc = _get_pc_for_thread (threads[count]);
+        pc = _get_pc_for_thread (threads[count]);//取得一个线程的PC的操作在另外一个独立的函数中，
 
         // Check for bad status, and if so, assume the worse (can't collect)
-        if (pc == PC_SENTINEL)
-        {
+        if (pc == PC_SENTINEL){
             result = TRUE;
             goto done;
         }
         
         // Check whether it is in the cache lookup code
-        for (region = 0; objc_entryPoints[region] != 0; region++)
-        {
+        for (region = 0; objc_entryPoints[region] != 0; region++){//遍历这些入口和出口，比较各个元素
             if ((pc >= objc_entryPoints[region]) &&
-                (pc <= objc_exitPoints[region])) 
-            {
+                (pc <= objc_exitPoints[region])) {
                 result = TRUE;
                 goto done;
             }
@@ -756,7 +705,7 @@ static int _collecting_in_critical(void)
     vm_deallocate (mach_task_self (), (vm_address_t) threads, sizeof(threads[0]) * number);
 
     // Return our finding
-    return result;
+    return result;//在循环结束后向调用者返回结果
 #endif
 }
 
@@ -907,8 +856,7 @@ void cache_collect(bool collectALot)
 
 /***********************************************************************
 * objc_task_threads
-* Replacement for task_threads(). Define DEBUG_TASK_THREADS to debug 
-* crashes when task_threads() is failing.
+* Replacement for task_threads(). Define DEBUG_TASK_THREADS to debug crashes when task_threads() is failing.
 *
 * A failure in task_threads() usually means somebody has botched their 
 * Mach or MIG traffic. For example, somebody's error handling was wrong 
@@ -974,8 +922,7 @@ void cache_collect(bool collectALot)
 #if !defined(__MIG_check__Reply__task_threads_t__defined)
 #define __MIG_check__Reply__task_threads_t__defined
 
-mig_internal kern_return_t __MIG_check__Reply__task_threads_t(__Reply__task_threads_t *Out0P)
-{
+mig_internal kern_return_t __MIG_check__Reply__task_threads_t(__Reply__task_threads_t *Out0P){
 
 	typedef __Reply__task_threads_t __Reply;
 	boolean_t msgh_simple;
@@ -1010,7 +957,6 @@ mig_internal kern_return_t __MIG_check__Reply__task_threads_t(__Reply__task_thre
 		return MIG_TYPE_ERROR;
 	}
 #endif	/* __MigTypeCheck */
-
 	return MACH_MSG_SUCCESS;
 }
 #endif /* !defined(__MIG_check__Reply__task_threads_t__defined) */
@@ -1019,13 +965,7 @@ mig_internal kern_return_t __MIG_check__Reply__task_threads_t(__Reply__task_thre
 
 
 /* Routine task_threads */
-static kern_return_t objc_task_threads
-(
-	task_t target_task,
-	thread_act_array_t *act_list,
-	mach_msg_type_number_t *act_listCnt
-)
-{
+static kern_return_t objc_task_threads(task_t target_task,thread_act_array_t *act_list,mach_msg_type_number_t *act_listCnt){
 
 #ifdef  __MigPackStructs
 #pragma pack(4)

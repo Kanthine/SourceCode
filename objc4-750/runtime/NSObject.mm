@@ -195,7 +195,6 @@ void objc_storeStrong(id *location, id obj){
     objc_release(prev);
 }
 
-
 enum CrashIfDeallocating {
     DontCrashIfDeallocating = false, DoCrashIfDeallocating = true
 };
@@ -1723,12 +1722,18 @@ void arr_init(void) {
     return _objc_rootHash(self);
 }
 
+/** 如果两个对象相等，则hash必须要相等
+ * NSSet 和 NSDictionary 都是通过 hash table 进行查找的，从而提高到 O(1)。
+*/
 + (BOOL)isEqual:(id)obj {
-    return obj == (id)self;
+    return obj == (id)self;// 即指向同一块地址
 }
 
+/** 对于基本类型, ==运算符比较的是值;
+ * 对于对象类型, == 运算符比较的是对象的地址(即是否为同一对象)
+ */
 - (BOOL)isEqual:(id)obj {
-    return obj == self;
+    return obj == self;// 即指向同一块地址
 }
 
 + (BOOL)isFault {

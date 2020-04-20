@@ -593,7 +593,7 @@ static void _class_resolveInstanceMethod(Class cls, SEL sel, id inst){
 }
 
 
-/* 动态方法决议
+/** 动态方法决议
  * 调用 NSObject 的 +resolveClassMethod: 类方法与 +resolveInstanceMethod: 类方法 以动态方式实现由选择器指定的实例和类方法
  * @note 该函数不会去检查指定的类 cls 中选择器sel对应的方法是否已经存在。
  */
