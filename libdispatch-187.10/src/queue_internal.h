@@ -129,7 +129,7 @@ extern struct dispatch_queue_s _dispatch_root_queues[];
 
 DISPATCH_ALWAYS_INLINE DISPATCH_CONST
 
-/* 根据优先级 priority 与 overcommit ，从队列池中取出一个队列
+/** 根据优先级 priority 与 overcommit ，从队列池中取出一个队列
  * @param overcommit 每当有任务提交到该队列时，为免线程过载，系统是否新开一个线程处理。
  */
 static inline dispatch_queue_t

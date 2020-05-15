@@ -17,12 +17,12 @@
 		<key>libdyld.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>20</integer>
+			<integer>24</integer>
 		</dict>
 		<key>update_dyld_shared_cache.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>14</integer>
+			<integer>23</integer>
 		</dict>
 	</dict>
 </dict>

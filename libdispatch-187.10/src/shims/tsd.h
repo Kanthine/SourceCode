@@ -14,7 +14,7 @@
 
 //在 GCD 中定义了六个 key :
 #if DISPATCH_USE_DIRECT_TSD
-static const unsigned long dispatch_queue_key		= __PTK_LIBDISPATCH_KEY0;
+static const unsigned long dispatch_queue_key		= __PTK_LIBDISPATCH_KEY0;//队列
 static const unsigned long dispatch_sema4_key		= __PTK_LIBDISPATCH_KEY1;
 static const unsigned long dispatch_cache_key		= __PTK_LIBDISPATCH_KEY2;//缓存
 static const unsigned long dispatch_io_key			= __PTK_LIBDISPATCH_KEY3;
@@ -71,8 +71,8 @@ _dispatch_thread_setspecific(pthread_key_t k, void *v){
 
 DISPATCH_TSD_INLINE
 
-/* 获取同一线程中不同函数间共享的 key 对应的 value
-*/
+/** 获取同一线程中不同函数间共享的 key 对应的 value
+ */
 static inline void *
 _dispatch_thread_getspecific(pthread_key_t k){
 #if DISPATCH_USE_DIRECT_TSD

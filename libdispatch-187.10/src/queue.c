@@ -297,7 +297,7 @@ struct dispatch_queue_s _dispatch_mgr_q = {
 };
 
 
-/* 获取全局队列
+/** 获取全局队列
  * @param priority 优先级
  * @param flags 是否创建线程
  */
@@ -309,7 +309,7 @@ dispatch_queue_t dispatch_get_global_queue(long priority, unsigned long flags){
 	return _dispatch_get_root_queue(priority, flags & DISPATCH_QUEUE_OVERCOMMIT);
 }
 
-/* 获取当前队列
+/** 获取当前队列
  */
 dispatch_queue_t dispatch_get_current_queue(void){
 	return _dispatch_queue_get_current() ?: _dispatch_get_root_queue(0, true);
@@ -471,7 +471,7 @@ void dispatch_atfork_child(void){
 // we use 'xadd' on Intel, so the initial value == next assigned
 unsigned long _dispatch_queue_serial_numbers = 12;
 
-/* 创建一个队列，该函数主要执行三个功能
+/** 创建一个队列，该函数主要执行三个功能
  * 1、配置唯一标识，并拷贝至新队列
  * 2、初始化一个队列，该队列是串行队列
  * 3、对于并发队列，需要额外设置 dq_width 、do_targetq
@@ -679,10 +679,11 @@ static const struct dispatch_queue_specific_queue_vtable_s _dispatch_queue_speci
 	.do_debug = (void *)dispatch_queue_debug,
 };
 
+//将任意数据以键值对的形式关联到队列中
 struct dispatch_queue_specific_s {
-	const void *dqs_key;
-	void *dqs_ctxt;
-	dispatch_function_t dqs_destructor;
+	const void *dqs_key;//键
+	void *dqs_ctxt;//值
+	dispatch_function_t dqs_destructor;//析构函数
 	TAILQ_ENTRY(dispatch_queue_specific_s) dqs_list;
 };
 DISPATCH_DECL(dispatch_queue_specific);
@@ -700,6 +701,7 @@ static void _dispatch_queue_specific_queue_dispose(dispatch_queue_specific_queue
 	_dispatch_queue_dispose((dispatch_queue_t)dqsq);
 }
 
+//初始化键值对
 static void _dispatch_queue_init_specific(dispatch_queue_t dq){
 	dispatch_queue_specific_queue_t dqsq;
 	dqsq = calloc(1ul, sizeof(struct dispatch_queue_specific_queue_s));
@@ -746,20 +748,19 @@ static void _dispatch_queue_set_specific(void *ctxt){
 }
 
 DISPATCH_NOINLINE
-void dispatch_queue_set_specific(dispatch_queue_t dq, const void *key,
-	void *ctxt, dispatch_function_t destructor){
+void dispatch_queue_set_specific(dispatch_queue_t dq, const void *key, void *ctxt, dispatch_function_t destructor){
 	if (slowpath(!key)) {
 		return;
 	}
 	dispatch_queue_specific_t dqs;
-
+	
 	dqs = calloc(1, sizeof(struct dispatch_queue_specific_s));
 	dqs->dqs_key = key;
 	dqs->dqs_ctxt = ctxt;
 	dqs->dqs_destructor = destructor;
 	if (slowpath(!dq->dq_specific_q)) {
 		_dispatch_queue_init_specific(dq);
-	}
+	}//	dq->do_targetq = _dispatch_get_root_queue(DISPATCH_QUEUE_PRIORITY_HIGH,true);
 	dispatch_barrier_async_f(dq->dq_specific_q, dqs,_dispatch_queue_set_specific);
 }
 
@@ -800,8 +801,7 @@ void * dispatch_get_specific(const void *key){
 	while (slowpath(dq)) {
 		if (slowpath(dq->dq_specific_q)) {
 			ctxt = (void *)key;
-			dispatch_sync_f(dq->dq_specific_q, &ctxt,
-					_dispatch_queue_get_specific);
+			dispatch_sync_f(dq->dq_specific_q, &ctxt,_dispatch_queue_get_specific);
 			if (ctxt) break;
 		}
 		dq = dq->do_targetq;
