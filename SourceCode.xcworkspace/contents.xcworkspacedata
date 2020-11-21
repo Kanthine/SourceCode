@@ -2,6 +2,9 @@
 <Workspace
    version = "1.0">
    <FileRef
+      location = "group:Hook/Hook.xcodeproj">
+   </FileRef>
+   <FileRef
       location = "group:SDWebImage/SDWebImage.xcodeproj">
    </FileRef>
    <FileRef
@@ -267,6 +270,9 @@
       </FileRef>
       <FileRef
          location = "group:CFPropertyList.h">
+      </FileRef>
+      <FileRef
+         location = "group:RunLoop.md">
       </FileRef>
       <FileRef
          location = "group:CFRunLoop.c">

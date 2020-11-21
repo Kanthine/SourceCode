@@ -91,7 +91,7 @@ public:
     bool isBasicTaggedPointer();
     bool isExtTaggedPointer();
     bool isClass();//判断Objective—C 类: 如果是Tagged Pointer对象，则不是一个类
-
+    
     
     bool hasAssociatedObjects();//判断有无关联对象
     void setHasAssociatedObjects();

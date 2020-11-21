@@ -26,7 +26,7 @@ typedef struct objc_object *id;
     _objc_rootRelease(self);
 }
 
--(id) autorelease{
+-(id)autorelease{
     return _objc_rootAutorelease(self);
 }
 
@@ -131,7 +131,6 @@ static const char
 	return self; 
 }
 
-
 -(id)class{
 	return (id)isa; 
 }
@@ -153,7 +152,7 @@ static const char
 	return isa->superclass; 
 }
 
-+ (int) version{
++ (int)version{
 	return class_getVersion((Class)self);
 }
 
@@ -273,7 +272,7 @@ static const char
 {
 }
 
-- (id)write:(void *) stream
+- (id)write:(void *)stream
 {
 	return self;
 }

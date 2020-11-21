@@ -25,6 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
     float _height;
     float _weight;
 }
+
 @property (nonatomic ,strong) NSString *name;
 @property (nonatomic ,strong ,class) NSString *className;
 

@@ -35,6 +35,8 @@
 		1A47DC6721E5C4720084F964 /* SonModel.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SonModel.m; sourceTree = "<group>"; };
 		1AD52E9B21EC721600723777 /* UIButton+DoubleHit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "UIButton+DoubleHit.h"; sourceTree = "<group>"; };
 		1AD52E9C21EC721600723777 /* UIButton+DoubleHit.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "UIButton+DoubleHit.m"; sourceTree = "<group>"; };
+		1AE0607E2562536900001B83 /* YLKeyValueCoding.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YLKeyValueCoding.h; sourceTree = "<group>"; };
+		1AE060832562540D00001B83 /* YLKeyValueObserving.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YLKeyValueObserving.h; sourceTree = "<group>"; };
 		1AE6E5E421F8844A00DE730B /* FileInfoTool.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FileInfoTool.h; sourceTree = "<group>"; };
 		1AE6E5E521F8844A00DE730B /* FileInfoTool.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FileInfoTool.m; sourceTree = "<group>"; };
 		2247D26D21E6501700D5519C /* Model.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Model.h; sourceTree = "<group>"; };
@@ -96,6 +98,8 @@
 				2247D26E21E6501700D5519C /* Model.m */,
 				1AE6E5E421F8844A00DE730B /* FileInfoTool.h */,
 				1AE6E5E521F8844A00DE730B /* FileInfoTool.m */,
+				1AE0607E2562536900001B83 /* YLKeyValueCoding.h */,
+				1AE060832562540D00001B83 /* YLKeyValueObserving.h */,
 			);
 			path = Model;
 			sourceTree = "<group>";

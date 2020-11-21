@@ -82,113 +82,6 @@
             endingLineNumber = "437"
             landmarkName = "objc_object::rootRetain(tryRetain, handleOverflow)"
             landmarkType = "7">
-            <Locations>
-               <Location
-                  uuid = "F0C33217-9171-4143-859E-3094E9538E1D - 396905e23e81fb30"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "_objc_rootRetain"
-                  moduleName = "libobjc.A.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/wanst/Documents/774792381/SourceCode/objc4-750/runtime/objc-object.h"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "437"
-                  endingLineNumber = "437"
-                  offsetFromSymbolStart = "761">
-               </Location>
-               <Location
-                  uuid = "F0C33217-9171-4143-859E-3094E9538E1D - a8281fc90e2684c5"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "objc_loadWeakRetained"
-                  moduleName = "libobjc.A.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/wanst/Documents/774792381/SourceCode/objc4-750/runtime/objc-object.h"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "437"
-                  endingLineNumber = "437"
-                  offsetFromSymbolStart = "997">
-               </Location>
-               <Location
-                  uuid = "F0C33217-9171-4143-859E-3094E9538E1D - c2bea4e03b2cb372"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "objc_object::retain()"
-                  moduleName = "libobjc.A.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/wanst/Documents/774792381/SourceCode/objc4-750/runtime/objc-object.h"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "437"
-                  endingLineNumber = "437"
-                  offsetFromSymbolStart = "809">
-               </Location>
-               <Location
-                  uuid = "F0C33217-9171-4143-859E-3094E9538E1D - 6419590908509976"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "_objc_rootTryRetain"
-                  moduleName = "libobjc.A.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/wanst/Documents/774792381/SourceCode/objc4-750/runtime/objc-object.h"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "437"
-                  endingLineNumber = "437"
-                  offsetFromSymbolStart = "761">
-               </Location>
-               <Location
-                  uuid = "F0C33217-9171-4143-859E-3094E9538E1D - 881e827032f07831"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "-[NSObject retain]"
-                  moduleName = "libobjc.A.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/wanst/Documents/774792381/SourceCode/objc4-750/runtime/objc-object.h"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "437"
-                  endingLineNumber = "437"
-                  offsetFromSymbolStart = "706">
-               </Location>
-               <Location
-                  uuid = "F0C33217-9171-4143-859E-3094E9538E1D - e012e9b119477597"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "-[NSObject _tryRetain]"
-                  moduleName = "libobjc.A.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/wanst/Documents/774792381/SourceCode/objc4-750/runtime/objc-object.h"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "437"
-                  endingLineNumber = "437"
-                  offsetFromSymbolStart = "706">
-               </Location>
-               <Location
-                  uuid = "F0C33217-9171-4143-859E-3094E9538E1D - 77db82a25e770de6"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "objc_object::rootRetain_overflow(bool)"
-                  moduleName = "libobjc.A.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/wanst/Documents/774792381/SourceCode/objc4-750/runtime/objc-object.h"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "437"
-                  endingLineNumber = "437"
-                  offsetFromSymbolStart = "704">
-               </Location>
-            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -205,83 +98,6 @@
             endingLineNumber = "538"
             landmarkName = "objc_object::rootRelease(performDealloc, handleUnderflow)"
             landmarkType = "7">
-            <Locations>
-               <Location
-                  uuid = "7A9336CE-6BC3-465A-AB8E-103E1E76B63F - b1202cb2ffd17e51"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "_objc_rootRelease"
-                  moduleName = "libobjc.A.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/wanst/Documents/774792381/SourceCode/objc4-750/runtime/objc-object.h"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "538"
-                  endingLineNumber = "538"
-                  offsetFromSymbolStart = "901">
-               </Location>
-               <Location
-                  uuid = "7A9336CE-6BC3-465A-AB8E-103E1E76B63F - cfe987a1238f2c67"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "_objc_rootReleaseWasZero"
-                  moduleName = "libobjc.A.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/wanst/Documents/774792381/SourceCode/objc4-750/runtime/objc-object.h"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "538"
-                  endingLineNumber = "538"
-                  offsetFromSymbolStart = "901">
-               </Location>
-               <Location
-                  uuid = "7A9336CE-6BC3-465A-AB8E-103E1E76B63F - 89003c7d564e8793"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "objc_object::release()"
-                  moduleName = "libobjc.A.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/wanst/Documents/774792381/SourceCode/objc4-750/runtime/objc-object.h"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "538"
-                  endingLineNumber = "538"
-                  offsetFromSymbolStart = "949">
-               </Location>
-               <Location
-                  uuid = "7A9336CE-6BC3-465A-AB8E-103E1E76B63F - a2108e21f757f152"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "-[NSObject release]"
-                  moduleName = "libobjc.A.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/wanst/Documents/774792381/SourceCode/objc4-750/runtime/objc-object.h"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "538"
-                  endingLineNumber = "538"
-                  offsetFromSymbolStart = "846">
-               </Location>
-               <Location
-                  uuid = "7A9336CE-6BC3-465A-AB8E-103E1E76B63F - f81c7c903807ac64"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "objc_object::rootRelease_underflow(bool)"
-                  moduleName = "libobjc.A.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/wanst/Documents/774792381/SourceCode/objc4-750/runtime/objc-object.h"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "538"
-                  endingLineNumber = "538"
-                  offsetFromSymbolStart = "844">
-               </Location>
-            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -319,16 +135,16 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "AC482476-4C43-4BE6-90CF-06E81B631E09"
+            uuid = "A6397149-B3CB-44BA-813B-4DDE022BB474"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "objc4-750/runtime/objc-runtime-new.mm"
+            filePath = "objc4-750/objc-test/main.m"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "4461"
-            endingLineNumber = "4461"
-            landmarkName = "lookUpImpOrForward(cls, sel, inst, initialize, cache, resolver)"
+            startingLineNumber = "14"
+            endingLineNumber = "14"
+            landmarkName = "main(argc, argv)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>

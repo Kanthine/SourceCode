@@ -355,7 +355,6 @@ static NSArray * AFPublicKeyTrustChainForServerTrust(SecTrustRef serverTrust) {
     securityPolicy.allowInvalidCertificates = self.allowInvalidCertificates;
     securityPolicy.validatesDomainName = self.validatesDomainName;
     securityPolicy.pinnedCertificates = [self.pinnedCertificates copyWithZone:zone];
-    
     return securityPolicy;
 }
 

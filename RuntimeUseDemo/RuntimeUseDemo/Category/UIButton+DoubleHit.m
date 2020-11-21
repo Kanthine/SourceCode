@@ -21,13 +21,12 @@
         Method oldMethod = class_getInstanceMethod(self.class,@selector(sendAction:to:forEvent:));
         Method newMethod = class_getInstanceMethod(self.class, @selector(l_sendAction:to:forEvent:));
         
-        /* 查询该类的方法列表，寻找与选择器类型 sendAction:to:forEvent: 匹配的方法：
+        /** 查询该类的方法列表，寻找与选择器类型 sendAction:to:forEvent: 匹配的方法：
          * 如果找到，则已经实现，添加失败返回 NO；
          * 如果没有找到，则添加一个方法：该方法的选择器类型为 sendAction:to:forEvent: ，持有的函数地址指向它处；
          */
         BOOL addResult = class_addMethod(self.class, @selector(sendAction:to:forEvent:), method_getImplementation(newMethod), method_getTypeEncoding(newMethod));
         if (addResult) {
-            
             /* 方法添加成功，此时：实现函数地址 IMP 指向它处；
              * 还需要将与选择器类型 sendAction:to:forEvent: 匹配的方法的 IMP 指向原有的实现函数地址
              */
