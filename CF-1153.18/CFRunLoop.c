@@ -2448,10 +2448,10 @@ static void __CFRunLoopTimeout(void *arg) {
 
 
 /** 入口函数 : 运行 Runloop
- *  @param rl              运行的RunLoop对象
- *  @param rlm             运行的mode
- *  @param seconds         run loop超时时间
- *  @param stopAfterHandle true:run loop处理完事件就退出  false:一直运行直到超时或者被手动终止
+ *  @param runLoop         运行的RunLoop对象
+ *  @param theMode         运行的mode
+ *  @param seconds         超时时间
+ *  @param stopAfterHandle true : 处理完事件就退出  false:一直运行直到超时或者被手动终止
  *  @param previousMode    上一次运行的mode
  *
  *  @return 返回运行的状态：
@@ -2463,7 +2463,7 @@ static int32_t __CFRunLoopRun(CFRunLoopRef runLoop, CFRunLoopModeRef theMode, CF
     
     /// 获取系统启动后的 CPU 运行时间，用于控制超时时间
     uint64_t startTSR = mach_absolute_time();
-
+    
     /// 判断CurrentRunLoop的状态是否关闭
     if (__CFRunLoopIsStopped(runLoop)) {
         __CFRunLoopUnsetStopped(runLoop);
