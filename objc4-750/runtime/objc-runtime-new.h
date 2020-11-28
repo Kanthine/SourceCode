@@ -1355,8 +1355,7 @@ struct category_t {
     struct method_list_t *classMethods;//分类添加的类方法列表
     struct protocol_list_t *protocols;//分类实现的协议列表
     struct property_list_t *instanceProperties;//分类添加的实例属性列表
-    // Fields below this point are not always present on disk.
-    struct property_list_t *_classProperties;
+    struct property_list_t *_classProperties;  //分类添加的类属性列表
     
     //获取方法列表
     method_list_t *methodsForMeta(bool isMeta) {

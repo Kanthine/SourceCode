@@ -2209,7 +2209,7 @@ static void readProtocol(protocol_t *newproto, Class protocol_class, NXMapTable 
     }
 }
 
-/* 该函数中完成了大量的初始化操作：
+/** 该函数中完成了大量的初始化操作：
  * 1、首次执行时：初始化 TaggedPointer 混淆器、哈希表 gdb_objc_realized_classes 与 allocatedClasses
  * 2、遍历hList数组，取出每个header_info对应的类列表，
  *    将类 加入哈希表 gdb_objc_realized_classes 、allocatedClasses
@@ -2220,7 +2220,6 @@ static void readProtocol(protocol_t *newproto, Class protocol_class, NXMapTable 
  * 5、遍历hList数组，将实现了+load方法的类及元类加入哈希表 allocatedClasses
  *    并将该类的ro中的信息全部拷贝至rw上
  * 6、遍历hList数组，将实现了+load方法的Category的方法、属性、协议添加到 cat->cls-rw
- *
  */
 void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int unoptimizedTotalClasses){
     
