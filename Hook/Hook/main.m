@@ -12,8 +12,8 @@
 int main(int argc, char * argv[]) {
     NSString * appDelegateClassName;
     
-    [YLTimeProfiler setMinDuration:3];
-    [YLTimeProfiler startMonitor];
+//    [YLTimeProfiler setMinDuration:3];
+//    [YLTimeProfiler startMonitor];
     
     @autoreleasepool {
         // Setup code that might create autoreleased objects goes here.

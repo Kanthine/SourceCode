@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		1A054D17256793B8008597B2 /* YLExceptionHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = 1A054D16256793B8008597B2 /* YLExceptionHandler.m */; };
+		1A7F563C2574CF6C00040BF6 /* data.order in Resources */ = {isa = PBXBuildFile; fileRef = 1A7F563B2574CF6C00040BF6 /* data.order */; };
+		1A7F564A2574D19800040BF6 /* YLSanitizerCoverage.m in Sources */ = {isa = PBXBuildFile; fileRef = 1A7F56492574D19800040BF6 /* YLSanitizerCoverage.m */; };
 		1A95AABB256675C70017D552 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 1A95AABA256675C70017D552 /* AppDelegate.m */; };
 		1A95AAC1256675C70017D552 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1A95AAC0256675C70017D552 /* ViewController.m */; };
 		1A95AAC6256675C80017D552 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A95AAC5256675C80017D552 /* Assets.xcassets */; };
@@ -21,6 +23,9 @@
 /* Begin PBXFileReference section */
 		1A054D15256793B8008597B2 /* YLExceptionHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YLExceptionHandler.h; sourceTree = "<group>"; };
 		1A054D16256793B8008597B2 /* YLExceptionHandler.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YLExceptionHandler.m; sourceTree = "<group>"; };
+		1A7F563B2574CF6C00040BF6 /* data.order */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = data.order; sourceTree = "<group>"; };
+		1A7F56482574D19800040BF6 /* YLSanitizerCoverage.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YLSanitizerCoverage.h; sourceTree = "<group>"; };
+		1A7F56492574D19800040BF6 /* YLSanitizerCoverage.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = YLSanitizerCoverage.m; sourceTree = "<group>"; };
 		1A95AAB6256675C70017D552 /* Hook.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Hook.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A95AAB9256675C70017D552 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		1A95AABA256675C70017D552 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -72,6 +77,8 @@
 				1A95AABA256675C70017D552 /* AppDelegate.m */,
 				1A95AABF256675C70017D552 /* ViewController.h */,
 				1A95AAC0256675C70017D552 /* ViewController.m */,
+				1A7F56482574D19800040BF6 /* YLSanitizerCoverage.h */,
+				1A7F56492574D19800040BF6 /* YLSanitizerCoverage.m */,
 				1A054D15256793B8008597B2 /* YLExceptionHandler.h */,
 				1A054D16256793B8008597B2 /* YLExceptionHandler.m */,
 				1A95AADC256677C20017D552 /* YLTimeProfiler.h */,
@@ -84,6 +91,7 @@
 				1A95AAC7256675C80017D552 /* LaunchScreen.storyboard */,
 				1A95AACA256675C80017D552 /* Info.plist */,
 				1A95AACB256675C80017D552 /* main.m */,
+				1A7F563B2574CF6C00040BF6 /* data.order */,
 			);
 			path = Hook;
 			sourceTree = "<group>";
@@ -144,6 +152,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A7F563C2574CF6C00040BF6 /* data.order in Resources */,
 				1A95AAC9256675C80017D552 /* LaunchScreen.storyboard in Resources */,
 				1A95AAC6256675C80017D552 /* Assets.xcassets in Resources */,
 			);
@@ -158,6 +167,7 @@
 			files = (
 				1A95AADE256677C20017D552 /* YLTimeProfiler.m in Sources */,
 				1A054D17256793B8008597B2 /* YLExceptionHandler.m in Sources */,
+				1A7F564A2574D19800040BF6 /* YLSanitizerCoverage.m in Sources */,
 				1A95AAC1256675C70017D552 /* ViewController.m in Sources */,
 				1A95AABB256675C70017D552 /* AppDelegate.m in Sources */,
 				1A95AADA256676E40017D552 /* YLMsgSend.c in Sources */,
@@ -298,12 +308,18 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = M2NC8A2MPU;
 				INFOPLIST_FILE = Hook/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
+				LD_GENERATE_MAP_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "---.Hook";
+				ORDER_FILE = "${SRCROOT}/Hook/data.order";
+				OTHER_CFLAGS = "-fsanitize-coverage=func,trace-pc-guard";
+				OTHER_CPLUSPLUSFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = comemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -315,12 +331,18 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = M2NC8A2MPU;
 				INFOPLIST_FILE = Hook/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
+				LD_GENERATE_MAP_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "---.Hook";
+				ORDER_FILE = "${SRCROOT}/Hook/data.order";
+				OTHER_CFLAGS = "-fsanitize-coverage=func,trace-pc-guard";
+				OTHER_CPLUSPLUSFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = comemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

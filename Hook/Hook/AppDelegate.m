@@ -7,6 +7,7 @@
 
 #import "AppDelegate.h"
 #import "ViewController.h"
+#import "YLSanitizerCoverage.h"
 
 @interface AppDelegate ()
 
@@ -22,6 +23,7 @@
     ViewController *vc = [[ViewController alloc] init];
     self.window.rootViewController = vc;
     
+    [YLSanitizerCoverage getDataOrder];
     return YES;
 }
 

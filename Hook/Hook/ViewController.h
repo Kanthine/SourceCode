@@ -12,3 +12,7 @@
 
 @end
 
+
+@interface ViewController (HookTest)
+- (void)doHookMethod;
+@end

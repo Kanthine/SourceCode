@@ -689,7 +689,7 @@ static void attachCategories(Class cls, category_list *cats, bool flush_caches){
     method_list_t **mlists = (method_list_t **)malloc(cats->count * sizeof(*mlists));
     property_list_t **proplists = (property_list_t **)malloc(cats->count * sizeof(*proplists));
     protocol_list_t **protolists = (protocol_list_t **)malloc(cats->count * sizeof(*protolists));
-
+    
     // 倒序遍历分类列表，最先得到最新的分类
     int mcount = 0;//方法数量
     int propcount = 0;//属性数量
@@ -2378,7 +2378,7 @@ hIndex++
     ts.log("IMAGE TIMES: fix up objc_msgSend_fixup");
 #endif
     
-    //4、遍历hList数组，设置 protocol_ t 的 isa ，将其插入哈希表 protocol_map，映射关系为name => protocol_t
+    //4、遍历hList数组，设置 protocol_t 的 isa ，将其插入哈希表 protocol_map，映射关系为name => protocol_t
     for (EACH_HEADER) {
         extern objc_class OBJC_CLASS_$_Protocol;
         Class cls = (Class)&OBJC_CLASS_$_Protocol;// cls = Protocol 类，所有协议和对象的结构体都类似，isa都对应Protocol类
@@ -2486,7 +2486,6 @@ hIndex++
                 //将指定分类插入到哈希表category_map，映射关系为 class=>locstamped_category_t
                 addUnattachedCategoryForClass(cat, cls->ISA(), hi);
                 if (cls->ISA()->isRealized()) {
-                    
                     /* remethodizeClass() 会把 Category 中的方法列表加到 Class 的methed_list_t里面去;
                      * 而且是插入到Class方法列表的前面
                      * 这就是 Category 中重写主类的方法导致的方法覆盖的原因
@@ -2501,11 +2500,9 @@ hIndex++
     }
     ts.log("IMAGE TIMES: discover categories");
     
-
     if (DebugNonFragileIvars) {
         realizeAllClasses();
     }
-    
     
     // Print preoptimization statistics
     if (PrintPreopt) {

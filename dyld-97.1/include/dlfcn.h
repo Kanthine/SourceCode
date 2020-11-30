@@ -43,12 +43,13 @@ extern "C" {
  * Structure filled in by dladdr().
  */
 typedef struct dl_info {
-        const char      *dli_fname;     /* Pathname of shared object */
-        void            *dli_fbase;     /* Base address of shared object */
-        const char      *dli_sname;     /* Name of nearest symbol */
-        void            *dli_saddr;     /* Address of nearest symbol */
+        const char      *dli_fname;     /* 所在文件 */
+        void            *dli_fbase;     /* 文件地址 */
+        const char      *dli_sname;     /* 符号名称 */
+        void            *dli_saddr;     /* 函数起始地址 */
 } Dl_info;
 
+//这个函数能通过函数内部地址找到函数符号
 extern int dladdr(const void *, Dl_info *);
 #endif /* not POSIX */
 

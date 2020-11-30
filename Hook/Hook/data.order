@@ -1,0 +1,10 @@
++[ViewController load]
++[ViewController(ClangTest) load]
+_main
+-[AppDelegate application:didFinishLaunchingWithOptions:]
+-[AppDelegate setWindow:]
+-[ViewController viewDidLoad]
+-[ViewController testClangMethod]
+_testClangFunc
+_testClangBlock_block_invoke
+-[AppDelegate window]

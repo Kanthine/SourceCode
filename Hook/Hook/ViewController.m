@@ -6,7 +6,6 @@
 //
 
 #import "ViewController.h"
-#import "YLTimeProfiler.h"
 
 @interface ViewController ()
 
@@ -14,17 +13,41 @@
 
 @implementation ViewController
 
++ (void)load{
+     
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do any additional setup after loading the view.
     self.view.backgroundColor = UIColor.whiteColor;
-    
-    [self doMethod];
-    
-    NSLog(@"NSHomeDirectory --- %@",NSHomeDirectory());
+    [self testClangMethod];    
 }
 
-- (void)doMethod {
+
+- (void)testClangMethod{
+    NSLog(@"testClangFunc 方法");
+    testClangFunc();
+}
+
+void testClangFunc(){
+    testClangBlock();
+}
+void(^testClangBlock)(void) = ^(void){
+    NSLog(@"testClangBlock");
+};
+
+
+
+@end
+
+
+
+
+#import "YLTimeProfiler.h"
+@implementation ViewController (HookTest)
+
+- (void)doHookMethod {
     for (int i=0; i<10; i++) {
         dispatch_async(dispatch_get_global_queue(0, 0), ^{
             [self sleep];
@@ -42,7 +65,7 @@
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [YLTimeProfiler stopMonitor];
     });
-    
+
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [YLTimeProfiler startMonitor];
         for (int i=0; i<10; i++) {
@@ -58,3 +81,7 @@
 }
 
 @end
+
+
+
+
