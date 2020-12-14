@@ -20,9 +20,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
-  Implementation of the weak / associative references for non-GC mode.
-*/
+
+/** 实现非GC模式的弱引用与关联引用 */
 
 
 #include "objc-private.h"
@@ -186,19 +185,19 @@ namespace objc_references_support {
 
 using namespace objc_references_support;
 
+// AssociationsManager类管理一个锁/哈希表单例对
+// 分配实例获得锁，并调用它的assocations()方法惰性地分配哈希表。
 // class AssociationsManager manages a lock / hash table singleton pair.
-// Allocating an instance acquires the lock, and calling its assocations()
-// method lazily allocates the hash table.
+// Allocating an instance acquires the lock, and calling its assocations() method lazily allocates the hash table.
 
 spinlock_t AssociationsManagerLock;
 
 class AssociationsManager {
-    // associative references: object pointer -> PtrPtrHashMap.
+    //关联引用 : 对象指针-> PtrPtrHashMap
     static AssociationsHashMap *_map;
 public:
     AssociationsManager()   { AssociationsManagerLock.lock(); }
     ~AssociationsManager()  { AssociationsManagerLock.unlock(); }
-    
     AssociationsHashMap &associations() {
         if (_map == NULL)
             _map = new AssociationsHashMap();
@@ -213,12 +212,17 @@ AssociationsHashMap *AssociationsManager::_map = NULL;
 enum { 
     OBJC_ASSOCIATION_SETTER_ASSIGN      = 0,
     OBJC_ASSOCIATION_SETTER_RETAIN      = 1,
-    OBJC_ASSOCIATION_SETTER_COPY        = 3,            // NOTE:  both bits are set, so we can simply test 1 bit in releaseValue below.
+    OBJC_ASSOCIATION_SETTER_COPY        = 3, // NOTE:  both bits are set, so we can simply test 1 bit in releaseValue below.
     OBJC_ASSOCIATION_GETTER_READ        = (0 << 8), 
     OBJC_ASSOCIATION_GETTER_RETAIN      = (1 << 8), 
     OBJC_ASSOCIATION_GETTER_AUTORELEASE = (2 << 8)
 }; 
 
+
+/** 根据指定的键获取与源对象关联的值
+ * @param object 源对象
+ * @param key 键
+ */
 id _object_get_associative_reference(id object, void *key) {
     id value = nil;
     uintptr_t policy = OBJC_ASSOCIATION_ASSIGN;
@@ -268,6 +272,13 @@ struct ReleaseValue {
     }
 };
 
+/** 根据指定的键和关联策略为指定对象设置关联值
+ *
+ * @param object 源对象
+ * @param key 键
+ * @param value 要与源对象的键关联的值； 传递nil以清除现有关联；
+ * @param policy 关联策略
+ */
 void _object_set_associative_reference(id object, void *key, id value, uintptr_t policy) {
     // retain the new value (if any) outside the lock.
     ObjcAssociation old_association(0, nil);
@@ -313,6 +324,10 @@ void _object_set_associative_reference(id object, void *key, id value, uintptr_t
     if (old_association.hasValue()) ReleaseValue()(old_association);
 }
 
+/** 删除源对象的所有关联
+ * @param object 源对象
+ * @note 该函数将源对象退回到原始状态；尽量使用 objc_setAssociatedObject() 设置 nil 值清除一个关联
+ */
 void _object_remove_assocations(id object) {
     vector< ObjcAssociation,ObjcAllocator<ObjcAssociation> > elements;
     {

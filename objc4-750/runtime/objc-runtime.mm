@@ -516,23 +516,32 @@ void objc_setEnumerationMutationHandler(void (*handler)(id)) {
     enumerationMutationHandler = handler;
 }
 
+#pragma mark - 关联对象
 
-/**********************************************************************
-* Associative Reference Support
-**********************************************************************/
-
+/** 根据指定的键和关联策略为指定对象设置关联值
+ *
+ * @param object 源对象
+ * @param key 键
+ * @param value 要与源对象的键关联的值； 传递nil以清除现有关联；
+ * @param policy 关联策略
+ */
 id objc_getAssociatedObject(id object, const void *key) {
     return _object_get_associative_reference(object, (void *)key);
 }
 
-
+/** 根据指定的键获取与源对象关联的值
+ * @param object 源对象
+ * @param key 键
+ */
 void objc_setAssociatedObject(id object, const void *key, id value, objc_AssociationPolicy policy) {
     _object_set_associative_reference(object, (void *)key, value, policy);
 }
 
-
-void objc_removeAssociatedObjects(id object) 
-{
+/** 删除源对象的所有关联
+ * @param object 源对象
+ * @note 该函数将源对象退回到原始状态；尽量使用 objc_setAssociatedObject() 设置 nil 值清除一个关联
+ */
+void objc_removeAssociatedObjects(id object) {
     if (object && object->hasAssociatedObjects()) {
         _object_remove_assocations(object);
     }

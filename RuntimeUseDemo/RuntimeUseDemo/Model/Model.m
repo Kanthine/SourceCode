@@ -78,7 +78,7 @@ void drinkingMethodIMP(id self ,SEL _cmd){
         //为指定的选择器 SEL 提供函数指针 IMP
         return class_addMethod(self.class, sel, (IMP)drinkingMethodIMP, "v@:@");
     }
-    
+        
     //去父类判断：是否父类提供了 IMP
     BOOL superResult = [super resolveInstanceMethod:sel];
     NSLog(@"step_1 : %s  |  selector : %@   |  superResult : %d",__func__,NSStringFromSelector(sel),superResult);
