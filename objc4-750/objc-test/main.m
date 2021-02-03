@@ -15,6 +15,10 @@ int main(int argc, const char * argv[]) {
         
         printf("\n\n objc-test ----- main \n");
         
+        NSNumber *number =  @(0);
+        NSLog(@"number ---- %@, %p", [number class], number);
+        
+        
         MyModel *model = [[MyModel alloc] init];
         printf("model === %p \n",model);
         printf("model === %p \n",&model);

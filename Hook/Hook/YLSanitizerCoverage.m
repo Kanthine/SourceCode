@@ -12,7 +12,6 @@
 
 @implementation YLSanitizerCoverage
 
-
 void __sanitizer_cov_trace_pc_guard_init(uint32_t *start,uint32_t *stop) {
     static uint32_t N;  // Counter for the guards.
     if (start == stop || *start) return;  // Initialize only once.

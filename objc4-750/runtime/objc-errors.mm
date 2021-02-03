@@ -181,11 +181,31 @@ void __objc_error(id rcv, const char *fmt, ...)
     va_end(vp);
 }
 
+
+//static __attribute__((noreturn)) void _objc_fatalv(uint64_t reason, uint64_t flags, const char *fmt, va_list ap)
+//{
+//    char *buf1;
+//    vasprintf(&buf1, fmt, ap);
+//
+//    char *buf2;
+//    asprintf(&buf2, "objc[%d]: %s\n", getpid(), buf1);
+//    _objc_syslog(buf2);
+//
+//    if (DebugDontCrash) {
+//        char *buf3;
+//        asprintf(&buf3, "objc[%d]: HALTED\n", getpid());
+//        _objc_syslog(buf3);
+//        _Exit(1);
+//    }
+//    else {
+//        abort_with_reason(OS_REASON_OBJC, reason, buf1, flags);
+//    }
+//}
+
 /* 该函数处理严重的运行时错误…比如不能读取 mach 头文件，不能分配空间等等……非常少见。
  * 会终止程序
  */
-static __attribute__((noreturn)) void _objc_fatalv(uint64_t reason, uint64_t flags, const char *fmt, va_list ap)
-{
+static __attribute__((noreturn, cold)) void _objc_fatalv(uint64_t reason, uint64_t flags, const char *fmt, va_list ap) {
     char *buf1;
     vasprintf(&buf1, fmt, ap);
 
@@ -200,9 +220,11 @@ static __attribute__((noreturn)) void _objc_fatalv(uint64_t reason, uint64_t fla
         _Exit(1);
     }
     else {
+        _objc_crashlog(buf1);
         abort_with_reason(OS_REASON_OBJC, reason, buf1, flags);
     }
 }
+
 
 void _objc_fatal_with_reason(uint64_t reason, uint64_t flags, 
                              const char *fmt, ...)

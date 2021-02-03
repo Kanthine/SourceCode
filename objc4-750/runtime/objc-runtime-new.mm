@@ -6235,7 +6235,7 @@ unsigned  objc_debug_taggedpointer_ext_payload_lshift = _OBJC_TAG_EXT_PAYLOAD_LS
 unsigned  objc_debug_taggedpointer_ext_payload_rshift = _OBJC_TAG_EXT_PAYLOAD_RSHIFT;
 // objc_debug_taggedpointer_ext_classes is defined in objc-msg-*.s
 
-//禁用 Tagged Pointer 指针
+/// 禁用 Tagged Pointer 指针
 static void disableTaggedPointers(){
     objc_debug_taggedpointer_mask = 0;//Tagged Pointer 能否使用
     objc_debug_taggedpointer_slot_shift = 0;
@@ -6286,7 +6286,7 @@ static Class *classSlotForTagIndex(objc_tag_index_t tag){
     return nil;
 }
 
-/* 随机初始化 TaggedPointer 混淆器 objc_debug_taggedpointer_obfuscator
+/** 随机初始化 TaggedPointer 混淆器 objc_debug_taggedpointer_obfuscator
  * @note 用于数据保护：混淆器 objc_debug_taggedpointer_obfuscator 在首次使用时充满随机性；
  *       在设置或检索 TaggedPointer 上的净负荷值时，混淆器与标记指针进行异或，因此该指针被加密；
  *       此时，别人无法通过指针获取 TaggedPointer 上存储的值，有效的进行了数据保护；
@@ -6297,9 +6297,8 @@ static void initializeTaggedPointerObfuscator(void){
         // 对于链接到旧sdk的应用程序，如果它们依赖于tagged pointer表示，将混淆器设置为0，
         objc_debug_taggedpointer_obfuscator = 0;
     } else {
-        // 将随机数据放入变量中，然后移走所有非净负荷位。
-        arc4random_buf(&objc_debug_taggedpointer_obfuscator,
-                       sizeof(objc_debug_taggedpointer_obfuscator));
+        // 将随机数据放入变量中，然后移走所有非净负荷位
+        arc4random_buf(&objc_debug_taggedpointer_obfuscator,sizeof(objc_debug_taggedpointer_obfuscator));
         objc_debug_taggedpointer_obfuscator &= ~_OBJC_TAG_MASK;
     }
 }
