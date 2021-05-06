@@ -401,19 +401,17 @@ _objc_getTaggedPointerSignedValue(const void * _Nullable ptr);
 // Don't use the values below. Use the declarations above.
 
 #if __arm64__
-// ARM64 uses a new tagged pointer scheme where normal tags are in
-// the low bits, extended tags are in the high bits, and half of the
-// extended tag space is reserved for unobfuscated payloads.
+// ARM64 使用了一种新的 TaggedPointers 方案：普通标记位于低位，扩展标记位于高位，并且一半的扩展标记空间预留给未混淆的有效负载
 #   define OBJC_SPLIT_TAGGED_POINTERS 1
 #else
 #   define OBJC_SPLIT_TAGGED_POINTERS 0
 #endif
 
 #if (TARGET_OS_OSX || TARGET_OS_MACCATALYST) && __x86_64__
-    // 64-bit Mac - tag bit is LSB
+    // 64 位的 Mac - tag bit is LSB
 #   define OBJC_MSB_TAGGED_POINTERS 0
 #else
-    // Everything else - tag bit is MSB
+    // 其余系统 - tag bit is MSB
 #   define OBJC_MSB_TAGGED_POINTERS 1
 #endif
 

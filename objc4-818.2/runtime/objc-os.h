@@ -44,8 +44,9 @@
 #   define WORD_BITS 32
 #endif
 
+/// 字节对齐
 static inline uint32_t word_align(uint32_t x) {
-    return (x + WORD_MASK) & ~WORD_MASK;
+    return (x + WORD_MASK) & ~WORD_MASK; ///7  取反：将一个数值的对应的三位置为 0，则一定是 8 的倍数
 }
 static inline size_t word_align(size_t x) {
     return (x + WORD_MASK) & ~WORD_MASK;

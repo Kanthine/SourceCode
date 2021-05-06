@@ -62,9 +62,7 @@
 #   define SUPPORT_PREOPT 1
 #endif
 
-// Define SUPPORT_TAGGED_POINTERS=1 to enable tagged pointer objects
-// Be sure to edit tagged pointer SPI in objc-internal.h as well.
-#if !__LP64__
+#if !__LP64__ /// 32 位机器，不支持 Tagged Pointer
 #   define SUPPORT_TAGGED_POINTERS 0
 #else
 #   define SUPPORT_TAGGED_POINTERS 1

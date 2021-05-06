@@ -3490,16 +3490,23 @@ readProtocol(protocol_t *newproto, Class protocol_class,
 }
 
 /***********************************************************************
-* _read_images
-* Perform initial processing of the headers in the linked 
-* list beginning with headerList. 
-*
-* Called by: map_images_nolock
-*
-* Locking: runtimeLock acquired by map_images
-**********************************************************************/
-void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int unoptimizedTotalClasses)
-{
+ * _read_images
+ * @dis 对以headerList开头的链表中的头文件进行初始化处理。
+ *      被 map_images_nolock() 调用
+ *
+ * 该函数中完成了大量的初始化操作：
+ * 1、首次执行时：初始化 TaggedPointer 混淆器、哈希表 gdb_objc_realized_classes 与 allocatedClasses
+ * 2、遍历hList数组，取出每个header_info对应的类列表，
+ *    将类 加入哈希表 gdb_objc_realized_classes 、allocatedClasses
+ *    若是Future Classe，将该类改为运行时的类结构，并将新类加入 resolvedFutureClasses
+ *    若有必要则标记为 Bundle 类；
+ * 3、遍历hList数组，将所有的 SEL 插入哈希表 namedSelectors，映射关系为name=>SEL
+ * 4、遍历hList数组，设置protocol_t的isa，将其插入哈希表protocol_map，映射关系为name=>protocol_t
+ * 5、遍历hList数组，将实现了+load方法的类及元类加入哈希表 allocatedClasses
+ *    并将该类的ro中的信息全部拷贝至rw上
+ * 6、遍历hList数组，将实现了+load方法的Category的方法、属性、协议添加到 cat->cls-rw
+ */
+void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int unoptimizedTotalClasses) {
     header_info *hi;
     uint32_t hIndex;
     size_t count;
@@ -3579,7 +3586,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
         }
         
         initializeTaggedPointerObfuscator();
-
+        
         if (PrintConnecting) {
             _objc_inform("CLASS: found %d classes during launch", totalClasses);
         }
@@ -8165,40 +8172,45 @@ Class _objc_getFreedObjectClass (void)
 }
 
 
+#pragma mark - 关于 Tagged Pointer 对象的操作函数
 
-/***********************************************************************
-* Tagged pointer objects.
-*
-* Tagged pointer objects store the class and the object value in the 
-* object pointer; the "pointer" does not actually point to anything.
-* 
-* Tagged pointer objects currently use this representation:
-* (LSB)
-*  1 bit   set if tagged, clear if ordinary object pointer
-*  3 bits  tag index
-* 60 bits  payload
-* (MSB)
-* The tag index defines the object's class. 
-* The payload format is defined by the object's class.
-*
-* If the tag index is 0b111, the tagged pointer object uses an 
-* "extended" representation, allowing more classes but with smaller payloads:
-* (LSB)
-*  1 bit   set if tagged, clear if ordinary object pointer
-*  3 bits  0b111
-*  8 bits  extended tag index
-* 52 bits  payload
-* (MSB)
-*
-* Some architectures reverse the MSB and LSB in these representations.
-*
-* This representation is subject to change. Representation-agnostic SPI is:
-* objc-internal.h for class implementers.
-* objc-gdb.h for debuggers.
-**********************************************************************/
-#if !SUPPORT_TAGGED_POINTERS
+/** 苹果对于 Tagged Pointer 特点的介绍：
+ * 1、Tagged Pointer 专门用来存储小的对象，例如 NSNumber 和 NSDate
+ * 2、Tagged Pointer 指针的值不再是地址了，而是真正的值。
+ *   所以，实际上它不再是一个对象了，它只是一个披着对象皮的普通变量而已。
+ *   所以，它的内存并不存储在堆中，也不需要 malloc() 和 free()
+ * 3、在内存读取上有着3倍的效率，创建时比以前快106倍。
+ *
+ * 由于 NSNumber、NSDate 一类的变量本身的值需要占用的内存大小常常不需要8个字节；拿整数来说，4个字节所能表示的有符号整数就可以达到20多亿（注：2^31=2147483648，另外1位作为符号位)，对于绝大多数情况都是可以处理的。
+ * 引入了 Tagged Pointer 对象之后：将一个对象的指针拆成两部分，一部分直接保存数据；另一部分作为特殊标记，表示这是一个特别的指针，不指向任何一个地址。
+ * 因为 tagged pointer 不是一个真正的对象，如果使用 isa 指针在编译时会报错。
+ *
+ * Tagged pointer 对象目前使用这种表示:
+ * (LSB 低位优先)
+ *  1 bit   set if tagged, clear if ordinary object pointer
+ *  3 bits  tag index
+ * 60 bits  payload
+ * (MSB 高位优先)
+ * 标记索引定义对象的类。
+ * The payload format is defined by the object's class.
+ *
+ * If the tag index is 0b111, the tagged pointer object uses an "extended" representation, allowing more classes but with smaller payloads:
+ * (LSB)
+ *  1 bit   set if tagged, clear if ordinary object pointer
+ *  3 bits  0b111
+ *  8 bits  extended tag index
+ * 52 bits  payload
+ * (MSB)
+ *
+ * Some architectures reverse the MSB and LSB in these representations.
+ *
+ * This representation is subject to change. Representation-agnostic SPI is:
+ * objc-internal.h for class implementers.
+ * objc-gdb.h for debuggers.
+ */
+#if !SUPPORT_TAGGED_POINTERS ///不支持 Tagged pointer (32 位机器)
 
-// These variables are always provided for debuggers.
+/// 为调试器提供的变量
 uintptr_t objc_debug_taggedpointer_obfuscator = 0;
 uintptr_t objc_debug_taggedpointer_mask = 0;
 unsigned  objc_debug_taggedpointer_slot_shift = 0;
@@ -8216,17 +8228,11 @@ Class objc_debug_taggedpointer_ext_classes[1] = { nil };
 
 uintptr_t objc_debug_constant_cfstring_tag_bits = 0;
 
-static void
-disableTaggedPointers() { }
+static void disableTaggedPointers() { }
 
-static void
-initializeTaggedPointerObfuscator(void) { }
+static void initializeTaggedPointerObfuscator(void) { }
 
-#else
-
-// The "slot" used in the class table and given to the debugger 
-// includes the is-tagged bit. This makes objc_msgSend faster.
-// The "ext" representation doesn't do that.
+#else ///支持 Tagged pointer (64 位机器)
 
 uintptr_t objc_debug_taggedpointer_obfuscator;
 uintptr_t objc_debug_taggedpointer_mask = _OBJC_TAG_MASK;
@@ -8234,14 +8240,13 @@ unsigned  objc_debug_taggedpointer_slot_shift = _OBJC_TAG_SLOT_SHIFT;
 uintptr_t objc_debug_taggedpointer_slot_mask = _OBJC_TAG_SLOT_MASK;
 unsigned  objc_debug_taggedpointer_payload_lshift = _OBJC_TAG_PAYLOAD_LSHIFT;
 unsigned  objc_debug_taggedpointer_payload_rshift = _OBJC_TAG_PAYLOAD_RSHIFT;
-// objc_debug_taggedpointer_classes is defined in objc-msg-*.s
 
 uintptr_t objc_debug_taggedpointer_ext_mask = _OBJC_TAG_EXT_MASK;
 unsigned  objc_debug_taggedpointer_ext_slot_shift = _OBJC_TAG_EXT_SLOT_SHIFT;
 uintptr_t objc_debug_taggedpointer_ext_slot_mask = _OBJC_TAG_EXT_SLOT_MASK;
 unsigned  objc_debug_taggedpointer_ext_payload_lshift = _OBJC_TAG_EXT_PAYLOAD_LSHIFT;
 unsigned  objc_debug_taggedpointer_ext_payload_rshift = _OBJC_TAG_EXT_PAYLOAD_RSHIFT;
-// objc_debug_taggedpointer_ext_classes is defined in objc-msg-*.s
+
 
 #if OBJC_SPLIT_TAGGED_POINTERS
 uint8_t objc_debug_tag60_permutations[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
@@ -8250,10 +8255,9 @@ uintptr_t objc_debug_constant_cfstring_tag_bits = _OBJC_TAG_EXT_MASK | ((uintptr
 uintptr_t objc_debug_constant_cfstring_tag_bits = 0;
 #endif
 
-static void
-disableTaggedPointers()
-{
-    objc_debug_taggedpointer_mask = 0;
+/// 禁用 Tagged Pointer 指针
+static void disableTaggedPointers() {
+    objc_debug_taggedpointer_mask = 0; /// Tagged Pointer 能否使用
     objc_debug_taggedpointer_slot_shift = 0;
     objc_debug_taggedpointer_slot_mask = 0;
     objc_debug_taggedpointer_payload_lshift = 0;
@@ -8266,23 +8270,19 @@ disableTaggedPointers()
     objc_debug_taggedpointer_ext_payload_rshift = 0;
 }
 
-
-// Returns a pointer to the class's storage in the tagged class arrays.
-// Assumes the tag is a valid basic tag.
-static Class *
-classSlotForBasicTagIndex(objc_tag_index_t tag)
-{
+/** 在 objc_tag_classes 数组中获取指定索引的类指针
+ * @param tag 指定的索引（假设该索引有效）
+ */
+static Class * classSlotForBasicTagIndex(objc_tag_index_t tag) {
 #if OBJC_SPLIT_TAGGED_POINTERS
     uintptr_t obfuscatedTag = _objc_basicTagToObfuscatedTag(tag);
     return &objc_tag_classes[obfuscatedTag];
 #else
-    uintptr_t tagObfuscator = ((objc_debug_taggedpointer_obfuscator
-                                >> _OBJC_TAG_INDEX_SHIFT)
-                               & _OBJC_TAG_INDEX_MASK);
+    uintptr_t tagObfuscator = ( (objc_debug_taggedpointer_obfuscator >> _OBJC_TAG_INDEX_SHIFT) & _OBJC_TAG_INDEX_MASK);
     uintptr_t obfuscatedTag = tag ^ tagObfuscator;
 
-    // Array index in objc_tag_classes includes the tagged bit itself
-#   if SUPPORT_MSB_TAGGED_POINTERS
+    // objc_tag_classes 数组的索引包含标记的位本身
+#   if SUPPORT_MSB_TAGGED_POINTERS /// 高位优先
     return &objc_tag_classes[0x8 | obfuscatedTag];
 #   else
     return &objc_tag_classes[(obfuscatedTag << 1) | 1];
@@ -8290,12 +8290,12 @@ classSlotForBasicTagIndex(objc_tag_index_t tag)
 #endif
 }
 
-
-// Returns a pointer to the class's storage in the tagged class arrays, 
-// or nil if the tag is out of range.
-static Class *  
-classSlotForTagIndex(objc_tag_index_t tag)
-{
+/** 在数组中获取指定索引的类指针；
+ * @param tag 索引
+ * @note 如果 tag 取值 [0,7)  ,则去数组 objc_tag_classes 中查找对应的类
+ * @note 如果 tag 取值 [8,264),则去数组 objc_tag_ext_classes 中查找对应的类
+ */
+static Class *classSlotForTagIndex(objc_tag_index_t tag) {
     if (tag >= OBJC_TAG_First60BitPayload && tag <= OBJC_TAG_Last60BitPayload) {
         return classSlotForBasicTagIndex(tag);
     }
@@ -8315,25 +8315,17 @@ classSlotForTagIndex(objc_tag_index_t tag)
     return nil;
 }
 
-/***********************************************************************
-* initializeTaggedPointerObfuscator
-* Initialize objc_debug_taggedpointer_obfuscator with randomness.
-*
-* The tagged pointer obfuscator is intended to make it more difficult
-* for an attacker to construct a particular object as a tagged pointer,
-* in the presence of a buffer overflow or other write control over some
-* memory. The obfuscator is XORed with the tagged pointers when setting
-* or retrieving payload values. They are filled with randomness on first
-* use.
-**********************************************************************/
-static void
-initializeTaggedPointerObfuscator(void)
-{
+/** 随机初始化 TaggedPointer 混淆器变量 objc_debug_taggedpointer_obfuscator
+ * @discussion 混淆器变量 objc_debug_taggedpointer_obfuscator 用于数据保护；在首次使用时充满随机性；
+ *       在设置或检索 TaggedPointer 上的净负荷值时，混淆器与标记指针进行异或，因此该指针被加密；
+ *       此时，别人无法通过指针获取 TaggedPointer 上存储的值，有效的进行了数据保护；
+ * @note 如果程序的环境变量 OBJC_DISABLE_TAG_OBFUSCATION 设置为 YES ，则禁止使用 TaggedPointer 混淆器
+ */
+static void initializeTaggedPointerObfuscator(void) {
     ///编译处理 if (!DisableTaggedPointerObfuscation && dyld_program_sdk_at_least(dyld_fall_2018_os_versions)) {
     if (!DisableTaggedPointerObfuscation && (dyld_get_program_sdk_version() >= dyld_fall_2018_os_versions)) {
-        // Pull random data into the variable, then shift away all non-payload bits.
-        arc4random_buf(&objc_debug_taggedpointer_obfuscator,
-                       sizeof(objc_debug_taggedpointer_obfuscator));
+        /// 将随机数据放入变量中，然后移走所有非净负荷位
+        arc4random_buf(&objc_debug_taggedpointer_obfuscator, sizeof(objc_debug_taggedpointer_obfuscator));
         objc_debug_taggedpointer_obfuscator &= ~_OBJC_TAG_MASK;
 
 #if OBJC_SPLIT_TAGGED_POINTERS
@@ -8349,64 +8341,48 @@ initializeTaggedPointerObfuscator(void)
         }
 #endif
     } else {
-        // Set the obfuscator to zero for apps linked against older SDKs,
-        // in case they're relying on the tagged pointer representation.
+        /// 对于链接到旧sdk的应用程序，如果它们依赖于tagged pointer表示，将混淆器设置为0，
         objc_debug_taggedpointer_obfuscator = 0;
     }
 }
 
-
-/***********************************************************************
-* _objc_registerTaggedPointerClass
-* Set the class to use for the given tagged pointer index.
-* Aborts if the tag is out of range, or if the tag is already 
-* used by some other class.
-**********************************************************************/
-void
-_objc_registerTaggedPointerClass(objc_tag_index_t tag, Class cls)
-{
-    if (objc_debug_taggedpointer_mask == 0) {
+/** 注册 TaggedPointer 类
+ * 设置用于指定 TaggedPointer 索引的类
+ * 如果标记超出范围，或者该标记已经被其他类使用，则中止
+ */
+void _objc_registerTaggedPointerClass(objc_tag_index_t tag, Class cls) {
+    if (objc_debug_taggedpointer_mask == 0) { /// TaggedPointer 被禁用
         _objc_fatal("tagged pointers are disabled");
     }
 
-    Class *slot = classSlotForTagIndex(tag);
+    Class *slot = classSlotForTagIndex(tag);/// 根据索引获取指定的类指针
     if (!slot) {
         _objc_fatal("tag index %u is invalid", (unsigned int)tag);
     }
-
-    Class oldCls = *slot;
     
+    Class oldCls = *slot; /// 取出指针指向的类
     if (cls  &&  oldCls  &&  cls != oldCls) {
-        _objc_fatal("tag index %u used for two different classes "
-                    "(was %p %s, now %p %s)", tag, 
-                    oldCls, oldCls->nameForLogging(), 
-                    cls, cls->nameForLogging());
+        _objc_fatal("tag index %u used for two different classes (was %p %s, now %p %s)",
+                    tag, oldCls, oldCls->nameForLogging(), cls, cls->nameForLogging());
     }
-
     *slot = cls;
-
-    // Store a placeholder class in the basic tag slot that is 
-    // reserved for the extended tag space, if it isn't set already.
-    // Do this lazily when the first extended tag is registered so 
-    // that old debuggers characterize bogus pointers correctly more often.
+    /** 如果数组objc_tag_classes的预留索引 OBJC_TAG_RESERVED_7 处没有使用，则可以将占位符类存储在该块内存；否则无法存储；
+     * 在第一次调用该函数注册类时，将 TaggedPointer 类存入 OBJC_TAG_RESERVED_7 处；方便调试程序；
+     */
     if (tag < OBJC_TAG_First60BitPayload || tag > OBJC_TAG_Last60BitPayload) {
         Class *extSlot = classSlotForBasicTagIndex(OBJC_TAG_RESERVED_7);
         if (*extSlot == nil) {
             extern objc_class OBJC_CLASS_$___NSUnrecognizedTaggedPointer;
-            *extSlot = (Class)&OBJC_CLASS_$___NSUnrecognizedTaggedPointer;
+            *extSlot = (Class)&OBJC_CLASS_$___NSUnrecognizedTaggedPointer;//表示 TaggedPointer 类
         }
     }
 }
 
-
-/***********************************************************************
-* _objc_getClassForTag
-* Returns the class that is using the given tagged pointer tag.
-* Returns nil if no class is using that tag or the tag is out of range.
-**********************************************************************/
-Class
-_objc_getClassForTag(objc_tag_index_t tag)
-{
+/** 根据指定的索引获取 Tagged Pointer 表示的类
+ * @param tag 指定的索引
+ * @return 如果该索引还没有使用 或 该索引超出范围，则返回 nil
+ */
+Class _objc_getClassForTag(objc_tag_index_t tag) {
     Class *slot = classSlotForTagIndex(tag);
     if (slot) return *slot;
     else return nil;

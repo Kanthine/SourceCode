@@ -5,9 +5,6 @@
       location = "group:objc4-818.2/objc.xcodeproj">
    </FileRef>
    <FileRef
-      location = "group:objc4-750/objc.xcodeproj">
-   </FileRef>
-   <FileRef
       location = "group:Hook/Hook.xcodeproj">
    </FileRef>
    <FileRef

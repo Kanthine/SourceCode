@@ -2146,7 +2146,7 @@ struct objc_class : objc_object {
 
         size_t size = alignedInstanceSize() + extraBytes;
         // CF requires all objects be at least 16 bytes.
-        if (size < 16) size = 16;
+        if (size < 16) size = 16; /// 一个 OC 对象，最少有 16 字节大小
         return size;
     }
 

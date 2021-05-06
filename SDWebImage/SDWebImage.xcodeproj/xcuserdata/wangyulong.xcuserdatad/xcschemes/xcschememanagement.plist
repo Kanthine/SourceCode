@@ -7,32 +7,32 @@
 		<key>SDWebImage OSX.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>9</integer>
+			<integer>7</integer>
 		</dict>
 		<key>SDWebImage iOS static.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>8</integer>
+			<integer>6</integer>
 		</dict>
 		<key>SDWebImage iOS.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>7</integer>
+			<integer>5</integer>
 		</dict>
 		<key>SDWebImage tvOS.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>10</integer>
+			<integer>8</integer>
 		</dict>
 		<key>SDWebImage watchOS static.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>12</integer>
+			<integer>10</integer>
 		</dict>
 		<key>SDWebImage watchOS.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>11</integer>
+			<integer>9</integer>
 		</dict>
 	</dict>
 </dict>
